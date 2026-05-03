@@ -5,7 +5,7 @@
   "type": "module",
   "license": "MIT",
   "bin": {
-    "sovryn": "./dist/src/cli/index.js"
+    "sovryn": "./dist/cli.js"
   },
   "scripts": {
     "build": "tsc -p tsconfig.json",

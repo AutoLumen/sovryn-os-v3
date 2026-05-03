@@ -2,6 +2,36 @@ import type { RiskLevel } from "../config.js";
 
 export type MissionStatus = "created" | "running" | "passed" | "failed" | "rejected" | "finalized";
 
+export type MissionType =
+  | "code_change"
+  | "research"
+  | "open_invention"
+  | "prototype_build"
+  | "defensive_publication"
+  | "github_publication";
+
+export type OpenInventionMission = {
+  title: string;
+  slug: string;
+  researchBrief: string;
+  technicalField: string;
+  problemStatement: string;
+  proposedSolution: string;
+  noveltyHypothesis: string;
+  priorArtSummary: string;
+  prototypePath: string;
+  publicationStatus: "draft" | "reviewed" | "finalized" | "published";
+  safetyStatus: "unknown" | "passed" | "blocked";
+  licenseStatus: "unknown" | "present" | "missing";
+  githubPublication: {
+    owner: string | null;
+    repo: string | null;
+    url: string | null;
+    publishedAt: string | null;
+    dryRun: boolean;
+  };
+};
+
 export type AttemptState = {
   number: number;
   runner: string;
@@ -34,6 +64,7 @@ export type ReviewState = {
 
 export type MissionState = {
   id: string;
+  type?: MissionType;
   goal: string;
   status: MissionStatus;
   runner: string;
@@ -54,4 +85,5 @@ export type MissionState = {
   lastVerifyEvidenceHash: string | null;
   review: ReviewState | null;
   finalizedCommit: string | null;
+  openInvention?: OpenInventionMission;
 };

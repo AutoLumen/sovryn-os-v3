@@ -51,6 +51,12 @@ export type SovrynConfig = {
   plugins?: {
     configFile: string;
   };
+  github?: {
+    enabled: boolean;
+    defaultOrg: string | null;
+    tokenEnv: string;
+    defaultVisibility: "public" | "private";
+  };
 };
 
 export const DEFAULT_CONFIG: SovrynConfig = {
@@ -99,6 +105,12 @@ export const DEFAULT_CONFIG: SovrynConfig = {
   },
   plugins: {
     configFile: ".sovryn/plugins.json"
+  },
+  github: {
+    enabled: true,
+    defaultOrg: null,
+    tokenEnv: "SOVRYN_GITHUB_TOKEN",
+    defaultVisibility: "public"
   }
 };
 
@@ -136,7 +148,15 @@ async function ensureGitignore(root: string): Promise<void> {
   } catch {
     // create below
   }
-  const required = [".sovryn/worktrees/", ".sovryn/logs/", ".sovryn/missions/", ".sovryn/memory/"];
+  const required = [
+    ".sovryn/worktrees/",
+    ".sovryn/logs/",
+    ".sovryn/missions/",
+    ".sovryn/memory/",
+    ".sovryn/inventions/",
+    ".sovryn/nodes/",
+    ".sovryn/node-alpha/"
+  ];
   const missing = required.filter((line) => !existing.split("\n").includes(line));
   if (missing.length > 0) {
     const prefix = existing && !existing.endsWith("\n") ? "\n" : "";

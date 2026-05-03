@@ -51,6 +51,7 @@ export class MissionService {
     const now = nowIso();
     const mission: MissionState = {
       id,
+      type: "code_change",
       goal,
       status: "created",
       runner: runnerName ?? config.runner.default,

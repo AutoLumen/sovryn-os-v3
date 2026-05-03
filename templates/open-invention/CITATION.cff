@@ -1,0 +1,7 @@
+cff-version: 1.2.0
+title: "<Title>"
+message: "If you use this open invention, cite the defensive publication and repository."
+type: software
+authors:
+  - name: "Sovryn OS contributors"
+license: "Apache-2.0"

@@ -2,7 +2,9 @@
 import { errorEnvelope, okEnvelope, type JsonEnvelope } from "../shared/json-envelope.js";
 import { AppError } from "../shared/errors.js";
 import { configExists } from "../core/config.js";
+import { InventionService } from "../core/invention/invention-service.js";
 import { MissionService } from "../core/mission/mission-service.js";
+import { NodeManager } from "../core/node/node-manager.js";
 import { loadPlugins } from "../plugins/loader.js";
 
 type ParsedArgs = {
@@ -27,6 +29,18 @@ Commands:
   sovryn finalize <mission-id> [--json]
   sovryn reject <mission-id> [--json]
   sovryn doctor [--json]
+  sovryn invent-open "<brief>" [--json]
+  sovryn invention status <mission-id> [--json]
+  sovryn invention dossier <mission-id> [--json]
+  sovryn invention verify <mission-id> [--json]
+  sovryn invention review <mission-id> [--json]
+  sovryn invention finalize <mission-id> [--json]
+  sovryn publish-github <mission-id> --org <org> --repo <repo> [--dry-run] [--json]
+  sovryn node register alpha --host local [--json]
+  sovryn node status alpha [--json]
+  sovryn node run alpha <mission-id> [--json]
+  sovryn node logs alpha <mission-id> [--json]
+  sovryn node artifacts alpha <mission-id> [--json]
   sovryn plugin list [--json]
   sovryn plugin run <plugin> <command> [args...] [--json]
 `;
@@ -98,6 +112,25 @@ export async function executeCli(argv: string[], root = process.cwd()): Promise<
       }
       case "doctor":
         return okEnvelope("doctor", await doctor(root, service));
+      case "invent-open": {
+        const brief = parsed.positionals.join(" ").trim();
+        if (!brief) throw new AppError("BRIEF_REQUIRED", "invent-open requires a research brief.");
+        const result = await new InventionService(root).inventOpen(brief);
+        return okEnvelope("invention.create", result, { artifactRefs: result.artifactRefs });
+      }
+      case "invention":
+        return okEnvelope("invention", await inventionCommand(parsed, root));
+      case "publish-github": {
+        const id = requiredId(parsed);
+        const result = await new InventionService(root).publishGithub(id, {
+          org: flagString(parsed.flags, "--org") ?? null,
+          repo: flagString(parsed.flags, "--repo") ?? null,
+          dryRun: flagBool(parsed.flags, "--dry-run")
+        });
+        return okEnvelope("invention.publish-github", result, { artifactRefs: result.artifactRefs });
+      }
+      case "node":
+        return okEnvelope("node", await nodeCommand(parsed, root));
       case "plugin":
         return okEnvelope("plugin", await pluginCommand(parsed, root));
       default:
@@ -146,6 +179,10 @@ function requiredId(parsed: ParsedArgs): string {
 function flagString(flags: Map<string, string | boolean>, name: string): string | undefined {
   const value = flags.get(name);
   return typeof value === "string" ? value : undefined;
+}
+
+function flagBool(flags: Map<string, string | boolean>, name: string): boolean {
+  return flags.get(name) === true || flags.get(name) === "true";
 }
 
 function rejectForbiddenSecretArgs(parsed: ParsedArgs): void {
@@ -204,6 +241,62 @@ async function pluginCommand(parsed: ParsedArgs, root: string): Promise<Record<s
   throw new AppError("UNKNOWN_PLUGIN_COMMAND", `Unknown plugin command: ${subcommand}`);
 }
 
+async function inventionCommand(parsed: ParsedArgs, root: string): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const id = parsed.positionals[1];
+  if (!subcommand) throw new AppError("INVENTION_COMMAND_REQUIRED", "Use: sovryn invention <status|dossier|verify|review|finalize> <mission-id>");
+  if (!id) throw new AppError("MISSION_ID_REQUIRED", `invention ${subcommand} requires a mission id.`);
+  const service = new InventionService(root);
+  switch (subcommand) {
+    case "status":
+      return service.status(id);
+    case "dossier":
+      return service.dossier(id);
+    case "verify":
+      return service.verify(id);
+    case "review":
+      return service.review(id, {
+        org: flagString(parsed.flags, "--org") ?? null,
+        repo: flagString(parsed.flags, "--repo") ?? null
+      });
+    case "finalize":
+      return service.finalize(id);
+    default:
+      throw new AppError("UNKNOWN_INVENTION_COMMAND", `Unknown invention command: ${subcommand}`);
+  }
+}
+
+async function nodeCommand(parsed: ParsedArgs, root: string): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const nodeId = parsed.positionals[1];
+  if (!subcommand) throw new AppError("NODE_COMMAND_REQUIRED", "Use: sovryn node <register|status|run|logs|artifacts> alpha");
+  if (!nodeId) throw new AppError("NODE_ID_REQUIRED", `node ${subcommand} requires a node id.`);
+  const manager = new NodeManager(root);
+  switch (subcommand) {
+    case "register":
+      return manager.register(nodeId, { host: flagString(parsed.flags, "--host") ?? "local" });
+    case "status":
+      return manager.status(nodeId);
+    case "run": {
+      const missionId = parsed.positionals[2];
+      if (!missionId) throw new AppError("MISSION_ID_REQUIRED", "node run requires a mission id.");
+      return manager.run(nodeId, missionId);
+    }
+    case "logs": {
+      const missionId = parsed.positionals[2];
+      if (!missionId) throw new AppError("MISSION_ID_REQUIRED", "node logs requires a mission id.");
+      return manager.logs(nodeId, missionId);
+    }
+    case "artifacts": {
+      const missionId = parsed.positionals[2];
+      if (!missionId) throw new AppError("MISSION_ID_REQUIRED", "node artifacts requires a mission id.");
+      return manager.artifacts(nodeId, missionId);
+    }
+    default:
+      throw new AppError("UNKNOWN_NODE_COMMAND", `Unknown node command: ${subcommand}`);
+  }
+}
+
 function printHuman(envelope: JsonEnvelope): void {
   if (!envelope.ok) {
     console.error(envelope.errors.map((error) => `${error.code}: ${error.message}`).join("\n"));
@@ -217,10 +310,14 @@ function printHuman(envelope: JsonEnvelope): void {
   console.log(JSON.stringify(envelope.data, null, 2));
 }
 
-if (import.meta.url === `file://${process.argv[1]}`) {
-  const parsed = parseArgs(process.argv.slice(2));
-  const envelope = await executeCli(process.argv.slice(2));
+export async function runCli(argv = process.argv.slice(2)): Promise<void> {
+  const parsed = parseArgs(argv);
+  const envelope = await executeCli(argv);
   if (parsed.json) console.log(JSON.stringify(envelope, null, 2));
   else printHuman(envelope);
   if (!envelope.ok) process.exitCode = 1;
+}
+
+if (import.meta.url === `file://${process.argv[1]}`) {
+  await runCli();
 }

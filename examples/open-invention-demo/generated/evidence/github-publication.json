@@ -1,0 +1,13 @@
+{
+  "missionId": "mis_demo_open_invention",
+  "publishedAt": "2026-05-03T00:00:00.000Z",
+  "publication": {
+    "dryRun": true,
+    "owner": "sovryn-inventions",
+    "repo": "verifiable-open-source-agent-research",
+    "url": "https://github.com/sovryn-inventions/verifiable-open-source-agent-research",
+    "releaseTag": "open-invention-verifiable-open-source-agent-research",
+    "releasePath": ".sovryn/inventions/verifiable-open-source-agent-research/release/repo",
+    "pushed": false
+  }
+}

@@ -4,6 +4,10 @@ Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
 records artifacts, enforces policy, and requires review before finalization.
 
+Sovryn OS also supports Open Invention missions: deterministic research missions
+that create open-source invention dossiers, defensive publications, prototypes,
+tests, and publication evidence under `.sovryn/inventions/<slug>/`.
+
 Sovryn OS is not an agent framework. It does not judge with an LLM. It does not
 run a daemon. It does not mutate the main tree by default. It does not trust
 agent output.
@@ -22,7 +26,7 @@ npm test
 For development:
 
 ```bash
-node dist/src/cli/index.js --help
+node dist/cli.js --help
 ```
 
 ## Commands
@@ -41,6 +45,12 @@ sovryn approve <mission-id> --json
 sovryn finalize <mission-id> --json
 sovryn reject <mission-id> --json
 sovryn doctor --json
+sovryn invent-open "A method for verifiable open-source agent research" --json
+sovryn node register alpha --host local --json
+sovryn node run alpha <mission-id> --json
+sovryn invention review <mission-id> --json
+sovryn invention finalize <mission-id> --json
+sovryn publish-github <mission-id> --dry-run --json
 sovryn plugin list --json
 sovryn plugin run gitnexus status --json
 ```
@@ -61,10 +71,55 @@ Every command supports stable JSON output via `--json`.
   match the current diff and verify outcome hash.
 - Treats missing verification commands as a failed verification, not a pass.
 
+## Open Inventions
+
+Sovryn OS can act as an autonomous open-source invention lab:
+
+```bash
+sovryn invent-open "Develop a new open-source method for verifiable autonomous agent research"
+sovryn node register alpha --host local
+sovryn node run alpha <mission-id>
+sovryn invention review <mission-id>
+sovryn invention finalize <mission-id>
+sovryn publish-github <mission-id> --org <github-org> --repo <repo>
+```
+
+The generated invention directory contains:
+
+```text
+.sovryn/inventions/<slug>/
+  README.md
+  SPEC.md
+  DEFENSIVE_PUBLICATION.md
+  PRIOR_ART.md
+  NOVELTY_NOTES.md
+  SAFETY_REVIEW.md
+  LICENSE
+  CITATION.cff
+  prototype/
+  tests/
+  diagrams/
+  evidence/
+  release/
+```
+
+Sovryn does not file legal patents and does not claim guaranteed patentability,
+novelty, or legal patent protection. It produces Open Inventions, Defensive
+Publications, and Open Source Research Artifacts. Public publication may affect
+patent rights.
+
+Node Alpha is the autonomous research machine concept. The MVP runs Node Alpha
+locally; future backends can use SSH, `sovryn-agentd`, containers, or VMs. Node
+Alpha is not a security sandbox unless paired with real OS isolation.
+
+GitHub credentials stay with Sovryn Controller. The autonomous agent prepares
+artifacts, but `publish-github` is gated by dossier, license, verification,
+secret-scan, safety, prior-art, defensive-publication, and finality checks.
+
 ## What Sovryn Does Not Do
 
 - It does not decide truth with an LLM.
-- It does not ship OQP or research workflows in the core.
+- It does not ship domain-specific lab workflows such as OQP in the core.
 - It does not implement password SSH.
 - It does not store unredacted secrets in prompts, logs, mission files, or
   artifacts.

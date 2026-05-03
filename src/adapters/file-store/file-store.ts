@@ -14,7 +14,12 @@ export class FileStore implements Store {
       ".sovryn/missions",
       ".sovryn/worktrees",
       ".sovryn/logs",
-      ".sovryn/memory"
+      ".sovryn/memory",
+      ".sovryn/inventions",
+      ".sovryn/nodes",
+      ".sovryn/node-alpha/workspaces",
+      ".sovryn/node-alpha/logs",
+      ".sovryn/node-alpha/artifacts"
     ]) {
       await mkdir(join(this.root, dir), { recursive: true });
     }

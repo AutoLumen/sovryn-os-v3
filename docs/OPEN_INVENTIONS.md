@@ -1,0 +1,33 @@
+# Open Inventions
+
+Sovryn OS treats inventions as open-source research artifacts. The product goal
+is: invent, implement, publish, keep it open.
+
+Sovryn does not file legal patents. It produces Open Inventions, Defensive
+Publications, and Open Source Research Artifacts. Public publication may affect
+patent rights, so serious contexts require qualified human and legal review
+before release.
+
+## Mission Flow
+
+```bash
+sovryn invent-open "A method for self-verifying autonomous research agents"
+sovryn node run alpha <mission-id>
+sovryn invention review <mission-id>
+sovryn invention finalize <mission-id>
+sovryn publish-github <mission-id> --org sovryn-inventions --repo self-verifying-research-agents
+```
+
+The deterministic MVP creates `.sovryn/inventions/<slug>/` with a dossier,
+defensive publication, prior-art notes, safety review, prototype, tests,
+evidence, and release staging area. The MVP does not depend on an LLM API.
+
+## Dossier
+
+Each invention has a typed dossier with technical field, problem, background,
+proposed solution, architecture, algorithm, variants, advantages, limitations,
+prior-art notes, safety notes, prototype path, tests path, license, publication
+mode, and evidence hashes.
+
+The generated content is a starting point. It must be reviewed if used in
+serious research, commercial, legal, safety, or publication contexts.

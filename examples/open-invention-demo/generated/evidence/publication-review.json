@@ -1,0 +1,33 @@
+{
+  "missionId": "mis_demo_open_invention",
+  "reviewedAt": "2026-05-03T00:00:00.000Z",
+  "allowed": true,
+  "checks": [
+    {
+      "code": "DOSSIER_COMPLETE",
+      "passed": true,
+      "message": "Dossier has all required fields.",
+      "details": {
+        "missingFields": []
+      }
+    },
+    {
+      "code": "SECRET_SCAN",
+      "passed": true,
+      "message": "No secret patterns found.",
+      "details": {
+        "findings": []
+      }
+    },
+    {
+      "code": "SAFETY_SCAN",
+      "passed": true,
+      "message": "No disallowed content patterns found.",
+      "details": {
+        "findings": []
+      }
+    }
+  ],
+  "secretFindings": [],
+  "safetyFindings": []
+}

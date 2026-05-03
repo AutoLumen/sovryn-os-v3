@@ -1,0 +1,28 @@
+{
+  "id": "mis_demo_open_invention",
+  "slug": "verifiable-open-source-agent-research",
+  "title": "A method for verifiable open-source agent research",
+  "abstract": "A deterministic demo dossier for verifiable open-source agent research.",
+  "technicalField": "Autonomous research agents, evidence kernels, and reproducible open-source workflows.",
+  "problem": "Agent research artifacts are difficult to trust when logs, verification, and publication review are disconnected.",
+  "background": "Existing agent workflows often generate code or notes without a defensive-publication dossier and final publication gates.",
+  "proposedSolution": "Create an Open Invention mission that records evidence, generates a prototype, runs tests, and publishes only after Sovryn gates pass.",
+  "architecture": "Sovryn Controller, Node Alpha workspace, dossier generator, verification evidence, publication policy, and GitHub publisher.",
+  "algorithm": "Accept a brief, generate the dossier structure, build a prototype scaffold, run verification, scan for secrets and unsafe content, and stage a GitHub release.",
+  "implementationNotes": "This demo is static. The CLI generates equivalent artifacts under .sovryn/inventions/<slug>/.",
+  "variants": ["local Node Alpha", "future agentd backend"],
+  "advantages": ["auditable publication gates", "open-source-first artifacts"],
+  "limitations": ["manual prior-art review required"],
+  "priorArt": ["Manual or agent-assisted public research required."],
+  "noveltyNotes": ["Treat defensive publication artifacts as first-class outputs of an autonomous research pipeline."],
+  "safetyNotes": ["Do not publish harmful artifacts or leaked secrets."],
+  "prototypePath": "prototype",
+  "testsPath": "prototype/tests",
+  "license": "Apache-2.0",
+  "publicationMode": "open_source_release",
+  "createdAt": "2026-05-03T00:00:00.000Z",
+  "updatedAt": "2026-05-03T00:00:00.000Z",
+  "evidenceHashes": {
+    "publication_review": "demo"
+  }
+}

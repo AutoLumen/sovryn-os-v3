@@ -92,12 +92,12 @@ export class GitHubPublisher {
         commit.stderr || commit.stdout,
       );
 
-    const visibility =
+    const visibility: "--private" | "--public" =
       this.config.github?.defaultVisibility === "private"
         ? "--private"
         : "--public";
     const create = await runCommand(
-      `gh repo create ${owner}/${repo} ${visibility} --source . --remote origin --push`,
+      buildGhRepoCreateCommand(owner, repo, visibility),
       releasePath,
       {
         allowNetwork: true,
@@ -192,6 +192,25 @@ export class GitHubPublisher {
     );
     return releasePath;
   }
+}
+
+export function buildGhRepoCreateCommand(
+  owner: string,
+  repo: string,
+  visibility: "--public" | "--private",
+): string {
+  return [
+    "gh",
+    "repo",
+    "create",
+    `${owner}/${repo}`,
+    visibility,
+    "--source",
+    ".",
+    "--remote",
+    "origin",
+    "--push",
+  ].join(" ");
 }
 
 async function preparePublicEvidence(

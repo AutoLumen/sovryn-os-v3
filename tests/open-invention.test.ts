@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { access, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
+import { buildGhRepoCreateCommand } from "../src/adapters/github/github-publisher.js";
 import { executeCli } from "../src/cli/index.js";
 import { evaluatePublicationPolicy } from "../src/core/publication/publication-policy.js";
 import { makeTempRepo } from "../src/testkit/temp-repo.js";
@@ -522,6 +523,20 @@ test("GitHub dry-run stages only public evidence", async () => {
   await assert.rejects(
     access(join(releasePath, "evidence", "command-journal.json")),
   );
+});
+
+test("GitHub publisher builds single-line gh repo create command", () => {
+  const command = buildGhRepoCreateCommand(
+    "sovryn-inventions",
+    "self-verifying-research-agents",
+    "--public",
+  );
+  assert.equal(
+    command,
+    "gh repo create sovryn-inventions/self-verifying-research-agents --public --source . --remote origin --push",
+  );
+  assert.equal(command.includes("\n"), false);
+  assert.match(command, /--source \. --remote origin --push/);
 });
 
 async function createOpenInvention() {

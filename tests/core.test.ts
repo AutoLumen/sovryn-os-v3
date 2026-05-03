@@ -191,7 +191,7 @@ test("--json envelope shape is stable", async () => {
   const response = await executeCli(["doctor", "--json"], repo.root);
   assert.equal(typeof response.ok, "boolean");
   assert.equal(typeof response.command, "string");
-  assert.equal(response.version, "3.0.0-alpha.3");
+  assert.equal(response.version, "3.0.0-alpha.4");
   assert.equal(typeof response.timestamp, "string");
   assert.ok(Array.isArray(response.errors));
   assert.ok(Array.isArray(response.warnings));
@@ -215,6 +215,9 @@ test("doctor reports GitHub publisher prerequisites without exposing tokens", as
   const github = (response.data as any).github;
   assert.equal(github.enabled, true);
   assert.equal(github.tokenEnv, "SOVRYN_GITHUB_TOKEN");
+  assert.equal(github.canDryRun, true);
+  assert.equal(github.canPublish, github.ghInstalled && github.tokenPresent);
+  assert.equal(github.healthy, github.canPublish);
   assert.equal(typeof github.ghInstalled, "boolean");
   assert.equal(typeof github.tokenPresent, "boolean");
   assert.equal(github.defaultVisibility, "public");

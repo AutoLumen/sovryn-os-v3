@@ -332,7 +332,9 @@ async function githubDoctor(root: string): Promise<Record<string, unknown> & { h
   ];
   return {
     enabled,
-    healthy: !enabled || ghInstalled,
+    healthy: !enabled || (ghInstalled && tokenPresent),
+    canDryRun: true,
+    canPublish: !enabled ? false : ghInstalled && tokenPresent,
     ghInstalled,
     ghVersion: ghInstalled ? gh.stdout.split("\n")[0] : null,
     tokenEnv,

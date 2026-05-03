@@ -1,4 +1,4 @@
-import { cp, mkdir, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { runCommand } from "../shell/command.js";
 import { AppError } from "../../shared/errors.js";
@@ -73,11 +73,13 @@ export class GitHubPublisher {
       });
       if (push.exitCode !== 0) throw new AppError("GITHUB_PUSH_FAILED", push.stderr || push.stdout);
     }
-    await runCommand(`git tag ${releaseTag}`, releasePath, { allowNetwork: false });
-    await runCommand(`git -c credential.helper='!gh auth git-credential' push origin ${releaseTag}`, releasePath, {
+    const tag = await runCommand(`git tag ${releaseTag}`, releasePath, { allowNetwork: false });
+    if (tag.exitCode !== 0) throw new AppError("GITHUB_TAG_FAILED", tag.stderr || tag.stdout);
+    const tagPush = await runCommand(`git -c credential.helper='!gh auth git-credential' push origin ${releaseTag}`, releasePath, {
       allowNetwork: true,
       env: { GH_TOKEN: token }
     });
+    if (tagPush.exitCode !== 0) throw new AppError("GITHUB_TAG_PUSH_FAILED", tagPush.stderr || tagPush.stdout);
     return { dryRun: false, owner, repo, url, releaseTag, releasePath, pushed: true };
   }
 
@@ -86,11 +88,90 @@ export class GitHubPublisher {
     const releasePath = join(releaseRoot, "repo");
     await rm(releasePath, { recursive: true, force: true });
     await mkdir(releasePath, { recursive: true });
-    for (const entry of ["README.md", "SPEC.md", "DEFENSIVE_PUBLICATION.md", "PRIOR_ART.md", "NOVELTY_NOTES.md", "SAFETY_REVIEW.md", "CITATION.cff", "LICENSE", "prototype", "tests", "diagrams", "evidence"]) {
+    for (const entry of ["README.md", "SPEC.md", "DEFENSIVE_PUBLICATION.md", "PRIOR_ART.md", "NOVELTY_NOTES.md", "SAFETY_REVIEW.md", "CITATION.cff", "LICENSE", "prototype", "tests", "diagrams"]) {
       await cp(join(inventionDir, entry), join(releasePath, entry), { recursive: true, force: true });
     }
+    await preparePublicEvidence(inventionDir, releasePath);
     await writeFile(join(releasePath, "PUBLICATION_NOTICE.md"), "This repository was prepared by Sovryn OS as an open-source invention and defensive publication artifact. It is not a legal patent filing.\n", "utf8");
     return releasePath;
+  }
+}
+
+async function preparePublicEvidence(inventionDir: string, releasePath: string): Promise<void> {
+  const evidenceDir = join(inventionDir, "evidence");
+  const publicEvidenceDir = join(releasePath, "evidence", "public");
+  await mkdir(publicEvidenceDir, { recursive: true });
+  for (const file of [
+    "research-plan.json",
+    "artifact-score.json",
+    "publication-review.json",
+    "github-publication.json",
+    "landscape-scan.md",
+    "prior-art-mapping.md",
+    "invention-synthesis.md",
+    "skeptic-review.md",
+    "autonomous-summary.md"
+  ]) {
+    await copyIfExists(join(evidenceDir, file), join(publicEvidenceDir, file));
+  }
+  await writeFinalVerifySummary(evidenceDir, publicEvidenceDir);
+  await writeRedactedCommandJournal(evidenceDir, publicEvidenceDir);
+}
+
+async function writeFinalVerifySummary(evidenceDir: string, publicEvidenceDir: string): Promise<void> {
+  const path = join(evidenceDir, "final-verify.json");
+  if (!(await exists(path))) return;
+  const verify = JSON.parse(await readFile(path, "utf8")) as Record<string, unknown>;
+  await writeFile(
+    join(publicEvidenceDir, "final-verify.summary.json"),
+    `${JSON.stringify(
+      {
+        missionId: verify.missionId,
+        command: verify.command,
+        passed: verify.passed,
+        exitCode: verify.exitCode,
+        durationMs: verify.durationMs,
+        completedAt: verify.completedAt,
+        publicationSourceHashBefore: verify.publicationSourceHashBefore,
+        publicationSourceHash: verify.publicationSourceHash,
+        evidenceHash: verify.evidenceHash,
+        summary: verify.summary
+      },
+      null,
+      2
+    )}\n`,
+    "utf8"
+  );
+}
+
+async function writeRedactedCommandJournal(evidenceDir: string, publicEvidenceDir: string): Promise<void> {
+  const path = join(evidenceDir, "command-journal.json");
+  if (!(await exists(path))) return;
+  const journal = JSON.parse(await readFile(path, "utf8")) as { entries?: Array<Record<string, unknown>> } & Record<string, unknown>;
+  const entries = (journal.entries ?? []).map((entry) => ({
+    stepId: entry.stepId,
+    phase: entry.phase,
+    command: entry.command,
+    cwd: entry.cwd,
+    allowNetwork: entry.allowNetwork,
+    startedAt: entry.startedAt,
+    completedAt: entry.completedAt,
+    exitCode: entry.exitCode,
+    durationMs: entry.durationMs
+  }));
+  await writeFile(join(publicEvidenceDir, "command-journal.redacted.json"), `${JSON.stringify({ ...journal, entries }, null, 2)}\n`, "utf8");
+}
+
+async function copyIfExists(from: string, to: string): Promise<void> {
+  if (await exists(from)) await cp(from, to, { recursive: true, force: true });
+}
+
+async function exists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch {
+    return false;
   }
 }
 

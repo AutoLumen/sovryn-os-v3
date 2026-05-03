@@ -32,3 +32,8 @@ or `sovryn-agentd`.
 Internal roles are represented as modules: Scout, PriorArtMapper, Inventor,
 Skeptic, Builder, DocWriter, and Publisher. Prior-art mapping is not a legal
 conclusion.
+
+The dossier now includes a structured prior-art matrix with source type, URL,
+overlap, difference, relevance, and citation fields. The MVP fills this with a
+mock public-source adapter so future GitHub, paper, standards, patent, and web
+adapters can replace it without changing the dossier shape.

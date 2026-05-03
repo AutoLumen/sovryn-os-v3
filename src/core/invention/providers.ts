@@ -1,4 +1,4 @@
-import type { InventionDossier } from "./invention-types.js";
+import type { InventionDossier, PriorArtMatrixItem } from "./invention-types.js";
 
 export type ResearchProviderOutput = {
   summary: string;
@@ -12,9 +12,12 @@ export type PriorArtSearchQuery = {
 
 export type PriorArtSearchResult = {
   title: string;
-  source: string;
+  sourceType: PriorArtMatrixItem["sourceType"];
   url: string | null;
   relevance: "low" | "medium" | "high";
+  overlap: string;
+  difference: string;
+  citation: string | null;
   note: string;
 };
 
@@ -50,12 +53,27 @@ export class MockPriorArtSearchAdapter implements PriorArtSearchAdapter {
   async search(query: PriorArtSearchQuery): Promise<PriorArtSearchResult[]> {
     return query.sources.map((source) => ({
       title: `Manual ${source} search required for ${query.brief}`,
-      source,
+      sourceType: source === "papers" ? "paper" : source === "patents" ? "patent" : source === "standards" ? "standard" : source,
       url: null,
       relevance: "medium",
+      overlap: "Potential overlap unknown until a public-source adapter retrieves concrete results.",
+      difference: "Difference analysis pending. This deterministic placeholder prevents unsupported novelty claims.",
+      citation: null,
       note: "Deterministic MVP placeholder. Future adapters should query public sources and record citations."
     }));
   }
+}
+
+export function priorArtResultsToMatrix(results: PriorArtSearchResult[]): PriorArtMatrixItem[] {
+  return results.map((result) => ({
+    title: result.title,
+    sourceType: result.sourceType,
+    url: result.url,
+    overlap: result.overlap,
+    difference: result.difference,
+    relevance: result.relevance,
+    citation: result.citation
+  }));
 }
 
 export class TemplateResearchProvider implements ResearchProvider, PriorArtProvider, InventionProvider, PrototypeProvider, DossierWriterProvider, SafetyReviewProvider {

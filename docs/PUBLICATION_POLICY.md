@@ -9,8 +9,9 @@ GitHub publication is blocked unless:
 - README, SPEC, DEFENSIVE_PUBLICATION, PRIOR_ART, LICENSE, and CITATION files exist
 - a prototype or demo exists
 - tests or validation steps exist and final verification passes
+- publication source is stable during final verification
 - final verification records a publication source hash that matches current release source contents
-- secret scanning passes across generated files, prototype files, config-like files, docs, evidence, and release contents
+- secret scanning passes across generated files, prototype files, config-like files, docs, and evidence
 - safety scanning passes
 - prior-art notes and defensive publication text exist
 - the GitHub target is present unless dry-run mode is used
@@ -28,6 +29,9 @@ Publication source hashing covers README, SPEC, defensive publication,
 prior-art notes, novelty notes, safety review, citation, license, prototype,
 tests, and diagrams. Evidence and release staging files are excluded so review
 artifacts do not invalidate their own verification.
+
+Release repositories publish a curated public evidence layer under
+`evidence/public/`. Raw command stdout/stderr logs remain local by default.
 
 Sovryn does not guarantee novelty, patentability, freedom to operate, or legal
 patent protection. Public publication may affect patent rights.

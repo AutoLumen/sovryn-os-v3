@@ -21,6 +21,7 @@ export type InventionDossier = {
   advantages: string[];
   limitations: string[];
   priorArt: string[];
+  priorArtMatrix: PriorArtMatrixItem[];
   noveltyNotes: string[];
   safetyNotes: string[];
   prototypePath: string;
@@ -30,6 +31,16 @@ export type InventionDossier = {
   createdAt: string;
   updatedAt: string;
   evidenceHashes: Record<string, string>;
+};
+
+export type PriorArtMatrixItem = {
+  title: string;
+  sourceType: "web" | "github" | "paper" | "patent" | "standard";
+  url: string | null;
+  overlap: string;
+  difference: string;
+  relevance: "low" | "medium" | "high";
+  citation: string | null;
 };
 
 export type ResearchPhaseName =

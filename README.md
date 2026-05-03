@@ -112,13 +112,15 @@ patent rights.
 Node Alpha is the autonomous research machine concept. The MVP runs Node Alpha
 locally. Its validation mode checks toolchain and prototype tests; its
 autonomous mode writes a bounded research plan, command journal, research
-artifacts, and artifact score. Future backends can use SSH, `sovryn-agentd`,
-containers, or VMs. Node Alpha is not a security sandbox unless paired with real
-OS isolation.
+artifacts, and artifact completeness score. Future backends can use SSH,
+`sovryn-agentd`, containers, or VMs. Node Alpha is not a security sandbox unless
+paired with real OS isolation.
 
 GitHub credentials stay with Sovryn Controller. The autonomous agent prepares
 artifacts, but `publish-github` is gated by dossier, license, verification,
-secret-scan, safety, prior-art, defensive-publication, and finality checks.
+source-stability, source-hash freshness, secret-scan, safety, prior-art,
+defensive-publication, and finality checks. Release repos include curated public
+evidence under `evidence/public/`; raw command logs remain local by default.
 
 ## What Sovryn Does Not Do
 

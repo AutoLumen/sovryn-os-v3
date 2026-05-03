@@ -1,4 +1,4 @@
-import { cp, mkdir, rm, writeFile } from "node:fs/promises";
+import { cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { arch, platform } from "node:os";
 import { join, relative } from "node:path";
 import { runCommand, type CommandResult } from "../../adapters/shell/command.js";
@@ -136,7 +136,7 @@ export class LocalNodeAlphaBackend implements NodeAlphaBackend {
     await writeJson(planPath, plan);
     await writeJson(journalPath, journal);
     if (options.mode === "autonomous") {
-      await writeJson(join(workspaceInventionPath, "evidence", "artifact-score.json"), scoreArtifacts(workspaceInventionPath, journal));
+      await writeJson(join(workspaceInventionPath, "evidence", "artifact-score.json"), await scoreArtifactCompleteness(workspaceInventionPath, journal));
     }
     log += `Completed: ${completedAt}\nExit code: ${exitCode}\n`;
     await writeFile(logPath, log, "utf8");
@@ -254,10 +254,16 @@ function writeFileCommand(path: string, content: string): string {
   return `node --input-type=module -e ${shellQuote(source)}`;
 }
 
-function scoreArtifacts(workspaceInventionPath: string, journal: CommandJournal): Record<string, unknown> {
+async function scoreArtifactCompleteness(workspaceInventionPath: string, journal: CommandJournal): Promise<Record<string, unknown>> {
   const completed = journal.entries.filter((entry) => entry.exitCode === 0).length;
   const failed = journal.entries.filter((entry) => entry.exitCode !== 0).length;
   const expectedArtifacts = [
+    "README.md",
+    "SPEC.md",
+    "DEFENSIVE_PUBLICATION.md",
+    "PRIOR_ART.md",
+    "SAFETY_REVIEW.md",
+    "prototype/tests/prototype.test.js",
     "evidence/research-plan.json",
     "evidence/command-journal.json",
     "evidence/landscape-scan.md",
@@ -267,15 +273,44 @@ function scoreArtifacts(workspaceInventionPath: string, journal: CommandJournal)
     "evidence/benchmark.json",
     "evidence/autonomous-summary.md"
   ];
+  const presentArtifacts = [];
+  const missingArtifacts = [];
+  for (const artifact of expectedArtifacts) {
+    if (await nonEmpty(join(workspaceInventionPath, artifact))) presentArtifacts.push(artifact);
+    else missingArtifacts.push(artifact);
+  }
+  const qualitySignals = {
+    hasPriorArt: await nonEmpty(join(workspaceInventionPath, "PRIOR_ART.md")),
+    hasPrototype: await nonEmpty(join(workspaceInventionPath, "prototype", "src", "index.js")),
+    hasTests: await nonEmpty(join(workspaceInventionPath, "prototype", "tests", "prototype.test.js")),
+    hasDefensivePublication: await nonEmpty(join(workspaceInventionPath, "DEFENSIVE_PUBLICATION.md")),
+    hasSkepticReview: await nonEmpty(join(workspaceInventionPath, "evidence", "skeptic-review.md"))
+  };
+  const completeness = expectedArtifacts.length === 0 ? 0 : Math.round((presentArtifacts.length / expectedArtifacts.length) * 100);
+  const executionPenalty = failed * 20;
   return {
     scoredAt: nowIso(),
     workspace: workspaceInventionPath,
-    score: Math.max(0, Math.min(100, completed * 12 - failed * 20)),
+    scoreType: "artifact_completeness",
+    score: Math.max(0, Math.min(100, completeness - executionPenalty)),
     completedSteps: completed,
     failedSteps: failed,
     expectedArtifacts,
-    note: "Deterministic MVP artifact score; not a research quality guarantee."
+    presentArtifacts,
+    missingArtifacts,
+    qualitySignals,
+    note: "Deterministic MVP artifact completeness score; not a research quality guarantee."
   };
+}
+
+async function nonEmpty(path: string): Promise<boolean> {
+  try {
+    const info = await stat(path);
+    if (!info.isFile() || info.size === 0) return false;
+    return (await readFile(path, "utf8")).trim().length > 0;
+  } catch {
+    return false;
+  }
 }
 
 function shellQuote(value: string): string {

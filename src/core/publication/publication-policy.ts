@@ -34,7 +34,14 @@ export async function evaluatePublicationPolicy(input: {
   inventionDir: string;
   mission: OpenInventionMissionState;
   dossier: InventionDossier;
-  finalVerify: { passed: boolean; evidenceHash: string | null; summary: string; completedAt?: string | null; publicationSourceHash?: string | null };
+  finalVerify: {
+    passed: boolean;
+    evidenceHash: string | null;
+    summary: string;
+    completedAt?: string | null;
+    publicationSourceHashBefore?: string | null;
+    publicationSourceHash?: string | null;
+  };
   target?: { org?: string | null; repo?: string | null; dryRun?: boolean };
   requireFinalized?: boolean;
 }): Promise<PublicationPolicyResult> {
@@ -101,6 +108,18 @@ export async function evaluatePublicationPolicy(input: {
   });
 
   const currentPublicationSourceHash = await hashPublicationSource(input.inventionDir);
+  const sourceStable = Boolean(input.finalVerify.publicationSourceHashBefore && input.finalVerify.publicationSourceHash) &&
+    input.finalVerify.publicationSourceHashBefore === input.finalVerify.publicationSourceHash;
+  checks.push({
+    code: "VERIFY_SOURCE_STABLE",
+    passed: sourceStable,
+    message: sourceStable ? "Publication source did not change during final verification." : "Publication source changed during final verification.",
+    details: {
+      publicationSourceHashBefore: input.finalVerify.publicationSourceHashBefore ?? null,
+      publicationSourceHash: input.finalVerify.publicationSourceHash ?? null
+    }
+  });
+
   checks.push({
     code: "FINAL_VERIFY_FRESH",
     passed: Boolean(input.finalVerify.publicationSourceHash) && input.finalVerify.publicationSourceHash === currentPublicationSourceHash,

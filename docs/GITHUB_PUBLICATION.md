@@ -39,7 +39,12 @@ configured token environment variable.
 - whether `gh` is installed
 - which token environment variable is configured
 - whether that environment variable is present, without exposing the value
+- whether dry-run publication is available
+- whether real publication can run with the current local prerequisites
 - default org and visibility
+
+`github.canDryRun` can be true while `github.canPublish` is false. Real
+publication requires both `gh` and the configured token environment variable.
 
 Sovryn publishes Open Inventions and Defensive Publications. It does not file
 legal patents.

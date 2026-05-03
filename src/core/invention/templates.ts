@@ -158,6 +158,12 @@ research is required before serious use.
 
 ${list(dossier.priorArt)}
 
+## Prior-Art Matrix
+
+| Source | Title | Relevance | Overlap | Difference | Citation |
+| --- | --- | --- | --- | --- | --- |
+${dossier.priorArtMatrix.map((item) => `| ${item.sourceType} | ${escapeTable(item.title)} | ${item.relevance} | ${escapeTable(item.overlap)} | ${escapeTable(item.difference)} | ${escapeTable(item.citation ?? "pending")} |`).join("\n")}
+
 ## Search Plan
 
 - Search public papers, repositories, standards, and documentation.
@@ -230,4 +236,8 @@ function list(items: string[]): string {
 
 function escapeYaml(value: string): string {
   return value.replace(/"/g, "\\\"");
+}
+
+function escapeTable(value: string): string {
+  return value.replace(/\|/g, "\\|").replace(/\n/g, " ");
 }

@@ -11,7 +11,7 @@ import { configExists, loadConfig, type SovrynConfig } from "../config.js";
 import { evaluatePublicationPolicy, hashPublicationSource, type PublicationPolicyResult } from "../publication/publication-policy.js";
 import { Scout, PriorArtMapper, Inventor, Skeptic, Builder, DocWriter, Publisher } from "./roles.js";
 import { writePhaseEvidence, hashEvidence, phaseEvidenceFileName } from "./pipeline.js";
-import { MockPriorArtSearchAdapter } from "./providers.js";
+import { MockPriorArtSearchAdapter, priorArtResultsToMatrix } from "./providers.js";
 import type { InventionDossier, InventionIndex, OpenInventionMissionState, ResearchPhaseName } from "./invention-types.js";
 import {
   APACHE_2_LICENSE,
@@ -47,6 +47,7 @@ export class InventionService {
       brief,
       sources: ["web", "github", "papers", "standards", "patents"]
     });
+    const priorArtMatrix = priorArtResultsToMatrix(priorArtSearchResults);
     const dossier: InventionDossier = {
       id,
       slug,
@@ -80,8 +81,9 @@ export class InventionService {
       priorArt: [
         "Manual/agent research required: compare against public agent frameworks, lab notebooks, reproducibility tools, CI gates, and research artifact systems.",
         priorArt.summary,
-        ...priorArtSearchResults.map((result) => `${result.source}: ${result.title} (${result.note})`)
+        ...priorArtSearchResults.map((result) => `${result.sourceType}: ${result.title} (${result.note})`)
       ],
+      priorArtMatrix,
       noveltyNotes: [
         "Hypothesis: combining Node Alpha autonomy with Sovryn-controlled publication gates creates a reusable open invention workflow.",
         "Hypothesis: defensive-publication artifacts can be generated as first-class open-source outputs rather than afterthought documentation."
@@ -185,6 +187,7 @@ export class InventionService {
         evidenceHash: verify.evidenceHash,
         summary: String(verify.summary),
         completedAt: String(verify.completedAt),
+        publicationSourceHashBefore: String(verify.publicationSourceHashBefore),
         publicationSourceHash: String(verify.publicationSourceHash)
       },
       target: { org: options.org ?? null, repo: options.repo ?? null, dryRun: true },
@@ -225,7 +228,6 @@ export class InventionService {
     const dossier = await this.readDossier(mission.slug);
     const verify = await this.runFinalVerify(mission);
     const publisher = new GitHubPublisher(this.root, config);
-    const preparedReleasePath = await publisher.prepareRelease(this.inventionDir(mission.slug));
     const review = await evaluatePublicationPolicy({
       inventionDir: this.inventionDir(mission.slug),
       mission,
@@ -235,6 +237,7 @@ export class InventionService {
         evidenceHash: verify.evidenceHash,
         summary: String(verify.summary),
         completedAt: String(verify.completedAt),
+        publicationSourceHashBefore: String(verify.publicationSourceHashBefore),
         publicationSourceHash: String(verify.publicationSourceHash)
       },
       target: request,
@@ -242,6 +245,7 @@ export class InventionService {
     });
     await writeJson(join(this.inventionDir(mission.slug), "evidence", "publication-review.json"), { missionId: id, reviewedAt: nowIso(), ...review });
     if (!review.allowed) throw new AppError("PUBLICATION_BLOCKED", "GitHub publication blocked by Sovryn gates.", { checks: review.checks });
+    const preparedReleasePath = await publisher.prepareRelease(this.inventionDir(mission.slug));
 
     const publication = await publisher.publish({
       inventionDir: this.inventionDir(mission.slug),

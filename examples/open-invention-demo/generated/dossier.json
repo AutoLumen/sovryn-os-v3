@@ -14,6 +14,17 @@
   "advantages": ["auditable publication gates", "open-source-first artifacts"],
   "limitations": ["manual prior-art review required"],
   "priorArt": ["Manual or agent-assisted public research required."],
+  "priorArtMatrix": [
+    {
+      "title": "Manual GitHub search required for A method for verifiable open-source agent research",
+      "sourceType": "github",
+      "url": null,
+      "overlap": "Potential overlap unknown until a public-source adapter retrieves concrete results.",
+      "difference": "Difference analysis pending. This deterministic placeholder prevents unsupported novelty claims.",
+      "relevance": "medium",
+      "citation": null
+    }
+  ],
   "noveltyNotes": ["Treat defensive publication artifacts as first-class outputs of an autonomous research pipeline."],
   "safetyNotes": ["Do not publish harmful artifacts or leaked secrets."],
   "prototypePath": "prototype",

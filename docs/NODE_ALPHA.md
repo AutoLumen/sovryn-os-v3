@@ -33,6 +33,10 @@ runs the prototype tests.
 - score expected artifacts
 - copy evidence back to the invention dossier
 
+The score is an artifact completeness score, not a research quality score. It
+records expected, present, and missing artifacts plus basic quality signals such
+as prior-art, prototype, tests, defensive publication, and skeptic review.
+
 The loop is deliberately deterministic in the MVP. Future providers can replace
 or enrich the steps with public search, local models, browser automation,
 containers, SSH, or `sovryn-agentd`.

@@ -110,6 +110,38 @@ export async function evaluatePublicationPolicy(input: {
     details: {},
   });
 
+  const priorArtMatrix = Array.isArray(input.dossier.priorArtMatrix)
+    ? input.dossier.priorArtMatrix
+    : [];
+  const priorArtKinds = priorArtMatrix.map((item) => kindOfPriorArtItem(item));
+  const concretePriorArtCount = priorArtKinds.filter(
+    (kind) => kind === "concrete_source",
+  ).length;
+  const queryLinkPriorArtCount = priorArtKinds.filter(
+    (kind) => kind === "query_link",
+  ).length;
+  const adapterFailureCount = priorArtKinds.filter(
+    (kind) => kind === "adapter_failure",
+  ).length;
+  const mockPlaceholderCount = priorArtKinds.filter(
+    (kind) => kind === "mock_placeholder",
+  ).length;
+  const concretePriorArtPassed =
+    mockPlaceholderCount > 0 || concretePriorArtCount > 0;
+  checks.push({
+    code: "CONCRETE_PRIOR_ART",
+    passed: concretePriorArtPassed,
+    message: concretePriorArtPassed
+      ? "Prior-art matrix has concrete public-source results or deterministic MVP placeholders."
+      : "Query links and adapter failures alone are not concrete prior-art evidence.",
+    details: {
+      concretePriorArtCount,
+      queryLinkPriorArtCount,
+      adapterFailureCount,
+      mockPlaceholderCount,
+    },
+  });
+
   checks.push({
     code: "DEFENSIVE_PUBLICATION_PRESENT",
     passed: await nonEmpty(
@@ -281,6 +313,20 @@ function requiredDossierFields(dossier: InventionDossier): string[] {
     const value = dossier[field];
     return typeof value !== "string" || value.trim().length === 0;
   });
+}
+
+function kindOfPriorArtItem(
+  item: InventionDossier["priorArtMatrix"][number],
+): "concrete_source" | "query_link" | "adapter_failure" | "mock_placeholder" {
+  if (
+    item.kind === "concrete_source" ||
+    item.kind === "query_link" ||
+    item.kind === "adapter_failure" ||
+    item.kind === "mock_placeholder"
+  ) {
+    return item.kind;
+  }
+  return "mock_placeholder";
 }
 
 async function exists(path: string): Promise<boolean> {

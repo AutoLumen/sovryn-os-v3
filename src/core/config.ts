@@ -61,6 +61,8 @@ export type SovrynConfig = {
     publicSearch: {
       enabled: boolean;
       maxResultsPerSource: number;
+      maxTotalResults: number;
+      timeoutMs: number;
       includeQueryLinks: boolean;
       githubTokenEnv: string | null;
     };
@@ -125,6 +127,8 @@ export const DEFAULT_CONFIG: SovrynConfig = {
     publicSearch: {
       enabled: false,
       maxResultsPerSource: 3,
+      maxTotalResults: 30,
+      timeoutMs: 8000,
       includeQueryLinks: true,
       githubTokenEnv: null,
     },

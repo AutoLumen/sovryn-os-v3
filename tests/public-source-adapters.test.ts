@@ -4,7 +4,9 @@ import {
   ArxivSearchAdapter,
   createPublicSourceSearchAdapter,
   GitHubSearchAdapter,
+  normalizePublicSourceSearchConfig,
   OpenAlexSearchAdapter,
+  summarizePriorArtSearchResults,
   type FetchLike,
 } from "../src/core/invention/providers.js";
 
@@ -31,6 +33,7 @@ test("GitHub public-source adapter maps repository search results", async () => 
   });
   assert.match(requests[0], /api\.github\.com\/search\/repositories/);
   assert.equal(results.length, 1);
+  assert.equal(results[0].kind, "concrete_source");
   assert.equal(results[0].sourceType, "github");
   assert.equal(results[0].title, "sovryn/self-verifying-agent-research");
   assert.equal(
@@ -59,6 +62,7 @@ test("OpenAlex public-source adapter maps works search results", async () => {
     sources: ["papers"],
   });
   assert.equal(results.length, 1);
+  assert.equal(results[0].kind, "concrete_source");
   assert.equal(results[0].sourceType, "paper");
   assert.equal(results[0].title, "Verifiable Autonomous Research Workflows");
   assert.equal(
@@ -85,6 +89,7 @@ test("arXiv public-source adapter parses Atom search entries", async () => {
     sources: ["papers"],
   });
   assert.equal(results.length, 1);
+  assert.equal(results[0].kind, "concrete_source");
   assert.equal(results[0].sourceType, "paper");
   assert.equal(results[0].title, "Self-Verifying Research Agents");
   assert.equal(results[0].url, "https://arxiv.org/abs/2601.00001");
@@ -146,6 +151,74 @@ test("composite public-source adapter includes live adapters and public query li
   assert.equal(
     results.some((result) => result.sourceType === "web"),
     true,
+  );
+  const summary = summarizePriorArtSearchResults(results);
+  assert.equal(summary.status, "ok");
+  assert.equal(summary.concreteResultCount, 3);
+  assert.equal(summary.linkOnlyResultCount, 3);
+  assert.equal(summary.failureCount, 0);
+});
+
+test("composite public-source adapter records adapter failures as degraded evidence", async () => {
+  const fetcher: FetchLike = async () => {
+    throw new Error("network unavailable");
+  };
+  const results = await createPublicSourceSearchAdapter(
+    {
+      maxResultsPerSource: 1,
+      includeQueryLinks: false,
+    },
+    fetcher,
+  ).search({
+    brief: "open research artifacts",
+    sources: ["github", "papers"],
+  });
+  assert.equal(results.length, 3);
+  assert.equal(
+    results.every((result) => result.kind === "adapter_failure"),
+    true,
+  );
+  const summary = summarizePriorArtSearchResults(results);
+  assert.equal(summary.status, "failed");
+  assert.equal(summary.concreteResultCount, 0);
+  assert.equal(summary.failureCount, 3);
+  assert.deepEqual(summary.failedSources, ["github", "paper"]);
+});
+
+test("public-source search config clamps unsafe limits and timeouts", () => {
+  assert.deepEqual(
+    normalizePublicSourceSearchConfig({
+      enabled: true,
+      maxResultsPerSource: 999,
+      maxTotalResults: -2,
+      timeoutMs: 1,
+      includeQueryLinks: false,
+      githubTokenEnv: "",
+    }),
+    {
+      enabled: true,
+      maxResultsPerSource: 10,
+      maxTotalResults: 1,
+      timeoutMs: 1000,
+      includeQueryLinks: false,
+      githubTokenEnv: null,
+    },
+  );
+  assert.deepEqual(
+    normalizePublicSourceSearchConfig({
+      maxResultsPerSource: Number.NaN,
+      maxTotalResults: Number.NaN,
+      timeoutMs: Number.NaN,
+      githubTokenEnv: "SOVRYN_GITHUB_TOKEN",
+    }),
+    {
+      enabled: true,
+      maxResultsPerSource: 3,
+      maxTotalResults: 30,
+      timeoutMs: 8000,
+      includeQueryLinks: true,
+      githubTokenEnv: "SOVRYN_GITHUB_TOKEN",
+    },
   );
 });
 

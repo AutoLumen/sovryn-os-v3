@@ -15,6 +15,11 @@ export type PriorArtSearchQuery = {
 };
 
 export type PriorArtSearchResult = {
+  kind:
+    | "concrete_source"
+    | "query_link"
+    | "adapter_failure"
+    | "mock_placeholder";
   title: string;
   sourceType: PriorArtMatrixItem["sourceType"];
   url: string | null;
@@ -61,13 +66,28 @@ export interface PublicSourceSearchProvider extends PriorArtSearchAdapter {
 export type PublicSourceSearchConfig = {
   enabled: boolean;
   maxResultsPerSource: number;
+  maxTotalResults: number;
+  timeoutMs: number;
   includeQueryLinks: boolean;
   githubTokenEnv: string | null;
 };
 
+export type PublicSourceSearchStatus = "ok" | "degraded" | "failed" | "mock";
+
+export type PublicSourceSearchSummary = {
+  status: PublicSourceSearchStatus;
+  concreteResultCount: number;
+  linkOnlyResultCount: number;
+  failureCount: number;
+  mockPlaceholderCount: number;
+  successfulSources: PriorArtMatrixItem["sourceType"][];
+  failedSources: PriorArtMatrixItem["sourceType"][];
+  queryLinkSources: PriorArtMatrixItem["sourceType"][];
+};
+
 export type FetchLike = (
   url: string,
-  init?: { headers?: Record<string, string> },
+  init?: { headers?: Record<string, string>; signal?: AbortSignal },
 ) => Promise<{
   ok: boolean;
   status: number;
@@ -75,9 +95,19 @@ export type FetchLike = (
   text?: () => Promise<string>;
 }>;
 
+export const DEFAULT_PUBLIC_SOURCE_SEARCH_CONFIG: PublicSourceSearchConfig = {
+  enabled: true,
+  maxResultsPerSource: 3,
+  maxTotalResults: 30,
+  timeoutMs: 8000,
+  includeQueryLinks: true,
+  githubTokenEnv: null,
+};
+
 export class MockPriorArtSearchAdapter implements PriorArtSearchAdapter {
   async search(query: PriorArtSearchQuery): Promise<PriorArtSearchResult[]> {
     return query.sources.map((source) => ({
+      kind: "mock_placeholder",
       title: `Manual ${source} search required for ${query.brief}`,
       sourceType:
         source === "papers"
@@ -112,28 +142,77 @@ export function createPublicSourceSearchAdapter(
   settings: Partial<PublicSourceSearchConfig> = {},
   fetcher: FetchLike = defaultFetch,
 ): PriorArtSearchAdapter {
-  const limit = settings.maxResultsPerSource ?? 3;
+  const normalized = normalizePublicSourceSearchConfig(settings);
+  const fetcherWithTimeout = withFetchTimeout(fetcher, normalized.timeoutMs);
   const adapters: PublicSourceSearchProvider[] = [
     new GitHubSearchAdapter({
-      fetcher,
-      limit,
-      tokenEnv: settings.githubTokenEnv,
+      fetcher: fetcherWithTimeout,
+      limit: normalized.maxResultsPerSource,
+      tokenEnv: normalized.githubTokenEnv,
     }),
-    new OpenAlexSearchAdapter({ fetcher, limit }),
-    new ArxivSearchAdapter({ fetcher, limit }),
+    new OpenAlexSearchAdapter({
+      fetcher: fetcherWithTimeout,
+      limit: normalized.maxResultsPerSource,
+    }),
+    new ArxivSearchAdapter({
+      fetcher: fetcherWithTimeout,
+      limit: normalized.maxResultsPerSource,
+    }),
   ];
-  if (settings.includeQueryLinks ?? true) {
+  if (normalized.includeQueryLinks) {
     adapters.push(
       new PatentSearchLinkAdapter(),
       new StandardsDocsSearchLinkAdapter(),
       new WebSearchLinkAdapter(),
     );
   }
-  return new CompositePriorArtSearchAdapter(adapters);
+  return new CompositePriorArtSearchAdapter(
+    adapters,
+    normalized.maxTotalResults,
+  );
+}
+
+export function normalizePublicSourceSearchConfig(
+  settings: Partial<PublicSourceSearchConfig> = {},
+): PublicSourceSearchConfig {
+  return {
+    enabled: Boolean(
+      settings.enabled ?? DEFAULT_PUBLIC_SOURCE_SEARCH_CONFIG.enabled,
+    ),
+    maxResultsPerSource: clampInt(
+      settings.maxResultsPerSource,
+      DEFAULT_PUBLIC_SOURCE_SEARCH_CONFIG.maxResultsPerSource,
+      1,
+      10,
+    ),
+    maxTotalResults: clampInt(
+      settings.maxTotalResults,
+      DEFAULT_PUBLIC_SOURCE_SEARCH_CONFIG.maxTotalResults,
+      1,
+      50,
+    ),
+    timeoutMs: clampInt(
+      settings.timeoutMs,
+      DEFAULT_PUBLIC_SOURCE_SEARCH_CONFIG.timeoutMs,
+      1000,
+      30000,
+    ),
+    includeQueryLinks:
+      settings.includeQueryLinks ??
+      DEFAULT_PUBLIC_SOURCE_SEARCH_CONFIG.includeQueryLinks,
+    githubTokenEnv:
+      typeof settings.githubTokenEnv === "string" &&
+      settings.githubTokenEnv.trim().length > 0
+        ? settings.githubTokenEnv
+        : null,
+  };
 }
 
 export class CompositePriorArtSearchAdapter implements PriorArtSearchAdapter {
-  constructor(private readonly adapters: PublicSourceSearchProvider[]) {}
+  constructor(
+    private readonly adapters: PublicSourceSearchProvider[],
+    private readonly maxTotalResults = 30,
+  ) {}
 
   async search(query: PriorArtSearchQuery): Promise<PriorArtSearchResult[]> {
     const settled = await Promise.allSettled(
@@ -148,7 +227,7 @@ export class CompositePriorArtSearchAdapter implements PriorArtSearchAdapter {
         results.push(failedSearchResult(adapter, result.reason));
       }
     });
-    return dedupePriorArtResults(results);
+    return dedupePriorArtResults(results).slice(0, this.maxTotalResults);
   }
 }
 
@@ -184,6 +263,7 @@ export class GitHubSearchAdapter implements PublicSourceSearchProvider {
       const description =
         stringOrNull(record.description) ?? "No description provided.";
       return {
+        kind: "concrete_source",
         title: fullName,
         sourceType: this.sourceType,
         url: stringOrNull(record.html_url),
@@ -222,6 +302,7 @@ export class OpenAlexSearchAdapter implements PublicSourceSearchProvider {
       const doi = stringOrNull(record.doi);
       const id = stringOrNull(record.id);
       return {
+        kind: "concrete_source",
         title,
         sourceType: this.sourceType,
         url: doi ?? id,
@@ -256,6 +337,7 @@ export class ArxivSearchAdapter implements PublicSourceSearchProvider {
     return parseArxivEntries(xml)
       .slice(0, limit)
       .map((entry, index) => ({
+        kind: "concrete_source",
         title: entry.title,
         sourceType: this.sourceType,
         url: entry.url,
@@ -277,6 +359,7 @@ export class PatentSearchLinkAdapter implements PublicSourceSearchProvider {
     if (!query.sources.includes("patents")) return [];
     return [
       {
+        kind: "query_link",
         title: `Google Patents public search for ${query.brief}`,
         sourceType: this.sourceType,
         url: `https://patents.google.com/?q=${encodeURIComponent(query.brief)}`,
@@ -300,6 +383,7 @@ export class StandardsDocsSearchLinkAdapter implements PublicSourceSearchProvide
     if (!query.sources.includes("standards")) return [];
     return [
       {
+        kind: "query_link",
         title: `IETF Datatracker public search for ${query.brief}`,
         sourceType: this.sourceType,
         url: `https://datatracker.ietf.org/doc/search/?name=${encodeURIComponent(query.brief)}`,
@@ -323,6 +407,7 @@ export class WebSearchLinkAdapter implements PublicSourceSearchProvider {
     if (!query.sources.includes("web")) return [];
     return [
       {
+        kind: "query_link",
         title: `Public web search for ${query.brief}`,
         sourceType: this.sourceType,
         url: `https://www.google.com/search?q=${encodeURIComponent(query.brief)}`,
@@ -342,6 +427,7 @@ export function priorArtResultsToMatrix(
   results: PriorArtSearchResult[],
 ): PriorArtMatrixItem[] {
   return results.map((result) => ({
+    kind: result.kind,
     title: result.title,
     sourceType: result.sourceType,
     url: result.url,
@@ -350,6 +436,35 @@ export function priorArtResultsToMatrix(
     relevance: result.relevance,
     citation: result.citation,
   }));
+}
+
+export function summarizePriorArtSearchResults(
+  results: PriorArtSearchResult[],
+): PublicSourceSearchSummary {
+  const concrete = results.filter(
+    (result) => result.kind === "concrete_source",
+  );
+  const queryLinks = results.filter((result) => result.kind === "query_link");
+  const failures = results.filter(
+    (result) => result.kind === "adapter_failure",
+  );
+  const mock = results.filter((result) => result.kind === "mock_placeholder");
+  return {
+    status: searchStatusFor({
+      concreteResultCount: concrete.length,
+      linkOnlyResultCount: queryLinks.length,
+      failureCount: failures.length,
+      mockPlaceholderCount: mock.length,
+      total: results.length,
+    }),
+    concreteResultCount: concrete.length,
+    linkOnlyResultCount: queryLinks.length,
+    failureCount: failures.length,
+    mockPlaceholderCount: mock.length,
+    successfulSources: uniqueSourceTypes(concrete),
+    failedSources: uniqueSourceTypes(failures),
+    queryLinkSources: uniqueSourceTypes(queryLinks),
+  };
 }
 
 export class TemplateResearchProvider
@@ -416,7 +531,7 @@ export class TemplateResearchProvider
 
 async function defaultFetch(
   url: string,
-  init?: { headers?: Record<string, string> },
+  init?: { headers?: Record<string, string>; signal?: AbortSignal },
 ): ReturnType<FetchLike> {
   const response = await fetch(url, init);
   return {
@@ -424,6 +539,29 @@ async function defaultFetch(
     status: response.status,
     json: () => response.json() as Promise<unknown>,
     text: () => response.text(),
+  };
+}
+
+function withFetchTimeout(fetcher: FetchLike, timeoutMs: number): FetchLike {
+  return async (url, init) => {
+    const controller = new AbortController();
+    let timeout: ReturnType<typeof setTimeout>;
+    const timeoutFailure = new Promise<never>((_, reject) => {
+      timeout = setTimeout(() => {
+        controller.abort();
+        reject(
+          new Error(`Timed out after ${timeoutMs}ms while fetching ${url}`),
+        );
+      }, timeoutMs);
+    });
+    try {
+      return await Promise.race([
+        fetcher(url, { ...init, signal: controller.signal }),
+        timeoutFailure,
+      ]);
+    } finally {
+      clearTimeout(timeout!);
+    }
   };
 }
 
@@ -456,6 +594,7 @@ function failedSearchResult(
   reason: unknown,
 ): PriorArtSearchResult {
   return {
+    kind: "adapter_failure",
     title: `${adapter.name} failed`,
     sourceType: adapter.sourceType,
     url: null,
@@ -483,10 +622,51 @@ function dedupePriorArtResults(
   return out;
 }
 
+function uniqueSourceTypes(
+  results: PriorArtSearchResult[],
+): PriorArtMatrixItem["sourceType"][] {
+  return [...new Set(results.map((result) => result.sourceType))].sort();
+}
+
+function searchStatusFor(input: {
+  concreteResultCount: number;
+  linkOnlyResultCount: number;
+  failureCount: number;
+  mockPlaceholderCount: number;
+  total: number;
+}): PublicSourceSearchStatus {
+  if (
+    input.total > 0 &&
+    input.mockPlaceholderCount === input.total &&
+    input.concreteResultCount === 0
+  ) {
+    return "mock";
+  }
+  if (input.concreteResultCount > 0 && input.failureCount === 0) return "ok";
+  if (input.concreteResultCount > 0) return "degraded";
+  if (input.linkOnlyResultCount > 0 && input.failureCount === 0) {
+    return "degraded";
+  }
+  return "failed";
+}
+
 function relevanceForIndex(index: number): "low" | "medium" | "high" {
   if (index === 0) return "high";
   if (index <= 2) return "medium";
   return "low";
+}
+
+function clampInt(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  const parsed =
+    typeof value === "number" && Number.isFinite(value)
+      ? Math.trunc(value)
+      : fallback;
+  return Math.min(max, Math.max(min, parsed));
 }
 
 function asRecord(value: unknown): Record<string, unknown> {

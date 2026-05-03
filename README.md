@@ -121,8 +121,9 @@ Prior-art mapping defaults to deterministic placeholders. Optional
 public-source adapters can query GitHub, OpenAlex, arXiv, patent search links,
 standards/docs links, and general web search links when
 `research.publicSearch.enabled` is set in `.sovryn/config.json`. Results are
-written to `evidence/public-source-search.json` as research leads, not legal
-conclusions.
+written to `evidence/public-source-search.json` with quality kinds
+(`concrete_source`, `query_link`, `adapter_failure`, `mock_placeholder`) and
+status counts. Query links alone are not treated as concrete prior-art evidence.
 
 GitHub credentials stay with Sovryn Controller. The autonomous agent prepares
 artifacts, but `publish-github` is gated by dossier, license, verification,

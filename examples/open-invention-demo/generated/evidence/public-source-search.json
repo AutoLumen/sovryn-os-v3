@@ -1,10 +1,19 @@
 {
   "kind": "public_source_search",
   "mode": "mock",
+  "status": "mock",
   "sources": ["web", "github", "papers", "standards", "patents"],
   "resultCount": 1,
+  "concreteResultCount": 0,
+  "linkOnlyResultCount": 0,
+  "failureCount": 0,
+  "mockPlaceholderCount": 1,
+  "successfulSources": [],
+  "failedSources": [],
+  "queryLinkSources": [],
   "results": [
     {
+      "kind": "mock_placeholder",
       "title": "Manual GitHub search required for A method for verifiable open-source agent research",
       "sourceType": "github",
       "url": null,

@@ -15,6 +15,7 @@ GitHub publication is blocked unless:
 - no large text file is skipped by the publication scanners
 - safety scanning passes
 - prior-art notes and defensive publication text exist
+- the prior-art matrix has concrete public-source results or deterministic MVP placeholders
 - the GitHub target is present unless dry-run mode is used
 - the mission is finalized for real publication
 

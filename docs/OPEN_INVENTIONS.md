@@ -28,11 +28,15 @@ Open Invention missions default to deterministic prior-art placeholders. To
 let Sovryn query public sources during dossier generation, enable
 `research.publicSearch.enabled` in `.sovryn/config.json`. The built-in adapters
 cover GitHub repository search, OpenAlex works, arXiv papers, patent search
-links, standards/docs search links, and general web search links.
+links, standards/docs search links, and general web search links. Public-source
+config includes result limits and per-request timeouts so external APIs cannot
+hold a mission open indefinitely.
 
 The output is written to `evidence/public-source-search.json` and folded into
-the prior-art matrix. These results are research leads only. Sovryn does not
-make legal novelty, patentability, or freedom-to-operate conclusions.
+the prior-art matrix. Results are marked as `concrete_source`, `query_link`,
+`adapter_failure`, or `mock_placeholder`. Query links alone are not treated as
+concrete prior-art evidence. These results are research leads only. Sovryn does
+not make legal novelty, patentability, or freedom-to-operate conclusions.
 
 ## Dossier
 

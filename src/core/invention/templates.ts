@@ -160,9 +160,9 @@ ${list(dossier.priorArt)}
 
 ## Prior-Art Matrix
 
-| Source | Title | Relevance | Overlap | Difference | Citation |
-| --- | --- | --- | --- | --- | --- |
-${dossier.priorArtMatrix.map((item) => `| ${item.sourceType} | ${escapeTable(item.title)} | ${item.relevance} | ${escapeTable(item.overlap)} | ${escapeTable(item.difference)} | ${escapeTable(item.citation ?? "pending")} |`).join("\n")}
+| Source | Kind | Title | Relevance | Overlap | Difference | Citation |
+| --- | --- | --- | --- | --- | --- | --- |
+${dossier.priorArtMatrix.map((item) => `| ${item.sourceType} | ${item.kind} | ${escapeTable(item.title)} | ${item.relevance} | ${escapeTable(item.overlap)} | ${escapeTable(item.difference)} | ${escapeTable(item.citation ?? "pending")} |`).join("\n")}
 
 ## Search Plan
 

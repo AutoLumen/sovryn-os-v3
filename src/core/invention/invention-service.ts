@@ -33,6 +33,7 @@ import {
 import {
   createPriorArtSearchAdapter,
   priorArtResultsToMatrix,
+  summarizePriorArtSearchResults,
 } from "./providers.js";
 import type {
   InventionDossier,
@@ -84,11 +85,22 @@ export class InventionService {
       sources: priorArtSources,
     });
     const priorArtMatrix = priorArtResultsToMatrix(priorArtSearchResults);
+    const publicSourceSearchSummary = summarizePriorArtSearchResults(
+      priorArtSearchResults,
+    );
     const publicSourceSearchEvidence = {
       kind: "public_source_search",
       mode: config.research?.publicSearch?.enabled ? "public_source" : "mock",
+      status: publicSourceSearchSummary.status,
       sources: priorArtSources,
       resultCount: priorArtSearchResults.length,
+      concreteResultCount: publicSourceSearchSummary.concreteResultCount,
+      linkOnlyResultCount: publicSourceSearchSummary.linkOnlyResultCount,
+      failureCount: publicSourceSearchSummary.failureCount,
+      mockPlaceholderCount: publicSourceSearchSummary.mockPlaceholderCount,
+      successfulSources: publicSourceSearchSummary.successfulSources,
+      failedSources: publicSourceSearchSummary.failedSources,
+      queryLinkSources: publicSourceSearchSummary.queryLinkSources,
       results: priorArtSearchResults,
       completedAt: nowIso(),
       evidenceHash: "",
@@ -127,7 +139,9 @@ export class InventionService {
         "Keeps open-source invention work auditable",
       ],
       limitations: [
-        "Template MVP does not perform live public search",
+        config.research?.publicSearch?.enabled
+          ? "Public-source search was performed for research leads, but results are not legal novelty conclusions and require review"
+          : "Template MVP does not perform live public search",
         "Prior-art notes are not legal conclusions",
         "Safety scanning is conservative text policy, not a sandbox",
         "Serious research requires human review",

@@ -16,6 +16,7 @@
   "priorArt": ["Manual or agent-assisted public research required."],
   "priorArtMatrix": [
     {
+      "kind": "mock_placeholder",
       "title": "Manual GitHub search required for A method for verifiable open-source agent research",
       "sourceType": "github",
       "url": null,

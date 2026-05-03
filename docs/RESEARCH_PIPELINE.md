@@ -47,6 +47,8 @@ and general web search links. Enable them in `.sovryn/config.json`:
     "publicSearch": {
       "enabled": true,
       "maxResultsPerSource": 3,
+      "maxTotalResults": 30,
+      "timeoutMs": 8000,
       "includeQueryLinks": true,
       "githubTokenEnv": null
     }
@@ -57,3 +59,13 @@ and general web search links. Enable them in `.sovryn/config.json`:
 Public-source search writes
 `.sovryn/inventions/<slug>/evidence/public-source-search.json`. Retrieved
 results are technical research leads, not legal prior-art conclusions.
+
+Each result has a quality kind:
+
+- `concrete_source`: a concrete repository, paper, or other retrieved source
+- `query_link`: a search URL that still needs source inspection
+- `adapter_failure`: a failed source query recorded as degraded evidence
+- `mock_placeholder`: deterministic MVP placeholder evidence
+
+The evidence file records `status`, concrete/link/failure/mock counts, and the
+successful, failed, and query-link source types.

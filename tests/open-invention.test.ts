@@ -48,6 +48,12 @@ test("invent-open creates an open invention mission and dossier files", async ()
   );
   assert.equal(dossier.priorArtMatrix.length, 5);
   assert.equal(
+    dossier.priorArtMatrix.every(
+      (item: any) => item.kind === "mock_placeholder",
+    ),
+    true,
+  );
+  assert.equal(
     dossier.priorArtMatrix.some((item: any) => item.sourceType === "patent"),
     true,
   );
@@ -65,6 +71,20 @@ test("invent-open creates an open invention mission and dossier files", async ()
       "public-source-search.json",
     ),
   );
+  const publicSourceSearch = JSON.parse(
+    await readFile(
+      join(
+        repo.root,
+        mission.inventionPath,
+        "evidence",
+        "public-source-search.json",
+      ),
+      "utf8",
+    ),
+  );
+  assert.equal(publicSourceSearch.status, "mock");
+  assert.equal(publicSourceSearch.mockPlaceholderCount, 5);
+  assert.equal(publicSourceSearch.concreteResultCount, 0);
   await access(
     join(
       repo.root,
@@ -140,6 +160,27 @@ test("publication review blocks missing dossier fields", async () => {
     (check: any) => check.code === "DOSSIER_COMPLETE",
   );
   assert.deepEqual(dossierCheck.details.missingFields, ["abstract"]);
+});
+
+test("publication review blocks query-link-only prior art matrix", async () => {
+  const { repo, mission } = await createOpenInvention();
+  const dossierPath = join(repo.root, mission.dossierPath);
+  const dossier = JSON.parse(await readFile(dossierPath, "utf8"));
+  dossier.priorArtMatrix = dossier.priorArtMatrix.map((item: any) => ({
+    ...item,
+    kind: "query_link",
+    sourceType: "web",
+    url: "https://www.google.com/search?q=open+research",
+  }));
+  await writeFile(dossierPath, `${JSON.stringify(dossier, null, 2)}\n`, "utf8");
+  const review = await executeCli(
+    ["invention", "review", mission.id, "--json"],
+    repo.root,
+  );
+  assert.equal(review.ok, true);
+  const result = (review.data as any).review;
+  assert.equal(result.allowed, false);
+  assert.equal(checkPassed(result, "CONCRETE_PRIOR_ART"), false);
 });
 
 test("publication review blocks failing prototype tests", async () => {

@@ -34,6 +34,11 @@ export type InventionDossier = {
 };
 
 export type PriorArtMatrixItem = {
+  kind:
+    | "concrete_source"
+    | "query_link"
+    | "adapter_failure"
+    | "mock_placeholder";
   title: string;
   sourceType: "web" | "github" | "paper" | "patent" | "standard";
   url: string | null;

@@ -76,6 +76,17 @@ test("invent-open creates an open invention mission and dossier files", async ()
   );
 });
 
+test("invent-open uses stable fallback slugs for punctuation-only briefs", async () => {
+  const repo = await makeTempRepo();
+  await executeCli(["init"], repo.root);
+  const first = await executeCli(["invent-open", "!!!", "--json"], repo.root);
+  const second = await executeCli(["invent-open", "!!!", "--json"], repo.root);
+  assert.equal(first.ok, true);
+  assert.equal(second.ok, true);
+  assert.equal((first.data as any).mission.slug, "open-invention");
+  assert.equal((second.data as any).mission.slug, "open-invention-2");
+});
+
 test("publication review blocks missing license", async () => {
   const { repo, mission } = await createOpenInvention();
   await rm(join(repo.root, mission.inventionPath, "LICENSE"));
@@ -100,6 +111,26 @@ test("publication review blocks missing defensive publication", async () => {
   const result = (review.data as any).review;
   assert.equal(result.allowed, false);
   assert.equal(checkPassed(result, "DEFENSIVE_PUBLICATION_PRESENT"), false);
+});
+
+test("publication review blocks missing dossier fields", async () => {
+  const { repo, mission } = await createOpenInvention();
+  const dossierPath = join(repo.root, mission.dossierPath);
+  const dossier = JSON.parse(await readFile(dossierPath, "utf8"));
+  delete dossier.abstract;
+  await writeFile(dossierPath, `${JSON.stringify(dossier, null, 2)}\n`, "utf8");
+  const review = await executeCli(
+    ["invention", "review", mission.id, "--json"],
+    repo.root,
+  );
+  assert.equal(review.ok, true);
+  const result = (review.data as any).review;
+  assert.equal(result.allowed, false);
+  assert.equal(checkPassed(result, "DOSSIER_COMPLETE"), false);
+  const dossierCheck = result.checks.find(
+    (check: any) => check.code === "DOSSIER_COMPLETE",
+  );
+  assert.deepEqual(dossierCheck.details.missingFields, ["abstract"]);
 });
 
 test("publication review blocks failing prototype tests", async () => {
@@ -280,6 +311,27 @@ test("publish-github dry-run does not require invention finalization", async () 
     review.checks.some((check: any) => check.code === "MISSION_FINALIZED"),
     false,
   );
+});
+
+test("publish-github dry-run tolerates missing optional release folders", async () => {
+  const { repo, mission } = await createOpenInvention();
+  await rm(join(repo.root, mission.inventionPath, "tests"), {
+    recursive: true,
+    force: true,
+  });
+  await rm(join(repo.root, mission.inventionPath, "diagrams"), {
+    recursive: true,
+    force: true,
+  });
+  const publish = await executeCli(
+    ["publish-github", mission.id, "--dry-run", "--json"],
+    repo.root,
+  );
+  assert.equal(publish.ok, true);
+  const releasePath = (publish.data as any).publication.releasePath;
+  await access(join(releasePath, "prototype", "tests", "prototype.test.js"));
+  await assert.rejects(access(join(releasePath, "tests")));
+  await assert.rejects(access(join(releasePath, "diagrams")));
 });
 
 test("publication policy blocks stale final verification source hash", async () => {

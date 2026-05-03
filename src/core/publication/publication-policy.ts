@@ -279,7 +279,7 @@ function requiredDossierFields(dossier: InventionDossier): string[] {
   ];
   return required.filter((field) => {
     const value = dossier[field];
-    return typeof value === "string" && value.trim().length === 0;
+    return typeof value !== "string" || value.trim().length === 0;
   });
 }
 

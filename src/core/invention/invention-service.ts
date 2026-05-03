@@ -496,10 +496,11 @@ export class InventionService {
   }
 
   private async uniqueSlug(base: string): Promise<string> {
-    let slug = base || "open-invention";
+    const stem = base || "open-invention";
+    let slug = stem;
     let suffix = 2;
     while (await exists(this.inventionDir(slug))) {
-      slug = `${base}-${suffix}`;
+      slug = `${stem}-${suffix}`;
       suffix += 1;
     }
     return slug;

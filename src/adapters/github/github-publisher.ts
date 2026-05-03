@@ -164,7 +164,7 @@ export class GitHubPublisher {
     const releasePath = join(releaseRoot, "repo");
     await rm(releasePath, { recursive: true, force: true });
     await mkdir(releasePath, { recursive: true });
-    for (const entry of [
+    const requiredEntries = [
       "README.md",
       "SPEC.md",
       "DEFENSIVE_PUBLICATION.md",
@@ -174,13 +174,15 @@ export class GitHubPublisher {
       "CITATION.cff",
       "LICENSE",
       "prototype",
-      "tests",
-      "diagrams",
-    ]) {
+    ];
+    for (const entry of requiredEntries) {
       await cp(join(inventionDir, entry), join(releasePath, entry), {
         recursive: true,
         force: true,
       });
+    }
+    for (const entry of ["tests", "diagrams"]) {
+      await copyIfExists(join(inventionDir, entry), join(releasePath, entry));
     }
     await preparePublicEvidence(inventionDir, releasePath);
     await writeFile(

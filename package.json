@@ -1,0 +1,21 @@
+{
+  "name": "sovryn-os-v3",
+  "version": "3.0.0",
+  "description": "A local-first evidence kernel for AI-assisted coding and research work.",
+  "type": "module",
+  "license": "MIT",
+  "bin": {
+    "sovryn": "./dist/src/cli/index.js"
+  },
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "test": "npm run build && node --test dist/tests/*.test.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "devDependencies": {
+    "@types/node": "^22.15.3",
+    "typescript": "^5.8.3"
+  }
+}

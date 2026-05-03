@@ -12,7 +12,7 @@ before release.
 
 ```bash
 sovryn invent-open "A method for self-verifying autonomous research agents"
-sovryn node run alpha <mission-id>
+sovryn node run alpha <mission-id> --mode autonomous --max-steps 25
 sovryn invention review <mission-id>
 sovryn invention finalize <mission-id>
 sovryn publish-github <mission-id> --org sovryn-inventions --repo self-verifying-research-agents

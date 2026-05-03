@@ -3,6 +3,7 @@ import { access, readFile, rm, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { executeCli } from "../src/cli/index.js";
+import { evaluatePublicationPolicy } from "../src/core/publication/publication-policy.js";
 import { makeTempRepo } from "../src/testkit/temp-repo.js";
 
 test("invent-open creates an open invention mission and dossier files", async () => {
@@ -22,8 +23,11 @@ test("invent-open creates an open invention mission and dossier files", async ()
   const dossier = JSON.parse(await readFile(join(repo.root, mission.dossierPath), "utf8"));
   assert.equal(dossier.publicationMode, "draft");
   assert.equal(dossier.license, "Apache-2.0");
+  assert.ok(dossier.priorArt.some((item: string) => item.startsWith("github:")));
   await access(join(repo.root, mission.inventionPath, "evidence", "brief.json"));
-  await access(join(repo.root, mission.inventionPath, "evidence", "github_publication.json"));
+  await access(join(repo.root, mission.inventionPath, "evidence", "landscape-scan.json"));
+  await access(join(repo.root, mission.inventionPath, "evidence", "github-publication.json"));
+  await assert.rejects(access(join(repo.root, mission.inventionPath, "evidence", "github_publication.json")));
 });
 
 test("publication review blocks missing license", async () => {
@@ -94,9 +98,28 @@ test("publish-github dry-run reruns final verification and writes publication ev
   assert.equal(publication.pushed, false);
   const after = JSON.parse(await readFile(finalVerifyPath, "utf8"));
   assert.notEqual(after.evidenceHash, before.evidenceHash);
+  assert.notEqual(after.publicationSourceHash, before.publicationSourceHash);
   await access(join(repo.root, mission.inventionPath, "evidence", "publication-review.json"));
   await access(join(repo.root, mission.inventionPath, "evidence", "github-publication.json"));
   await access(join(repo.root, mission.inventionPath, "release", "repo", "PUBLICATION_NOTICE.md"));
+});
+
+test("publication policy blocks stale final verification source hash", async () => {
+  const { repo, mission } = await createOpenInvention();
+  const verify = await executeCli(["invention", "verify", mission.id, "--json"], repo.root);
+  assert.equal(verify.ok, true);
+  const finalVerify = (verify.data as any).verify;
+  await writeFile(join(repo.root, mission.inventionPath, "README.md"), "changed after verify\n", "utf8");
+  const dossier = JSON.parse(await readFile(join(repo.root, mission.dossierPath), "utf8"));
+  const review = await evaluatePublicationPolicy({
+    inventionDir: join(repo.root, mission.inventionPath),
+    mission,
+    dossier,
+    finalVerify,
+    target: { dryRun: true }
+  });
+  assert.equal(review.allowed, false);
+  assert.equal(checkPassed(review, "FINAL_VERIFY_FRESH"), false);
 });
 
 test("publish-github blocks non-finalized real publication", async () => {
@@ -128,6 +151,26 @@ test("Node Alpha local backend creates workspace logs and artifacts", async () =
   const artifacts = await executeCli(["node", "artifacts", "alpha", mission.id, "--json"], repo.root);
   assert.equal(artifacts.ok, true);
   assert.ok((artifacts.data as any).artifacts.artifacts.includes("evidence/brief.json"));
+});
+
+test("Node Alpha autonomous mode writes plan journal scores and research artifacts", async () => {
+  const { repo, mission } = await createOpenInvention();
+  await executeCli(["node", "register", "alpha", "--host", "local"], repo.root);
+  const run = await executeCli(["node", "run", "alpha", mission.id, "--mode", "autonomous", "--max-steps", "25", "--json"], repo.root);
+  assert.equal(run.ok, true);
+  const result = (run.data as any).result;
+  assert.equal(result.mode, "autonomous");
+  assert.equal(result.exitCode, 0);
+  assert.equal(result.commands.length, 8);
+  const evidenceDir = join(repo.root, mission.inventionPath, "evidence");
+  await access(join(evidenceDir, "research-plan.json"));
+  await access(join(evidenceDir, "command-journal.json"));
+  await access(join(evidenceDir, "artifact-score.json"));
+  await access(join(evidenceDir, "landscape-scan.md"));
+  await access(join(evidenceDir, "prior-art-mapping.md"));
+  const plan = JSON.parse(await readFile(join(evidenceDir, "research-plan.json"), "utf8"));
+  assert.equal(plan.mode, "autonomous");
+  assert.equal(plan.steps.every((step: any) => step.status === "completed"), true);
 });
 
 async function createOpenInvention() {

@@ -1,10 +1,11 @@
 #!/usr/bin/env node
 import { errorEnvelope, okEnvelope, type JsonEnvelope } from "../shared/json-envelope.js";
 import { AppError } from "../shared/errors.js";
-import { configExists } from "../core/config.js";
+import { configExists, loadConfig } from "../core/config.js";
 import { InventionService } from "../core/invention/invention-service.js";
 import { MissionService } from "../core/mission/mission-service.js";
 import { NodeManager } from "../core/node/node-manager.js";
+import { runCommand } from "../adapters/shell/command.js";
 import { loadPlugins } from "../plugins/loader.js";
 
 type ParsedArgs = {
@@ -38,7 +39,7 @@ Commands:
   sovryn publish-github <mission-id> --org <org> --repo <repo> [--dry-run] [--json]
   sovryn node register alpha --host local [--json]
   sovryn node status alpha [--json]
-  sovryn node run alpha <mission-id> [--json]
+  sovryn node run alpha <mission-id> [--mode validation|autonomous] [--max-steps 25] [--json]
   sovryn node logs alpha <mission-id> [--json]
   sovryn node artifacts alpha <mission-id> [--json]
   sovryn plugin list [--json]
@@ -200,9 +201,11 @@ async function ensureInitialized(root: string): Promise<void> {
 async function doctor(root: string, service: MissionService): Promise<Record<string, unknown>> {
   const git = await service.git.isRepo().catch(() => false);
   const config = await configExists(root).catch(() => false);
+  const github = config ? await githubDoctor(root) : null;
   return {
     git,
     config,
+    github,
     healthy: git && config,
     problems: [
       ...(git ? [] : ["not a Git work tree"]),
@@ -280,7 +283,10 @@ async function nodeCommand(parsed: ParsedArgs, root: string): Promise<Record<str
     case "run": {
       const missionId = parsed.positionals[2];
       if (!missionId) throw new AppError("MISSION_ID_REQUIRED", "node run requires a mission id.");
-      return manager.run(nodeId, missionId);
+      return manager.run(nodeId, missionId, {
+        mode: flagRunMode(parsed.flags),
+        maxSteps: flagInt(parsed.flags, "--max-steps", 25)
+      });
     }
     case "logs": {
       const missionId = parsed.positionals[2];
@@ -295,6 +301,46 @@ async function nodeCommand(parsed: ParsedArgs, root: string): Promise<Record<str
     default:
       throw new AppError("UNKNOWN_NODE_COMMAND", `Unknown node command: ${subcommand}`);
   }
+}
+
+function flagRunMode(flags: Map<string, string | boolean>): "validation" | "autonomous" {
+  const value = flagString(flags, "--mode") ?? "validation";
+  if (value !== "validation" && value !== "autonomous") {
+    throw new AppError("NODE_RUN_MODE_INVALID", "--mode must be validation or autonomous.", { mode: value });
+  }
+  return value;
+}
+
+function flagInt(flags: Map<string, string | boolean>, name: string, fallback: number): number {
+  const value = flagString(flags, name);
+  if (value === undefined) return fallback;
+  const parsed = Number(value);
+  if (!Number.isInteger(parsed) || parsed < 1) throw new AppError("FLAG_INVALID", `${name} must be a positive integer.`, { name, value });
+  return parsed;
+}
+
+async function githubDoctor(root: string): Promise<Record<string, unknown> & { healthy: boolean; problems: string[] }> {
+  const config = await loadConfig(root);
+  const tokenEnv = config.github?.tokenEnv ?? "SOVRYN_GITHUB_TOKEN";
+  const gh = await runCommand("gh --version", root, { allowNetwork: false }).catch(() => null);
+  const ghInstalled = gh !== null && gh.exitCode === 0;
+  const tokenPresent = Boolean(process.env[tokenEnv]);
+  const enabled = config.github?.enabled !== false;
+  const problems = [
+    ...(enabled && !ghInstalled ? ["gh CLI missing for GitHub publication"] : []),
+    ...(enabled && !tokenPresent ? [`${tokenEnv} is not set for real GitHub publication`] : [])
+  ];
+  return {
+    enabled,
+    healthy: !enabled || ghInstalled,
+    ghInstalled,
+    ghVersion: ghInstalled ? gh.stdout.split("\n")[0] : null,
+    tokenEnv,
+    tokenPresent,
+    defaultOrg: config.github?.defaultOrg ?? null,
+    defaultVisibility: config.github?.defaultVisibility ?? "public",
+    problems
+  };
 }
 
 function printHuman(envelope: JsonEnvelope): void {

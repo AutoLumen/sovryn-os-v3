@@ -5,6 +5,19 @@ export type ResearchProviderOutput = {
   artifacts: string[];
 };
 
+export type PriorArtSearchQuery = {
+  brief: string;
+  sources: Array<"web" | "github" | "papers" | "standards" | "patents">;
+};
+
+export type PriorArtSearchResult = {
+  title: string;
+  source: string;
+  url: string | null;
+  relevance: "low" | "medium" | "high";
+  note: string;
+};
+
 export interface ResearchProvider {
   research(brief: string): Promise<ResearchProviderOutput>;
 }
@@ -27,6 +40,22 @@ export interface DossierWriterProvider {
 
 export interface SafetyReviewProvider {
   review(dossier: InventionDossier): Promise<ResearchProviderOutput>;
+}
+
+export interface PriorArtSearchAdapter {
+  search(query: PriorArtSearchQuery): Promise<PriorArtSearchResult[]>;
+}
+
+export class MockPriorArtSearchAdapter implements PriorArtSearchAdapter {
+  async search(query: PriorArtSearchQuery): Promise<PriorArtSearchResult[]> {
+    return query.sources.map((source) => ({
+      title: `Manual ${source} search required for ${query.brief}`,
+      source,
+      url: null,
+      relevance: "medium",
+      note: "Deterministic MVP placeholder. Future adapters should query public sources and record citations."
+    }));
+  }
 }
 
 export class TemplateResearchProvider implements ResearchProvider, PriorArtProvider, InventionProvider, PrototypeProvider, DossierWriterProvider, SafetyReviewProvider {

@@ -8,9 +8,10 @@ import { readJson, writeJson } from "../../shared/fs.js";
 import { createMissionId } from "../../shared/ids.js";
 import { nowIso } from "../../shared/time.js";
 import { configExists, loadConfig, type SovrynConfig } from "../config.js";
-import { evaluatePublicationPolicy, type PublicationPolicyResult } from "../publication/publication-policy.js";
+import { evaluatePublicationPolicy, hashPublicationSource, type PublicationPolicyResult } from "../publication/publication-policy.js";
 import { Scout, PriorArtMapper, Inventor, Skeptic, Builder, DocWriter, Publisher } from "./roles.js";
-import { writePhaseEvidence, hashEvidence } from "./pipeline.js";
+import { writePhaseEvidence, hashEvidence, phaseEvidenceFileName } from "./pipeline.js";
+import { MockPriorArtSearchAdapter } from "./providers.js";
 import type { InventionDossier, InventionIndex, OpenInventionMissionState, ResearchPhaseName } from "./invention-types.js";
 import {
   APACHE_2_LICENSE,
@@ -42,6 +43,10 @@ export class InventionService {
 
     const scout = new Scout().run(brief);
     const priorArt = new PriorArtMapper().run(brief);
+    const priorArtSearchResults = await new MockPriorArtSearchAdapter().search({
+      brief,
+      sources: ["web", "github", "papers", "standards", "patents"]
+    });
     const dossier: InventionDossier = {
       id,
       slug,
@@ -74,7 +79,8 @@ export class InventionService {
       ],
       priorArt: [
         "Manual/agent research required: compare against public agent frameworks, lab notebooks, reproducibility tools, CI gates, and research artifact systems.",
-        priorArt.summary
+        priorArt.summary,
+        ...priorArtSearchResults.map((result) => `${result.source}: ${result.title} (${result.note})`)
       ],
       noveltyNotes: [
         "Hypothesis: combining Node Alpha autonomy with Sovryn-controlled publication gates creates a reusable open invention workflow.",
@@ -174,7 +180,13 @@ export class InventionService {
       inventionDir: this.inventionDir(mission.slug),
       mission,
       dossier,
-      finalVerify: { passed: verify.passed, evidenceHash: verify.evidenceHash, summary: String(verify.summary), completedAt: String(verify.completedAt) },
+      finalVerify: {
+        passed: verify.passed,
+        evidenceHash: verify.evidenceHash,
+        summary: String(verify.summary),
+        completedAt: String(verify.completedAt),
+        publicationSourceHash: String(verify.publicationSourceHash)
+      },
       target: { org: options.org ?? null, repo: options.repo ?? null, dryRun: true },
       requireFinalized: options.requireFinalized ?? false
     });
@@ -218,7 +230,13 @@ export class InventionService {
       inventionDir: this.inventionDir(mission.slug),
       mission,
       dossier,
-      finalVerify: { passed: verify.passed, evidenceHash: verify.evidenceHash, summary: String(verify.summary), completedAt: String(verify.completedAt) },
+      finalVerify: {
+        passed: verify.passed,
+        evidenceHash: verify.evidenceHash,
+        summary: String(verify.summary),
+        completedAt: String(verify.completedAt),
+        publicationSourceHash: String(verify.publicationSourceHash)
+      },
       target: request,
       requireFinalized: true
     });
@@ -334,7 +352,7 @@ export class InventionService {
 
   private async writePipelineEvidence(inventionDir: string, dossier: InventionDossier, _brief: string, phases: Array<[ResearchPhaseName, string, string[]]>): Promise<void> {
     for (const [phase, summary, artifacts] of phases) {
-      const evidence = await writePhaseEvidence(join(inventionDir, "evidence", `${phase}.json`), phase, summary, artifacts);
+      const evidence = await writePhaseEvidence(join(inventionDir, "evidence", phaseEvidenceFileName(phase)), phase, summary, artifacts);
       dossier.evidenceHashes[phase] = evidence.evidenceHash;
     }
     dossier.updatedAt = nowIso();
@@ -344,7 +362,9 @@ export class InventionService {
   private async runFinalVerify(mission: OpenInventionMissionState): Promise<Record<string, unknown> & { passed: boolean; evidenceHash: string }> {
     const inventionDir = this.inventionDir(mission.slug);
     const prototypeDir = join(inventionDir, "prototype");
+    const publicationSourceHashBefore = await hashPublicationSource(inventionDir);
     const result = await runCommand("npm test", prototypeDir, { allowNetwork: false });
+    const publicationSourceHash = await hashPublicationSource(inventionDir);
     const verify = {
       missionId: mission.id,
       command: "npm test",
@@ -355,6 +375,8 @@ export class InventionService {
       stderr: result.stderr,
       durationMs: result.durationMs,
       completedAt: nowIso(),
+      publicationSourceHashBefore,
+      publicationSourceHash,
       summary: result.exitCode === 0 ? "Prototype verification passed." : "Prototype verification failed.",
       evidenceHash: ""
     };

@@ -16,6 +16,10 @@ export const RESEARCH_PHASES: ResearchPhaseName[] = [
   "github_publication"
 ];
 
+export function phaseEvidenceFileName(phase: ResearchPhaseName): string {
+  return `${phase.replace(/_/g, "-")}.json`;
+}
+
 export async function writePhaseEvidence(path: string, phase: ResearchPhaseName, summary: string, artifacts: string[], errors: string[] = []): Promise<ResearchPhaseEvidence> {
   const startedAt = nowIso();
   const evidence: ResearchPhaseEvidence = {

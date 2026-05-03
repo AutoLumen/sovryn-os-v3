@@ -1,0 +1,21 @@
+{
+  "nodeId": "alpha",
+  "missionId": "mis_demo_open_invention",
+  "mode": "autonomous",
+  "entries": [
+    {
+      "stepId": "inspect-node",
+      "phase": "brief",
+      "command": "node --version && npm --version && git --version",
+      "cwd": ".",
+      "allowNetwork": false,
+      "startedAt": "2026-05-03T00:00:00.000Z",
+      "completedAt": "2026-05-03T00:00:00.000Z",
+      "exitCode": 0,
+      "durationMs": 1,
+      "stdoutPath": "evidence/command-logs/inspect-node.stdout.txt",
+      "stderrPath": "evidence/command-logs/inspect-node.stderr.txt"
+    }
+  ],
+  "updatedAt": "2026-05-03T00:00:00.000Z"
+}

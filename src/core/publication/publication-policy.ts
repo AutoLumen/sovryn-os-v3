@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { readdir, readFile, stat } from "node:fs/promises";
 import { join, relative } from "node:path";
 import { scanSecrets, type SecretFinding } from "../../shared/redaction.js";
@@ -33,7 +34,7 @@ export async function evaluatePublicationPolicy(input: {
   inventionDir: string;
   mission: OpenInventionMissionState;
   dossier: InventionDossier;
-  finalVerify: { passed: boolean; evidenceHash: string | null; summary: string; completedAt?: string | null };
+  finalVerify: { passed: boolean; evidenceHash: string | null; summary: string; completedAt?: string | null; publicationSourceHash?: string | null };
   target?: { org?: string | null; repo?: string | null; dryRun?: boolean };
   requireFinalized?: boolean;
 }): Promise<PublicationPolicyResult> {
@@ -99,15 +100,15 @@ export async function evaluatePublicationPolicy(input: {
     details: { evidenceHash: input.finalVerify.evidenceHash, summary: input.finalVerify.summary }
   });
 
-  const latestContentModifiedAt = await latestPublicationContentModifiedAt(input.inventionDir);
-  const finalVerifyCompletedAt = input.finalVerify.completedAt ? Date.parse(input.finalVerify.completedAt) : NaN;
+  const currentPublicationSourceHash = await hashPublicationSource(input.inventionDir);
   checks.push({
     code: "FINAL_VERIFY_FRESH",
-    passed: Number.isFinite(finalVerifyCompletedAt) && finalVerifyCompletedAt + 1000 >= latestContentModifiedAt,
-    message: "Final verification must run after publication source files are modified.",
+    passed: Boolean(input.finalVerify.publicationSourceHash) && input.finalVerify.publicationSourceHash === currentPublicationSourceHash,
+    message: "Final verification must match the current publication source hash.",
     details: {
       finalVerifyCompletedAt: input.finalVerify.completedAt ?? null,
-      latestContentModifiedAt: Number.isFinite(latestContentModifiedAt) ? new Date(latestContentModifiedAt).toISOString() : null
+      verifiedPublicationSourceHash: input.finalVerify.publicationSourceHash ?? null,
+      currentPublicationSourceHash
     }
   });
 
@@ -212,6 +213,13 @@ async function nonEmpty(path: string): Promise<boolean> {
 
 async function listFiles(dir: string): Promise<string[]> {
   const out: string[] = [];
+  try {
+    const info = await stat(dir);
+    if (info.isFile()) return [dir];
+    if (!info.isDirectory()) return out;
+  } catch {
+    return out;
+  }
   let entries: string[] = [];
   try {
     entries = await readdir(dir);
@@ -244,7 +252,22 @@ async function listBlockedPublicationPaths(root: string): Promise<string[]> {
     .sort();
 }
 
-async function latestPublicationContentModifiedAt(root: string): Promise<number> {
+export async function hashPublicationSource(root: string): Promise<string> {
+  const hash = createHash("sha256");
+  const files = [];
+  for (const entry of publicationSourceEntries(root)) files.push(...(await listFiles(entry)));
+  for (const file of files.sort()) {
+    const rel = relative(root, file);
+    const content = await readFile(file);
+    hash.update(rel);
+    hash.update("\0");
+    hash.update(createHash("sha256").update(content).digest("hex"));
+    hash.update("\0");
+  }
+  return hash.digest("hex");
+}
+
+function publicationSourceEntries(root: string): string[] {
   const entries = [
     "README.md",
     "SPEC.md",
@@ -258,26 +281,7 @@ async function latestPublicationContentModifiedAt(root: string): Promise<number>
     "tests",
     "diagrams"
   ];
-  let latest = 0;
-  for (const entry of entries) {
-    latest = Math.max(latest, await latestMtime(join(root, entry)));
-  }
-  return latest;
-}
-
-async function latestMtime(path: string): Promise<number> {
-  let info;
-  try {
-    info = await stat(path);
-  } catch {
-    return 0;
-  }
-  if (info.isDirectory()) {
-    let latest = info.mtimeMs;
-    for (const entry of await readdir(path)) latest = Math.max(latest, await latestMtime(join(path, entry)));
-    return latest;
-  }
-  return info.mtimeMs;
+  return entries.map((entry) => join(root, entry));
 }
 
 async function readTextIfSafe(path: string): Promise<string | null> {

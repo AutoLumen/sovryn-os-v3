@@ -8,7 +8,7 @@ import { InventionService } from "../invention/invention-service.js";
 import { NODE_ALPHA_CAPABILITIES } from "./capabilities.js";
 import { LocalNodeAlphaBackend, type NodeAlphaBackend } from "./node-alpha.js";
 import { assertNodeCapability } from "./node-policy.js";
-import type { NodeArtifactIndex, NodeBackend, NodeRegistration, NodeRunResult, NodeStatus } from "./node-types.js";
+import type { NodeArtifactIndex, NodeBackend, NodeRegistration, NodeRunOptions, NodeRunResult, NodeStatus } from "./node-types.js";
 
 export class NodeManager {
   constructor(private readonly root: string) {}
@@ -54,7 +54,7 @@ export class NodeManager {
     };
   }
 
-  async run(id: string, missionId: string): Promise<{ result: NodeRunResult }> {
+  async run(id: string, missionId: string, options: NodeRunOptions = { mode: "validation", maxSteps: 25 }): Promise<{ result: NodeRunResult }> {
     const registration = await this.readRegistration(id);
     assertNodeCapability(registration, "workspace:create");
     assertNodeCapability(registration, "command:run");
@@ -62,7 +62,7 @@ export class NodeManager {
     assertNodeCapability(registration, "artifacts:collect");
     const inventionService = new InventionService(this.root);
     const mission = await inventionService.readMission(missionId);
-    const result = await this.backend(registration).runOpenInvention(mission);
+    const result = await this.backend(registration).runOpenInvention(mission, options);
     await inventionService.recordNodeRun(mission.id, registration.id, result.exitCode === 0 ? "verified" : "blocked");
     return { result };
   }

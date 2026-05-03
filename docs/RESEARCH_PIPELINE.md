@@ -19,6 +19,11 @@ Each phase writes evidence to:
 .sovryn/inventions/<slug>/evidence/<phase>.json
 ```
 
+Phase filenames use hyphens, for example `landscape-scan.json`,
+`prior-art-mapping.json`, `publication-review.json`, and
+`github-publication.json`. The typed phase names remain underscore-separated in
+JSON for stable programmatic use.
+
 Phase evidence includes status, timestamps, summary, artifacts, evidence hash,
 and errors. The first implementation is template-based and deterministic. Future
 providers may use external LLMs, local models, search APIs, browser automation,

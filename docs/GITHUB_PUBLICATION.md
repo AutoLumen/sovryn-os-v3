@@ -33,5 +33,13 @@ The publisher stages a clean release repository under
 and prototype, creates a release tag, and pushes through GitHub CLI using the
 configured token environment variable.
 
+`sovryn doctor --json` reports GitHub publication prerequisites:
+
+- whether GitHub publishing is enabled
+- whether `gh` is installed
+- which token environment variable is configured
+- whether that environment variable is present, without exposing the value
+- default org and visibility
+
 Sovryn publishes Open Inventions and Defensive Publications. It does not file
 legal patents.

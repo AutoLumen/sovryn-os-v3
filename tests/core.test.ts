@@ -207,6 +207,20 @@ test("doctor detects missing Git repo and config problems", async () => {
   assert.equal((outside.data as any).git, false);
 });
 
+test("doctor reports GitHub publisher prerequisites without exposing tokens", async () => {
+  const repo = await makeTempRepo();
+  await executeCli(["init"], repo.root);
+  const response = await executeCli(["doctor", "--json"], repo.root);
+  assert.equal(response.ok, true);
+  const github = (response.data as any).github;
+  assert.equal(github.enabled, true);
+  assert.equal(github.tokenEnv, "SOVRYN_GITHUB_TOKEN");
+  assert.equal(typeof github.ghInstalled, "boolean");
+  assert.equal(typeof github.tokenPresent, "boolean");
+  assert.equal(github.defaultVisibility, "public");
+  assert.doesNotMatch(JSON.stringify(github), /ghp_|github_pat_|sk-/);
+});
+
 test("plugin loader loads sample plugin", () => {
   const plugins = loadBuiltinPlugins();
   assert.equal(plugins[0].name, "sample");

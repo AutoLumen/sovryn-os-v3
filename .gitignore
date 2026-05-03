@@ -3,6 +3,7 @@ dist/
 .DS_Store
 .sovryn/worktrees/
 .sovryn/logs/
+.sovryn/postgres-artifacts/
 coverage/
 *.log
 graphify-out/cache/

@@ -22,8 +22,9 @@ export type SovrynPlugin = {
 };
 ```
 
-Plugins receive a constrained context with root paths, config, and artifact
-helpers. They must return stable JSON-compatible data and must not bypass policy
-or finalize gates.
+Plugins receive a constrained context with the repo root. They must return
+stable JSON-compatible data and must not bypass policy or finalize gates.
 
-The included sample plugin is only a loader fixture.
+The included sample plugin is a loader fixture. `packages/sovryn-plugin-gitnexus`
+is a real optional plugin package that shells out to a local `gitnexus` command
+or `SOVRYN_GITNEXUS_COMMAND`.

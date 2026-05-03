@@ -5,6 +5,7 @@ import test from "node:test";
 import { executeCli } from "../src/cli/index.js";
 import { discoverVerifyCommands } from "../src/core/verify/discovery.js";
 import { DEFAULT_CONFIG } from "../src/core/config.js";
+import { createStore } from "../src/core/storage/create-store.js";
 import { loadBuiltinPlugins } from "../src/plugins/loader.js";
 import { redactSecrets } from "../src/shared/redaction.js";
 import { makeTempRepo } from "../src/testkit/temp-repo.js";
@@ -171,6 +172,92 @@ test("plugin loader loads sample plugin", () => {
   const plugins = loadBuiltinPlugins();
   assert.equal(plugins[0].name, "sample");
   assert.equal(plugins[0].commands?.[0].name, "sample.echo");
+  assert.ok(plugins.some((plugin) => plugin.name === "gitnexus"));
+});
+
+test("plugin run executes gitnexus plugin command", async () => {
+  const repo = await makeTempRepo();
+  const previous = process.env.SOVRYN_GITNEXUS_COMMAND;
+  process.env.SOVRYN_GITNEXUS_COMMAND = "printf gitnexus-fixture";
+  try {
+    const response = await executeCli(["plugin", "run", "gitnexus", "status", "--json"], repo.root);
+    assert.equal(response.ok, true);
+    assert.equal((response.data as any).plugin, "gitnexus");
+    assert.equal((response.data as any).result.stdout, "gitnexus-fixture");
+  } finally {
+    if (previous === undefined) delete process.env.SOVRYN_GITNEXUS_COMMAND;
+    else process.env.SOVRYN_GITNEXUS_COMMAND = previous;
+  }
+});
+
+test("shell runner accepts one-off shell command without env configuration", async () => {
+  const repo = await makeTempRepo();
+  await executeCli(["init"], repo.root);
+  const response = await executeCli([
+    "spawn",
+    "shell goal",
+    "--runner",
+    "shell",
+    "--shell-command",
+    "node -e \"require('fs').writeFileSync('shell-runner.txt','ok\\n')\""
+  ], repo.root);
+  assert.equal(response.ok, true);
+  await access(join((response.data as any).mission.worktreePath, "shell-runner.txt"));
+});
+
+test("network policy blocks network-like runner commands", async () => {
+  const repo = await makeTempRepo();
+  await executeCli(["init"], repo.root);
+  const response = await executeCli([
+    "spawn",
+    "network probe",
+    "--runner",
+    "shell",
+    "--shell-command",
+    "curl https://example.com"
+  ], repo.root);
+  assert.equal(response.ok, false);
+  assert.equal(response.errors[0].code, "NETWORK_BLOCKED");
+});
+
+test("ssh runner rejects password environment and requires network allowance", async () => {
+  const repo = await makeTempRepo();
+  await executeCli(["init"], repo.root);
+  const response = await executeCli(["spawn", "remote", "--runner", "ssh"], repo.root);
+  assert.equal(response.ok, false);
+  assert.equal(response.errors[0].code, "NETWORK_BLOCKED");
+});
+
+test("ssh runner forbids password environment when network is allowed", async () => {
+  const repo = await makeTempRepo();
+  await executeCli(["init"], repo.root);
+  const configPath = join(repo.root, ".sovryn", "config.json");
+  const config = JSON.parse(await readFile(configPath, "utf8"));
+  config.policy.allowNetwork = true;
+  config.runner.ssh.host = "example.com";
+  await writeFile(configPath, `${JSON.stringify(config, null, 2)}\n`, "utf8");
+  const passwordEnv = "SOVRYN_SSH_" + "PASSWORD";
+  const previous = process.env[passwordEnv];
+  process.env[passwordEnv] = "nope";
+  try {
+    const response = await executeCli(["spawn", "remote", "--runner", "ssh"], repo.root);
+    assert.equal(response.ok, false);
+    assert.equal(response.errors[0].code, "PASSWORD_SSH_FORBIDDEN");
+  } finally {
+    if (previous === undefined) delete process.env[passwordEnv];
+    else process.env[passwordEnv] = previous;
+  }
+});
+
+test("postgres store is an optional adapter and requires configured url env", () => {
+  const config = {
+    ...DEFAULT_CONFIG,
+    storage: {
+      driver: "postgres" as const,
+      postgres: { urlEnv: "SOVRYN_TEST_DATABASE_URL", schema: "public" }
+    }
+  };
+  assert.throws(() => createStore("/tmp/sovryn-no-db", config), /SOVRYN_TEST_DATABASE_URL/);
 });
 
 test("finalize merges approved mission into main", async () => {

@@ -16,7 +16,7 @@ const HELP = `Sovryn OS v3
 
 Commands:
   sovryn init [--json]
-  sovryn spawn "<goal>" [--runner fake|shell|codex] [--json]
+  sovryn spawn "<goal>" [--runner fake|shell|codex|ssh] [--shell-command "..."] [--json]
   sovryn continue <mission-id> [--json]
   sovryn status [--json]
   sovryn log <mission-id> [--json]
@@ -27,12 +27,15 @@ Commands:
   sovryn finalize <mission-id> [--json]
   sovryn reject <mission-id> [--json]
   sovryn doctor [--json]
+  sovryn plugin list [--json]
+  sovryn plugin run <plugin> <command> [args...] [--json]
 `;
 
 export async function executeCli(argv: string[], root = process.cwd()): Promise<JsonEnvelope> {
   const parsed = parseArgs(argv);
   const service = new MissionService(root);
   try {
+    rejectForbiddenSecretArgs(parsed);
     switch (parsed.command) {
       case "help":
         return okEnvelope("help", { help: HELP });
@@ -43,7 +46,9 @@ export async function executeCli(argv: string[], root = process.cwd()): Promise<
       case "spawn": {
         const goal = parsed.positionals.join(" ").trim();
         if (!goal) throw new AppError("GOAL_REQUIRED", "spawn requires a goal.");
-        const result = await service.spawn(goal, flagString(parsed.flags, "--runner"));
+        const result = await service.spawn(goal, flagString(parsed.flags, "--runner"), {
+          shellCommand: flagString(parsed.flags, "--shell-command")
+        });
         return okEnvelope("mission.spawn", result, { artifactRefs: result.artifactRefs });
       }
       case "continue": {
@@ -53,15 +58,15 @@ export async function executeCli(argv: string[], root = process.cwd()): Promise<
       }
       case "status": {
         await ensureInitialized(root);
-        return okEnvelope("status", { missions: await service.store.listMissions() });
+        return okEnvelope("status", { missions: await service.listMissions() });
       }
       case "log": {
         const id = requiredId(parsed);
-        return okEnvelope("mission.log", { id, log: await service.store.readJournal(id) });
+        return okEnvelope("mission.log", { id, log: await service.readJournal(id) });
       }
       case "diff": {
         const id = requiredId(parsed);
-        const mission = await service.store.readMission(id);
+        const mission = await service.readMission(id);
         const summary = await service.git.diffSummary(mission.worktreePath, mission.baseBranch);
         const patch = await service.git.diffPatch(mission.worktreePath, mission.baseBranch);
         return okEnvelope("mission.diff", { id, summary, patch });
@@ -94,7 +99,7 @@ export async function executeCli(argv: string[], root = process.cwd()): Promise<
       case "doctor":
         return okEnvelope("doctor", await doctor(root, service));
       case "plugin":
-        return okEnvelope("plugin", pluginCommand(parsed));
+        return okEnvelope("plugin", await pluginCommand(parsed, root));
       default:
         throw new AppError("UNKNOWN_COMMAND", `Unknown command: ${parsed.command}. Use sovryn --help.`);
     }
@@ -143,6 +148,14 @@ function flagString(flags: Map<string, string | boolean>, name: string): string 
   return typeof value === "string" ? value : undefined;
 }
 
+function rejectForbiddenSecretArgs(parsed: ParsedArgs): void {
+  for (const key of parsed.flags.keys()) {
+    if (/^--(password|secret|token|api-key|apikey|credential)$/i.test(key)) {
+      throw new AppError("SECRET_ARG_FORBIDDEN", `${key} is forbidden. Use environment or secret-command hooks with redaction.`);
+    }
+  }
+}
+
 async function ensureInitialized(root: string): Promise<void> {
   if (!(await configExists(root))) throw new AppError("CONFIG_MISSING", "Run sovryn init first.");
 }
@@ -161,11 +174,32 @@ async function doctor(root: string, service: MissionService): Promise<Record<str
   };
 }
 
-function pluginCommand(parsed: ParsedArgs): Record<string, unknown> {
+async function pluginCommand(parsed: ParsedArgs, root: string): Promise<Record<string, unknown>> {
   const subcommand = parsed.positionals[0] ?? "list";
   const plugins = loadBuiltinPlugins();
   if (subcommand === "list") {
     return { plugins: plugins.map((plugin) => ({ name: plugin.name, version: plugin.version })) };
+  }
+  if (subcommand === "run") {
+    const pluginName = parsed.positionals[1];
+    const commandName = parsed.positionals[2];
+    if (!pluginName || !commandName) {
+      throw new AppError("PLUGIN_RUN_USAGE", "Use: sovryn plugin run <plugin> <command> [args...]");
+    }
+    const plugin = plugins.find((candidate) => candidate.name === pluginName);
+    if (!plugin) throw new AppError("PLUGIN_NOT_FOUND", `Plugin not found: ${pluginName}`, { plugin: pluginName });
+    const command = plugin.commands?.find((candidate) => candidate.name === commandName || candidate.name === `${pluginName}.${commandName}`);
+    if (!command) {
+      throw new AppError("PLUGIN_COMMAND_NOT_FOUND", `Plugin command not found: ${pluginName} ${commandName}`, {
+        plugin: pluginName,
+        command: commandName
+      });
+    }
+    return {
+      plugin: plugin.name,
+      command: command.name,
+      result: await command.run(parsed.positionals.slice(3), { root })
+    };
   }
   throw new AppError("UNKNOWN_PLUGIN_COMMAND", `Unknown plugin command: ${subcommand}`);
 }

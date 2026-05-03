@@ -8,7 +8,8 @@ export async function runVerify(worktreePath: string, config: SovrynConfig): Pro
   const results = [];
   for (const command of commands) {
     const result = await runCommand(command, worktreePath, {
-      truncateOutputChars: config.output.truncateOutputChars
+      truncateOutputChars: config.output.truncateOutputChars,
+      allowNetwork: config.policy.allowNetwork
     });
     results.push({
       command,

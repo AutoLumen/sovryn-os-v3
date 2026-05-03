@@ -1,0 +1,8 @@
+{
+  "name": "sovryn-plugin-gitnexus",
+  "version": "0.1.0",
+  "description": "GitNexus plugin for Sovryn OS v3.",
+  "type": "module",
+  "license": "MIT",
+  "main": "./dist/index.js"
+}

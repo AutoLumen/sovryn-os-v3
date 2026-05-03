@@ -30,6 +30,8 @@ node dist/src/cli/index.js --help
 ```bash
 sovryn init
 sovryn spawn "goal" --runner fake --json
+sovryn spawn "goal" --runner shell --shell-command "npm test" --json
+sovryn spawn "goal" --runner ssh --json
 sovryn continue <mission-id> --json
 sovryn status --json
 sovryn log <mission-id> --json
@@ -40,6 +42,8 @@ sovryn approve <mission-id> --json
 sovryn finalize <mission-id> --json
 sovryn reject <mission-id> --json
 sovryn doctor --json
+sovryn plugin list --json
+sovryn plugin run gitnexus status --json
 ```
 
 Every command supports stable JSON output via `--json`.
@@ -58,24 +62,30 @@ Every command supports stable JSON output via `--json`.
 ## What Sovryn Does Not Do
 
 - It does not decide truth with an LLM.
-- It does not ship OQP, GitNexus, remote SSH, Postgres, or research workflows in
-  the core.
+- It does not ship OQP or research workflows in the core.
 - It does not implement password SSH.
 - It does not store unredacted secrets in prompts, logs, mission files, or
   artifacts.
 
 ## Default Storage
 
-File storage is the default and only required storage driver in v3 core.
-Postgres and dual-store migration modes belong behind adapters after the file
-store remains stable.
+File storage is the default storage driver. Postgres is available as an optional
+adapter through `storage.driver = "postgres"` and `SOVRYN_DATABASE_URL` or the
+configured `storage.postgres.urlEnv`.
 
 ## Plugins
 
 The plugin API is intentionally small. Plugins can register commands, verify
 providers, artifact parsers, and review enrichers. Domain logic such as OQP,
-GitNexus, remote execution, deploy, and lab workflows belongs in plugins, not in
-the core.
+deploy, and lab workflows belongs in plugins, not in the core.
+
+This repo includes `sovryn-plugin-gitnexus` as an optional plugin package:
+
+```bash
+sovryn plugin run gitnexus status --json
+sovryn plugin run gitnexus analyze --json
+sovryn plugin run gitnexus impact MissionService --json
+```
 
 See `docs/PLUGIN_API.md`.
 
@@ -83,6 +93,8 @@ See `docs/PLUGIN_API.md`.
 
 Worktrees are enabled by default. Secrets in logs and evidence are redacted.
 Finalize runs a secret scan over diff, prompts, stdout, stderr, verify output,
-and review artifacts before merging.
+and review artifacts before merging. Runner and verify commands also enforce the
+network policy by blocking common network tools when `policy.allowNetwork` is
+false.
 
 See `docs/SECURITY.md`.

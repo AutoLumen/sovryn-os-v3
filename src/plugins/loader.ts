@@ -1,7 +1,8 @@
 import type { SovrynPlugin } from "./types.js";
+import { createGitNexusPlugin } from "../../packages/sovryn-plugin-gitnexus/src/index.js";
 
 export function loadBuiltinPlugins(): SovrynPlugin[] {
-  return [samplePlugin()];
+  return [samplePlugin(), createGitNexusPlugin()];
 }
 
 export function samplePlugin(): SovrynPlugin {

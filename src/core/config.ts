@@ -7,10 +7,18 @@ export type RiskLevel = "low" | "medium" | "high" | "critical";
 export type SovrynConfig = {
   version: 1;
   runner: {
-    default: "codex" | "fake" | "shell";
+    default: "codex" | "fake" | "shell" | "ssh";
     command: string;
     args: string[];
     shellCommand?: string;
+    ssh?: {
+      host: string | null;
+      user: string | null;
+      port: number | null;
+      identityFile: string | null;
+      command: string;
+      sshCommand: string;
+    };
   };
   git: {
     useWorktrees: true;
@@ -31,7 +39,11 @@ export type SovrynConfig = {
     allowNetwork: boolean;
   };
   storage: {
-    driver: "file";
+    driver: "file" | "postgres";
+    postgres?: {
+      urlEnv: string;
+      schema: string;
+    };
   };
   output: {
     truncateOutputChars: number;
@@ -43,7 +55,16 @@ export const DEFAULT_CONFIG: SovrynConfig = {
   runner: {
     default: "codex",
     command: "codex",
-    args: ["exec"]
+    args: ["exec"],
+    shellCommand: "sh -c 'cat >/dev/null; printf \"shell runner completed\\n\"'",
+    ssh: {
+      host: null,
+      user: null,
+      port: null,
+      identityFile: null,
+      command: "sh -s",
+      sshCommand: "ssh"
+    }
   },
   git: {
     useWorktrees: true,
@@ -64,7 +85,11 @@ export const DEFAULT_CONFIG: SovrynConfig = {
     allowNetwork: false
   },
   storage: {
-    driver: "file"
+    driver: "file",
+    postgres: {
+      urlEnv: "SOVRYN_DATABASE_URL",
+      schema: "public"
+    }
   },
   output: {
     truncateOutputChars: 12000

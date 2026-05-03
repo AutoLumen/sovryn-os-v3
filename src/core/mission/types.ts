@@ -22,6 +22,7 @@ export type MissionState = {
   goal: string;
   status: MissionStatus;
   runner: string;
+  runnerCommand: string | null;
   branch: string;
   baseBranch: string;
   worktreePath: string;

@@ -87,6 +87,23 @@ test("invent-open creates an open invention mission and dossier files", async ()
   assert.equal(publicSourceSearch.mockPlaceholderCount, 5);
   assert.equal(publicSourceSearch.concreteResultCount, 0);
   await access(
+    join(repo.root, mission.inventionPath, "evidence", "source-readings.json"),
+  );
+  const sourceReadings = JSON.parse(
+    await readFile(
+      join(
+        repo.root,
+        mission.inventionPath,
+        "evidence",
+        "source-readings.json",
+      ),
+      "utf8",
+    ),
+  );
+  assert.equal(sourceReadings.status, "disabled");
+  assert.equal(sourceReadings.disabledCount, 0);
+  assert.equal(sourceReadings.skippedCount, 5);
+  await access(
     join(
       repo.root,
       mission.inventionPath,
@@ -668,6 +685,30 @@ test("Node Alpha public research phase reviews source evidence kinds", async () 
       note: "Adapter failure.",
     },
   ]);
+  await replaceSourceReadingsEvidence(repo.root, mission, [
+    {
+      title: "sovryn/self-verifying-agent-research",
+      sourceType: "github",
+      kind: "concrete_source",
+      url: "https://github.com/sovryn/self-verifying-agent-research",
+      citation: "sovryn/self-verifying-agent-research repository",
+      provider: "github-readme-reader",
+      readStatus: "read",
+      summary:
+        "README describes reproducible source evidence for autonomous agent research.",
+      keyTechnicalMechanism:
+        "Repository uses signed evidence journals and repeatable verification commands.",
+      overlapWithInvention:
+        "Deep README reading overlaps with autonomous research evidence.",
+      differenceFromInvention:
+        "Repository does not include Sovryn-controlled final publication gates.",
+      noveltyRisk: "high",
+      prototypeRelevance: "high",
+      metadata: {
+        language: "TypeScript",
+      },
+    },
+  ]);
   await executeCli(["node", "register", "alpha", "--host", "local"], repo.root);
   const run = await executeCli(
     ["node", "run", "alpha", mission.id, "--mode", "autonomous", "--json"],
@@ -684,12 +725,20 @@ test("Node Alpha public research phase reviews source evidence kinds", async () 
   assert.deepEqual(sourceReviews.stats.sourceTypesReviewed, ["github"]);
   assert.equal(sourceReviews.stats.queryLinksUnreviewed, 1);
   assert.equal(sourceReviews.stats.adapterFailures, 1);
+  assert.equal(sourceReviews.stats.deepSourcesRead, 1);
+  assert.equal(sourceReviews.stats.metadataOnlySources, 0);
   assert.equal(sourceReviews.stats.highNoveltyRiskSources, 1);
   assert.equal(
     sourceReviews.reviews.find(
       (review: any) => review.kind === "concrete_source",
     ).reviewStatus,
-    "reviewed_metadata",
+    "reviewed_deep_source",
+  );
+  assert.match(
+    sourceReviews.reviews.find(
+      (review: any) => review.kind === "concrete_source",
+    ).keyTechnicalMechanism,
+    /signed evidence journals/,
   );
   assert.equal(
     sourceReviews.reviews.find((review: any) => review.kind === "query_link")
@@ -725,6 +774,8 @@ test("Node Alpha public research phase reviews source evidence kinds", async () 
   assert.deepEqual(score.sourceTypesReviewed, ["github"]);
   assert.equal(score.queryLinksUnreviewed, 1);
   assert.equal(score.adapterFailures, 1);
+  assert.equal(score.deepSourcesRead, 1);
+  assert.equal(score.metadataOnlySources, 0);
   assert.equal(score.highNoveltyRiskSources, 1);
   assert.equal(score.researchEvidenceScore > 0, true);
 });
@@ -795,6 +846,9 @@ test("GitHub dry-run stages only public evidence", async () => {
       "public",
       "public-source-search.summary.json",
     ),
+  );
+  await access(
+    join(releasePath, "evidence", "public", "source-readings.summary.json"),
   );
   await access(join(releasePath, "SOURCE_REVIEWS.md"));
   await access(join(releasePath, "RESEARCH_SYNTHESIS.md"));
@@ -908,6 +962,49 @@ async function replacePriorArtEvidence(
     "utf8",
   );
   await writeFile(dossierPath, `${JSON.stringify(dossier, null, 2)}\n`, "utf8");
+}
+
+async function replaceSourceReadingsEvidence(
+  root: string,
+  mission: any,
+  readings: any[],
+): Promise<void> {
+  const evidencePath = join(
+    root,
+    mission.inventionPath,
+    "evidence",
+    "source-readings.json",
+  );
+  const read = readings.filter((item) => item.readStatus === "read");
+  const skipped = readings.filter((item) => item.readStatus === "skipped");
+  const unsupported = readings.filter(
+    (item) => item.readStatus === "unsupported",
+  );
+  const failed = readings.filter((item) => item.readStatus === "failed");
+  const disabled = readings.filter((item) => item.readStatus === "disabled");
+  const concreteRead = read.filter((item) => item.kind === "concrete_source");
+  const evidence = {
+    kind: "source_readings",
+    mode: "deep_source",
+    status: read.length > 0 && failed.length === 0 ? "ok" : "degraded",
+    resultCount: readings.length,
+    readCount: read.length,
+    skippedCount: skipped.length,
+    unsupportedCount: unsupported.length,
+    failedCount: failed.length,
+    disabledCount: disabled.length,
+    concreteReadCount: concreteRead.length,
+    sourceTypesRead: uniqueSourceTypes(concreteRead),
+    readings,
+    completedAt: "2026-05-03T00:00:00.000Z",
+    evidenceHash: "",
+  };
+  evidence.evidenceHash = hashEvidence(evidence);
+  await writeFile(
+    evidencePath,
+    `${JSON.stringify(evidence, null, 2)}\n`,
+    "utf8",
+  );
 }
 
 function uniqueSourceTypes(items: any[]): string[] {

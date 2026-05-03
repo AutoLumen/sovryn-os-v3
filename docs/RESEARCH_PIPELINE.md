@@ -56,6 +56,27 @@ and general web search links. Enable them in `.sovryn/config.json`:
 }
 ```
 
+Deep source reading is a separate opt-in layer. It reads concrete public-source
+results through provider adapters and writes
+`.sovryn/inventions/<slug>/evidence/source-readings.json`:
+
+```json
+{
+  "research": {
+    "sourceReading": {
+      "enabled": true,
+      "timeoutMs": 8000,
+      "maxReadBytes": 20000,
+      "githubTokenEnv": null
+    }
+  }
+}
+```
+
+The first deep readers cover GitHub repository metadata/README, arXiv abstract
+metadata, and OpenAlex work metadata including reconstructed inverted abstracts.
+They still produce research evidence, not legal conclusions.
+
 Public-source search writes
 `.sovryn/inventions/<slug>/evidence/public-source-search.json`. Retrieved
 results are technical research leads, not legal prior-art conclusions.
@@ -79,9 +100,10 @@ public-source-search evidence and writes:
 .sovryn/inventions/<slug>/RESEARCH_SYNTHESIS.md
 ```
 
-Concrete sources are reviewed at metadata level. Query links are marked as
-unreviewed research leads. Adapter failures are marked for retry/manual review.
-Mock placeholders remain deterministic MVP placeholders. The phase also updates
+Concrete sources are reviewed at metadata level, or at deep-source level when a
+matching source reading is available. Query links are marked as unreviewed
+research leads. Adapter failures are marked for retry/manual review. Mock
+placeholders remain deterministic MVP placeholders. The phase also updates
 `PRIOR_ART.md`, `NOVELTY_NOTES.md`, `evidence/skeptic-review.md`, and
 `evidence/artifact-score.json`.
 
@@ -96,4 +118,6 @@ Release packages include only a curated
 citations, kinds, source types, relevance, and aggregate counts. Raw adapter
 errors and private local execution details are not copied into public evidence.
 When present, `evidence/source-reviews.json`, `SOURCE_REVIEWS.md`, and
-`RESEARCH_SYNTHESIS.md` are also staged as public research artifacts.
+`RESEARCH_SYNTHESIS.md` are also staged as public research artifacts. Source
+readings are published as a curated
+`evidence/public/source-readings.summary.json`.

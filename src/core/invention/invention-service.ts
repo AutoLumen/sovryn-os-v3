@@ -35,6 +35,10 @@ import {
   priorArtResultsToMatrix,
   summarizePriorArtSearchResults,
 } from "./providers.js";
+import {
+  createSourceReadingEvidence,
+  createSourceReadingProvider,
+} from "./source-readers.js";
 import type {
   InventionDossier,
   InventionIndex,
@@ -108,6 +112,15 @@ export class InventionService {
     publicSourceSearchEvidence.evidenceHash = hashEvidence(
       publicSourceSearchEvidence,
     );
+    const sourceReadings = await createSourceReadingProvider(config).read({
+      brief,
+      sources: priorArtSearchResults,
+    });
+    const sourceReadingEvidence = createSourceReadingEvidence(
+      sourceReadings,
+      config.research?.sourceReading?.enabled ? "deep_source" : "disabled",
+      nowIso(),
+    );
     const dossier: InventionDossier = {
       id,
       slug,
@@ -170,12 +183,17 @@ export class InventionService {
       updatedAt: createdAt,
       evidenceHashes: {
         public_source_search: publicSourceSearchEvidence.evidenceHash,
+        source_readings: sourceReadingEvidence.evidenceHash,
       },
     };
 
     await writeJson(
       join(inventionDir, "evidence", "public-source-search.json"),
       publicSourceSearchEvidence,
+    );
+    await writeJson(
+      join(inventionDir, "evidence", "source-readings.json"),
+      sourceReadingEvidence,
     );
     await this.writeDossierFiles(inventionDir, dossier);
     await this.writePrototype(inventionDir, dossier);

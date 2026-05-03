@@ -136,6 +136,11 @@ adds a `researchEvidenceScore` to `artifact-score.json`. Query links, adapter
 failures, and MVP placeholders are marked as unreviewed/degraded evidence, not
 as concrete prior art.
 
+Deep source reading is opt-in through `research.sourceReading.enabled`. The
+first readers cover GitHub repository README/metadata, arXiv abstract metadata,
+and OpenAlex work metadata. Their output is `evidence/source-readings.json` and
+is used by Node Alpha to mark concrete sources as `reviewed_deep_source`.
+
 GitHub credentials stay with Sovryn Controller. The autonomous agent prepares
 artifacts, but `publish-github` is gated by dossier, license, verification,
 source-stability, source-hash freshness, secret-scan, safety, prior-art,

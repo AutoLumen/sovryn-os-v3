@@ -524,6 +524,7 @@ async function scoreArtifactCompleteness(
     "prototype/tests/prototype.test.js",
     "evidence/research-plan.json",
     "evidence/command-journal.json",
+    "evidence/source-readings.json",
     "evidence/landscape-scan.md",
     "evidence/prior-art-mapping.md",
     "evidence/invention-synthesis.md",
@@ -558,6 +559,9 @@ async function scoreArtifactCompleteness(
     hasSourceReviews: await nonEmpty(
       join(workspaceInventionPath, "evidence", "source-reviews.json"),
     ),
+    hasSourceReadings: await nonEmpty(
+      join(workspaceInventionPath, "evidence", "source-readings.json"),
+    ),
   };
   const researchEvidence = await readResearchEvidenceStats(
     workspaceInventionPath,
@@ -583,6 +587,8 @@ async function scoreArtifactCompleteness(
     sourceTypesReviewed: researchEvidence.sourceTypesReviewed,
     queryLinksUnreviewed: researchEvidence.queryLinksUnreviewed,
     adapterFailures: researchEvidence.adapterFailures,
+    deepSourcesRead: researchEvidence.deepSourcesRead,
+    metadataOnlySources: researchEvidence.metadataOnlySources,
     highNoveltyRiskSources: researchEvidence.highNoveltyRiskSources,
     needsMoreResearch: researchEvidence.needsMoreResearch,
     note: "Deterministic MVP artifact completeness score; not a research quality guarantee.",
@@ -608,13 +614,20 @@ const mission = ${JSON.stringify({ id: mission.id, title: mission.title })};
 const now = () => new Date().toISOString();
 const evidencePath = "evidence/public-source-search.json";
 const sourceEvidence = readJson(evidencePath);
+const sourceReadingEvidence = readJson("evidence/source-readings.json");
 const errors = [];
 if (!sourceEvidence) errors.push("public-source-search.json missing");
 if (sourceEvidence && !Array.isArray(sourceEvidence.results)) {
   errors.push("public-source-search.json results is not an array");
 }
+if (sourceReadingEvidence && !Array.isArray(sourceReadingEvidence.readings)) {
+  errors.push("source-readings.json readings is not an array");
+}
 const sourceResults = Array.isArray(sourceEvidence?.results)
   ? sourceEvidence.results
+  : [];
+const sourceReadings = Array.isArray(sourceReadingEvidence?.readings)
+  ? sourceReadingEvidence.readings
   : [];
 const reviews = sourceResults.map(reviewSource);
 const stats = summarizeReviews(reviews, errors);
@@ -636,6 +649,7 @@ const sourceReviewEvidence = {
     "evidence/skeptic-review.md"
   ],
   sourceEvidenceHash: sourceEvidence?.evidenceHash ?? null,
+  sourceReadingEvidenceHash: sourceReadingEvidence?.evidenceHash ?? null,
   stats,
   reviews,
   evidenceHash: "",
@@ -655,21 +669,31 @@ function reviewSource(result, index) {
   const relevance = relevanceValue(result?.relevance);
   const title = nonBlank(result?.title) || "Untitled source " + String(index + 1);
   const url = typeof result?.url === "string" && result.url.trim() ? result.url : null;
-  const riskToNovelty = noveltyRisk(kind, relevance);
+  const reading = readingFor(result);
+  const riskToNovelty = readingNoveltyRisk(reading) ?? noveltyRisk(kind, relevance);
   return {
     title,
     sourceType,
     kind,
     url,
     citation: typeof result?.citation === "string" && result.citation.trim() ? result.citation : null,
-    reviewStatus: reviewStatus(kind),
-    summary: sourceSummary(kind, title, result),
+    reviewStatus: reviewStatus(kind, reading),
+    sourceReadStatus: typeof reading?.readStatus === "string" ? reading.readStatus : null,
+    sourceReadingProvider: typeof reading?.provider === "string" ? reading.provider : null,
+    summary: sourceSummary(kind, title, result, reading),
+    keyTechnicalMechanism:
+      nonBlank(reading?.keyTechnicalMechanism) || "Not available from metadata-level review.",
     overlapWithInvention:
-      nonBlank(result?.overlap) || "Overlap cannot be assessed from this MVP metadata.",
+      nonBlank(reading?.overlapWithInvention) ||
+      nonBlank(result?.overlap) ||
+      "Overlap cannot be assessed from this MVP metadata.",
     differenceFromInvention:
-      nonBlank(result?.difference) || "Difference cannot be assessed from this MVP metadata.",
+      nonBlank(reading?.differenceFromInvention) ||
+      nonBlank(result?.difference) ||
+      "Difference cannot be assessed from this MVP metadata.",
     riskToNovelty,
-    usefulnessForPrototype: prototypeUsefulness(kind, sourceType, relevance),
+    usefulnessForPrototype:
+      prototypeRelevance(reading) ?? prototypeUsefulness(kind, sourceType, relevance),
     needsHumanReview: true
   };
 }
@@ -679,6 +703,8 @@ function summarizeReviews(reviews, errors) {
   const query = reviews.filter((review) => review.kind === "query_link");
   const failures = reviews.filter((review) => review.kind === "adapter_failure");
   const mock = reviews.filter((review) => review.kind === "mock_placeholder");
+  const deep = reviews.filter((review) => review.sourceReadStatus === "read");
+  const metadataOnly = concrete.filter((review) => review.sourceReadStatus !== "read");
   const sourceTypesReviewed = Array.from(new Set(concrete.map((review) => review.sourceType))).sort();
   const highNoveltyRiskSources = reviews.filter((review) => review.riskToNovelty === "high").length;
   const needsMoreResearch =
@@ -695,6 +721,8 @@ function summarizeReviews(reviews, errors) {
     queryLinksUnreviewed: query.length,
     adapterFailures: failures.length,
     mockPlaceholders: mock.length,
+    deepSourcesRead: deep.length,
+    metadataOnlySources: metadataOnly.length,
     highNoveltyRiskSources,
     needsMoreResearch
   };
@@ -716,6 +744,7 @@ function sourceReviewsMarkdown(evidence) {
     "",
     "Status: " + evidence.status,
     "Concrete sources reviewed: " + String(evidence.stats.concreteSourcesReviewed),
+    "Deep sources read: " + String(evidence.stats.deepSourcesRead),
     "Needs more research: " + String(evidence.stats.needsMoreResearch),
     ""
   ];
@@ -725,12 +754,16 @@ function sourceReviewsMarkdown(evidence) {
     lines.push("- Kind: " + review.kind);
     lines.push("- Source type: " + review.sourceType);
     lines.push("- Review status: " + review.reviewStatus);
+    lines.push("- Source read status: " + (review.sourceReadStatus ?? "not available"));
+    lines.push("- Source reading provider: " + (review.sourceReadingProvider ?? "not available"));
     lines.push("- URL: " + (review.url ?? "not available"));
     lines.push("- Risk to novelty: " + review.riskToNovelty);
     lines.push("- Usefulness for prototype: " + review.usefulnessForPrototype);
     lines.push("- Needs human review: " + String(review.needsHumanReview));
     lines.push("");
     lines.push(review.summary);
+    lines.push("");
+    lines.push("Key technical mechanism: " + review.keyTechnicalMechanism);
     lines.push("");
     lines.push("Overlap: " + review.overlapWithInvention);
     lines.push("");
@@ -754,6 +787,7 @@ function researchSynthesisMarkdown(evidence) {
     evidence.summary,
     "",
     "Concrete source types reviewed: " + (evidence.stats.sourceTypesReviewed.join(", ") || "none"),
+    "Deep sources read: " + String(evidence.stats.deepSourcesRead),
     "",
     evidence.stats.needsMoreResearch
       ? "Synthesis: additional public-source review is needed before treating the dossier as strong research evidence."
@@ -786,6 +820,8 @@ function noveltySection(evidence) {
     "- High novelty-risk sources: " + String(evidence.stats.highNoveltyRiskSources),
     "- Query links still unreviewed: " + String(evidence.stats.queryLinksUnreviewed),
     "- Adapter failures requiring retry: " + String(evidence.stats.adapterFailures),
+    "- Deep sources read: " + String(evidence.stats.deepSourcesRead),
+    "- Metadata-only concrete sources: " + String(evidence.stats.metadataOnlySources),
     "- Needs more research: " + String(evidence.stats.needsMoreResearch)
   ].join("\\n");
 }
@@ -801,6 +837,8 @@ function skepticReviewMarkdown(evidence) {
     "- query links not reviewed as concrete sources: " + String(evidence.stats.queryLinksUnreviewed),
     "- adapter failures requiring retry: " + String(evidence.stats.adapterFailures),
     "- deterministic placeholders remaining: " + String(evidence.stats.mockPlaceholders),
+    "- concrete sources with deep readings: " + String(evidence.stats.deepSourcesRead),
+    "- concrete sources with metadata-only review: " + String(evidence.stats.metadataOnlySources),
     "- Node Alpha local backend is not a sandbox",
     "",
     "Conclusion: " + (evidence.stats.needsMoreResearch ? "more public-source review is required before strong research claims." : "no deterministic blocking research gaps were found in this MVP pass."),
@@ -809,7 +847,10 @@ function skepticReviewMarkdown(evidence) {
   ].join("\\n") + "\\n";
 }
 
-function sourceSummary(kind, title, result) {
+function sourceSummary(kind, title, result, reading) {
+  if (reading?.readStatus === "read" && typeof reading.summary === "string") {
+    return "Deep source reading summary: " + reading.summary;
+  }
   if (kind === "concrete_source") {
     return "Metadata-level review of concrete public source " + title + ". Node Alpha MVP records citation, overlap, and difference fields but does not claim full-text review.";
   }
@@ -822,11 +863,43 @@ function sourceSummary(kind, title, result) {
   return "Deterministic MVP placeholder. It prevents unsupported novelty claims until concrete sources are retrieved.";
 }
 
-function reviewStatus(kind) {
+function reviewStatus(kind, reading) {
+  if (kind === "concrete_source" && reading?.readStatus === "read") return "reviewed_deep_source";
   if (kind === "concrete_source") return "reviewed_metadata";
   if (kind === "query_link") return "research_lead_unreviewed";
   if (kind === "adapter_failure") return "adapter_failure";
   return "mock_placeholder";
+}
+
+function readingFor(result) {
+  const key = sourceKey(result);
+  return sourceReadings.find((reading) => sourceKey(reading) === key) ?? null;
+}
+
+function sourceKey(source) {
+  return [
+    sourceKind(source?.kind),
+    sourceTypeValue(source?.sourceType),
+    nonBlank(source?.title) || "",
+    typeof source?.url === "string" ? source.url : ""
+  ].join("\\u0000");
+}
+
+function readingNoveltyRisk(reading) {
+  return reading?.noveltyRisk === "low" ||
+    reading?.noveltyRisk === "medium" ||
+    reading?.noveltyRisk === "high" ||
+    reading?.noveltyRisk === "unknown"
+    ? reading.noveltyRisk
+    : null;
+}
+
+function prototypeRelevance(reading) {
+  return reading?.prototypeRelevance === "low" ||
+    reading?.prototypeRelevance === "medium" ||
+    reading?.prototypeRelevance === "high"
+    ? reading.prototypeRelevance
+    : null;
 }
 
 function noveltyRisk(kind, relevance) {
@@ -923,6 +996,8 @@ async function readResearchEvidenceStats(
   sourceTypesReviewed: string[];
   queryLinksUnreviewed: number;
   adapterFailures: number;
+  deepSourcesRead: number;
+  metadataOnlySources: number;
   highNoveltyRiskSources: number;
   needsMoreResearch: boolean;
 }> {
@@ -939,6 +1014,8 @@ async function readResearchEvidenceStats(
       sourceTypesReviewed: stringArray(stats.sourceTypesReviewed),
       queryLinksUnreviewed: numberValue(stats.queryLinksUnreviewed),
       adapterFailures: numberValue(stats.adapterFailures),
+      deepSourcesRead: numberValue(stats.deepSourcesRead),
+      metadataOnlySources: numberValue(stats.metadataOnlySources),
       highNoveltyRiskSources: numberValue(stats.highNoveltyRiskSources),
       needsMoreResearch:
         typeof stats.needsMoreResearch === "boolean"
@@ -951,6 +1028,8 @@ async function readResearchEvidenceStats(
       sourceTypesReviewed: [],
       queryLinksUnreviewed: 0,
       adapterFailures: 0,
+      deepSourcesRead: 0,
+      metadataOnlySources: 0,
       highNoveltyRiskSources: 0,
       needsMoreResearch: true,
     };
@@ -962,11 +1041,14 @@ function scoreResearchEvidence(input: {
   sourceTypesReviewed: string[];
   queryLinksUnreviewed: number;
   adapterFailures: number;
+  deepSourcesRead: number;
+  metadataOnlySources: number;
   highNoveltyRiskSources: number;
   needsMoreResearch: boolean;
 }): number {
   const concreteScore = Math.min(60, input.concreteSourcesReviewed * 20);
   const diversityScore = Math.min(20, input.sourceTypesReviewed.length * 10);
+  const deepReadingScore = Math.min(20, input.deepSourcesRead * 10);
   const reviewPresenceScore =
     input.concreteSourcesReviewed > 0 ||
     input.queryLinksUnreviewed > 0 ||
@@ -982,7 +1064,11 @@ function scoreResearchEvidence(input: {
     0,
     Math.min(
       100,
-      concreteScore + diversityScore + reviewPresenceScore - penalties,
+      concreteScore +
+        diversityScore +
+        deepReadingScore +
+        reviewPresenceScore -
+        penalties,
     ),
   );
 }

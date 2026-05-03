@@ -239,6 +239,7 @@ async function preparePublicEvidence(
   }
   await writeFinalVerifySummary(evidenceDir, publicEvidenceDir);
   await writePublicSourceSearchSummary(evidenceDir, publicEvidenceDir);
+  await writeSourceReadingsSummary(evidenceDir, publicEvidenceDir);
   await writeRedactedCommandJournal(evidenceDir, publicEvidenceDir);
 }
 
@@ -310,6 +311,54 @@ async function writePublicSourceSearchSummary(
         completedAt: evidence.completedAt,
         evidenceHash: evidence.evidenceHash,
         results,
+      },
+      null,
+      2,
+    )}\n`,
+    "utf8",
+  );
+}
+
+async function writeSourceReadingsSummary(
+  evidenceDir: string,
+  publicEvidenceDir: string,
+): Promise<void> {
+  const path = join(evidenceDir, "source-readings.json");
+  if (!(await exists(path))) return;
+  const evidence = JSON.parse(await readFile(path, "utf8")) as {
+    readings?: Array<Record<string, unknown>>;
+  } & Record<string, unknown>;
+  const readings = (evidence.readings ?? []).map((reading) => ({
+    title: reading.title,
+    sourceType: reading.sourceType,
+    kind: reading.kind,
+    url: reading.url,
+    citation: reading.citation,
+    provider: reading.provider,
+    readStatus: reading.readStatus,
+    summary: reading.summary,
+    keyTechnicalMechanism: reading.keyTechnicalMechanism,
+    noveltyRisk: reading.noveltyRisk,
+    prototypeRelevance: reading.prototypeRelevance,
+  }));
+  await writeFile(
+    join(publicEvidenceDir, "source-readings.summary.json"),
+    `${JSON.stringify(
+      {
+        kind: evidence.kind,
+        mode: evidence.mode,
+        status: evidence.status,
+        resultCount: evidence.resultCount,
+        readCount: evidence.readCount,
+        skippedCount: evidence.skippedCount,
+        unsupportedCount: evidence.unsupportedCount,
+        failedCount: evidence.failedCount,
+        disabledCount: evidence.disabledCount,
+        concreteReadCount: evidence.concreteReadCount,
+        sourceTypesRead: evidence.sourceTypesRead,
+        completedAt: evidence.completedAt,
+        evidenceHash: evidence.evidenceHash,
+        readings,
       },
       null,
       2,

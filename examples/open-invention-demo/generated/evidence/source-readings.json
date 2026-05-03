@@ -1,0 +1,33 @@
+{
+  "kind": "source_readings",
+  "mode": "disabled",
+  "status": "disabled",
+  "resultCount": 1,
+  "readCount": 0,
+  "skippedCount": 1,
+  "unsupportedCount": 0,
+  "failedCount": 0,
+  "disabledCount": 0,
+  "concreteReadCount": 0,
+  "sourceTypesRead": [],
+  "readings": [
+    {
+      "title": "Manual GitHub search required for A method for verifiable open-source agent research",
+      "sourceType": "github",
+      "kind": "mock_placeholder",
+      "url": null,
+      "citation": null,
+      "provider": "source-reading-skipper",
+      "readStatus": "skipped",
+      "summary": "Deterministic placeholder recorded; no source was read.",
+      "keyTechnicalMechanism": "Not available from deep source reading.",
+      "overlapWithInvention": "Potential overlap unknown until a public-source adapter retrieves concrete results.",
+      "differenceFromInvention": "Difference analysis pending. This deterministic placeholder prevents unsupported novelty claims.",
+      "noveltyRisk": "unknown",
+      "prototypeRelevance": "low",
+      "metadata": {}
+    }
+  ],
+  "completedAt": "2026-05-03T00:00:00.000Z",
+  "evidenceHash": "afe52d513a526816736e03e01ebe8aaeedc8261184ac761bb3122df241f053b5"
+}

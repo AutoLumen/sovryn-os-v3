@@ -9,6 +9,7 @@
     "SPEC.md",
     "DEFENSIVE_PUBLICATION.md",
     "PRIOR_ART.md",
+    "evidence/source-readings.json",
     "evidence/source-reviews.json",
     "SOURCE_REVIEWS.md",
     "RESEARCH_SYNTHESIS.md"
@@ -18,6 +19,7 @@
     "SPEC.md",
     "DEFENSIVE_PUBLICATION.md",
     "PRIOR_ART.md",
+    "evidence/source-readings.json",
     "evidence/source-reviews.json",
     "SOURCE_REVIEWS.md",
     "RESEARCH_SYNTHESIS.md"
@@ -29,13 +31,16 @@
     "hasTests": true,
     "hasDefensivePublication": true,
     "hasSkepticReview": true,
-    "hasSourceReviews": true
+    "hasSourceReviews": true,
+    "hasSourceReadings": true
   },
   "researchEvidenceScore": 0,
   "concreteSourcesReviewed": 0,
   "sourceTypesReviewed": [],
   "queryLinksUnreviewed": 0,
   "adapterFailures": 0,
+  "deepSourcesRead": 0,
+  "metadataOnlySources": 0,
   "highNoveltyRiskSources": 0,
   "needsMoreResearch": true,
   "note": "Deterministic MVP artifact completeness score; not a research quality guarantee."

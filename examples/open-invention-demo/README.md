@@ -23,8 +23,10 @@ Demo artifacts:
 - `generated/prototype/`
 - `generated/evidence/research-plan.json`
 - `generated/evidence/public-source-search.json`
+- `generated/evidence/source-readings.json`
 - `generated/evidence/source-reviews.json`
 - `generated/evidence/public/public-source-search.summary.json`
+- `generated/evidence/public/source-readings.summary.json`
 - `generated/evidence/command-journal.json`
 - `generated/evidence/artifact-score.json`
 - `generated/evidence/publication-review.json`

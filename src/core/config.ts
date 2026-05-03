@@ -67,6 +67,12 @@ export type SovrynConfig = {
       includeQueryLinks: boolean;
       githubTokenEnv: string | null;
     };
+    sourceReading: {
+      enabled: boolean;
+      timeoutMs: number;
+      maxReadBytes: number;
+      githubTokenEnv: string | null;
+    };
   };
 };
 
@@ -132,6 +138,12 @@ export const DEFAULT_CONFIG: SovrynConfig = {
       maxTotalResults: 30,
       timeoutMs: 8000,
       includeQueryLinks: true,
+      githubTokenEnv: null,
+    },
+    sourceReading: {
+      enabled: false,
+      timeoutMs: 8000,
+      maxReadBytes: 20000,
       githubTokenEnv: null,
     },
   },

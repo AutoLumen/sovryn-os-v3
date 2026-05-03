@@ -46,6 +46,13 @@ When Node Alpha runs in autonomous mode, it reads this evidence during the
 the dossier's research artifacts without pretending that query links, adapter
 failures, or deterministic placeholders are reviewed sources.
 
+Deep source reading is optional and separate from discovery. When
+`research.sourceReading.enabled` is true, Sovryn reads supported concrete
+sources before Node Alpha review: GitHub repository README/metadata,
+arXiv abstract metadata, and OpenAlex work metadata. The resulting
+`evidence/source-readings.json` can upgrade Node Alpha reviews from
+`reviewed_metadata` to `reviewed_deep_source`.
+
 ## Dossier
 
 Each invention has a typed dossier with technical field, problem, background,

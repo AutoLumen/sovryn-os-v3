@@ -40,9 +40,10 @@ verification.
 Release repositories publish a curated public evidence layer under
 `evidence/public/`. That layer includes publication intent and redacted
 summaries, including a public-source-search summary and source-review evidence
-when Node Alpha generated it. Raw command stdout/stderr logs, local command
-working directories, and final controller-only GitHub publication evidence
-remain local by default.
+when Node Alpha generated it. If deep source reading ran, the release includes
+`source-readings.summary.json` rather than raw fetched documents. Raw command
+stdout/stderr logs, local command working directories, and final
+controller-only GitHub publication evidence remain local by default.
 
 For stricter real publication, set:
 

@@ -32,15 +32,17 @@ Publication decisions are written to:
 ```
 
 Publication source hashing covers README, SPEC, defensive publication,
-prior-art notes, novelty notes, safety review, citation, license, prototype,
-tests, and diagrams. Evidence and release staging files are excluded so review
-artifacts do not invalidate their own verification.
+prior-art notes, novelty notes, source reviews, research synthesis, safety
+review, citation, license, prototype, tests, and diagrams. Evidence and release
+staging files are excluded so review artifacts do not invalidate their own
+verification.
 
 Release repositories publish a curated public evidence layer under
 `evidence/public/`. That layer includes publication intent and redacted
-summaries, including a public-source-search summary. Raw command stdout/stderr
-logs, local command working directories, and final controller-only GitHub
-publication evidence remain local by default.
+summaries, including a public-source-search summary and source-review evidence
+when Node Alpha generated it. Raw command stdout/stderr logs, local command
+working directories, and final controller-only GitHub publication evidence
+remain local by default.
 
 For stricter real publication, set:
 

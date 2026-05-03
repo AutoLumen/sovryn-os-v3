@@ -1,0 +1,19 @@
+{
+  "kind": "source_reviews",
+  "phase": "public_research_review",
+  "missionId": "mis_demo_open_invention",
+  "title": "A method for verifiable open-source agent research",
+  "status": "completed",
+  "summary": "Reviewed 0 concrete source(s); 0 query lead(s), 0 adapter failure(s), and 1 deterministic placeholder(s) remain.",
+  "sourceEvidenceHash": "22d75f47ad360eab3933d0b40f426de12b799b700f4e2e8c410e3e5997c27212",
+  "stats": {
+    "concreteSourcesReviewed": 0,
+    "sourceTypesReviewed": [],
+    "queryLinksUnreviewed": 0,
+    "adapterFailures": 0,
+    "mockPlaceholders": 1,
+    "highNoveltyRiskSources": 0,
+    "needsMoreResearch": true
+  },
+  "evidenceHash": "cd1e53184018b43002df90efc5bab1d5db63e63567aa2fd14d591b9f852ed49d"
+}

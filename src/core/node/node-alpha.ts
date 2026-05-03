@@ -1,6 +1,6 @@
 import { cp, mkdir, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { arch, platform } from "node:os";
-import { join, relative } from "node:path";
+import { dirname, join, relative } from "node:path";
 import {
   runCommand,
   type CommandResult,
@@ -128,6 +128,16 @@ export class LocalNodeAlphaBackend implements NodeAlphaBackend {
       recursive: true,
       force: true,
     });
+    if (options.mode === "autonomous") {
+      await writePublicResearchReviewScript(
+        join(
+          workspaceInventionPath,
+          ".sovryn-node-alpha",
+          "public-research-review.mjs",
+        ),
+        mission,
+      );
+    }
 
     const plan = createResearchPlan(this.registration.id, mission, options);
     const journal: CommandJournal = {
@@ -234,6 +244,21 @@ export class LocalNodeAlphaBackend implements NodeAlphaBackend {
       join(sourcePath, "evidence"),
       { recursive: true, force: true },
     );
+    for (const file of [
+      "SOURCE_REVIEWS.md",
+      "RESEARCH_SYNTHESIS.md",
+      "PRIOR_ART.md",
+      "NOVELTY_NOTES.md",
+    ]) {
+      await copyIfExists(
+        join(workspaceInventionPath, file),
+        join(sourcePath, file),
+      );
+      await copyIfExists(
+        join(workspaceInventionPath, file),
+        join(artifactsPath, file),
+      );
+    }
     await cp(
       join(workspaceInventionPath, "evidence"),
       join(artifactsPath, "evidence"),
@@ -361,6 +386,14 @@ function createResearchPlan(
       "invention",
     ),
     planStep(
+      "public-research-review",
+      "public_research_review",
+      "Review public-source evidence",
+      "Read public-source-search evidence, classify source review status, and update research artifacts.",
+      "node .sovryn-node-alpha/public-research-review.mjs",
+      "invention",
+    ),
+    planStep(
       "prototype-test",
       "prototype_build",
       "Run prototype tests",
@@ -395,7 +428,7 @@ function createResearchPlan(
       "Write a concise research-loop summary.",
       writeFileCommand(
         "evidence/autonomous-summary.md",
-        `# Autonomous Node Alpha Summary\n\nNode Alpha executed a deterministic research loop for ${mission.title}.\n\nOutputs include research-plan.json, command-journal.json, artifact-score.json, landscape notes, prior-art mapping, skeptic review, prototype verification, and benchmark metadata.\n`,
+        `# Autonomous Node Alpha Summary\n\nNode Alpha executed a deterministic research loop for ${mission.title}.\n\nOutputs include research-plan.json, command-journal.json, artifact-score.json, source-reviews.json, SOURCE_REVIEWS.md, RESEARCH_SYNTHESIS.md, landscape notes, prior-art mapping, skeptic review, prototype verification, and benchmark metadata.\n`,
       ),
       "invention",
     ),
@@ -495,8 +528,11 @@ async function scoreArtifactCompleteness(
     "evidence/prior-art-mapping.md",
     "evidence/invention-synthesis.md",
     "evidence/skeptic-review.md",
+    "evidence/source-reviews.json",
     "evidence/benchmark.json",
     "evidence/autonomous-summary.md",
+    "SOURCE_REVIEWS.md",
+    "RESEARCH_SYNTHESIS.md",
   ];
   const presentArtifacts = [];
   const missingArtifacts = [];
@@ -519,7 +555,13 @@ async function scoreArtifactCompleteness(
     hasSkepticReview: await nonEmpty(
       join(workspaceInventionPath, "evidence", "skeptic-review.md"),
     ),
+    hasSourceReviews: await nonEmpty(
+      join(workspaceInventionPath, "evidence", "source-reviews.json"),
+    ),
   };
+  const researchEvidence = await readResearchEvidenceStats(
+    workspaceInventionPath,
+  );
   const completeness =
     expectedArtifacts.length === 0
       ? 0
@@ -536,8 +578,438 @@ async function scoreArtifactCompleteness(
     presentArtifacts,
     missingArtifacts,
     qualitySignals,
+    researchEvidenceScore: scoreResearchEvidence(researchEvidence),
+    concreteSourcesReviewed: researchEvidence.concreteSourcesReviewed,
+    sourceTypesReviewed: researchEvidence.sourceTypesReviewed,
+    queryLinksUnreviewed: researchEvidence.queryLinksUnreviewed,
+    adapterFailures: researchEvidence.adapterFailures,
+    highNoveltyRiskSources: researchEvidence.highNoveltyRiskSources,
+    needsMoreResearch: researchEvidence.needsMoreResearch,
     note: "Deterministic MVP artifact completeness score; not a research quality guarantee.",
   };
+}
+
+async function writePublicResearchReviewScript(
+  path: string,
+  mission: OpenInventionMissionState,
+): Promise<void> {
+  await mkdir(dirname(path), { recursive: true });
+  await writeFile(path, publicResearchReviewScript(mission), "utf8");
+}
+
+function publicResearchReviewScript(
+  mission: OpenInventionMissionState,
+): string {
+  return `import { createHash } from "node:crypto";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { dirname } from "node:path";
+
+const mission = ${JSON.stringify({ id: mission.id, title: mission.title })};
+const now = () => new Date().toISOString();
+const evidencePath = "evidence/public-source-search.json";
+const sourceEvidence = readJson(evidencePath);
+const errors = [];
+if (!sourceEvidence) errors.push("public-source-search.json missing");
+if (sourceEvidence && !Array.isArray(sourceEvidence.results)) {
+  errors.push("public-source-search.json results is not an array");
+}
+const sourceResults = Array.isArray(sourceEvidence?.results)
+  ? sourceEvidence.results
+  : [];
+const reviews = sourceResults.map(reviewSource);
+const stats = summarizeReviews(reviews, errors);
+const createdAt = now();
+const sourceReviewEvidence = {
+  kind: "source_reviews",
+  phase: "public_research_review",
+  missionId: mission.id,
+  title: mission.title,
+  status: errors.length > 0 ? "degraded" : "completed",
+  startedAt: createdAt,
+  completedAt: now(),
+  summary: summarizePhase(stats),
+  artifacts: [
+    "SOURCE_REVIEWS.md",
+    "RESEARCH_SYNTHESIS.md",
+    "PRIOR_ART.md",
+    "NOVELTY_NOTES.md",
+    "evidence/skeptic-review.md"
+  ],
+  sourceEvidenceHash: sourceEvidence?.evidenceHash ?? null,
+  stats,
+  reviews,
+  evidenceHash: "",
+  errors
+};
+sourceReviewEvidence.evidenceHash = hashEvidence(sourceReviewEvidence);
+writeJson("evidence/source-reviews.json", sourceReviewEvidence);
+writeText("SOURCE_REVIEWS.md", sourceReviewsMarkdown(sourceReviewEvidence));
+writeText("RESEARCH_SYNTHESIS.md", researchSynthesisMarkdown(sourceReviewEvidence));
+upsertSection("PRIOR_ART.md", "## Node Alpha Source Reviews", priorArtSection(sourceReviewEvidence));
+upsertSection("NOVELTY_NOTES.md", "## Evidence-Based Novelty Risks", noveltySection(sourceReviewEvidence));
+writeText("evidence/skeptic-review.md", skepticReviewMarkdown(sourceReviewEvidence));
+
+function reviewSource(result, index) {
+  const kind = sourceKind(result?.kind);
+  const sourceType = sourceTypeValue(result?.sourceType);
+  const relevance = relevanceValue(result?.relevance);
+  const title = nonBlank(result?.title) || "Untitled source " + String(index + 1);
+  const url = typeof result?.url === "string" && result.url.trim() ? result.url : null;
+  const riskToNovelty = noveltyRisk(kind, relevance);
+  return {
+    title,
+    sourceType,
+    kind,
+    url,
+    citation: typeof result?.citation === "string" && result.citation.trim() ? result.citation : null,
+    reviewStatus: reviewStatus(kind),
+    summary: sourceSummary(kind, title, result),
+    overlapWithInvention:
+      nonBlank(result?.overlap) || "Overlap cannot be assessed from this MVP metadata.",
+    differenceFromInvention:
+      nonBlank(result?.difference) || "Difference cannot be assessed from this MVP metadata.",
+    riskToNovelty,
+    usefulnessForPrototype: prototypeUsefulness(kind, sourceType, relevance),
+    needsHumanReview: true
+  };
+}
+
+function summarizeReviews(reviews, errors) {
+  const concrete = reviews.filter((review) => review.kind === "concrete_source");
+  const query = reviews.filter((review) => review.kind === "query_link");
+  const failures = reviews.filter((review) => review.kind === "adapter_failure");
+  const mock = reviews.filter((review) => review.kind === "mock_placeholder");
+  const sourceTypesReviewed = Array.from(new Set(concrete.map((review) => review.sourceType))).sort();
+  const highNoveltyRiskSources = reviews.filter((review) => review.riskToNovelty === "high").length;
+  const needsMoreResearch =
+    errors.length > 0 ||
+    concrete.length < 3 ||
+    sourceTypesReviewed.length < 2 ||
+    query.length > 0 ||
+    failures.length > 0 ||
+    mock.length > 0 ||
+    highNoveltyRiskSources > 0;
+  return {
+    concreteSourcesReviewed: concrete.length,
+    sourceTypesReviewed,
+    queryLinksUnreviewed: query.length,
+    adapterFailures: failures.length,
+    mockPlaceholders: mock.length,
+    highNoveltyRiskSources,
+    needsMoreResearch
+  };
+}
+
+function summarizePhase(stats) {
+  return "Reviewed " + String(stats.concreteSourcesReviewed) +
+    " concrete source(s); " + String(stats.queryLinksUnreviewed) +
+    " query lead(s), " + String(stats.adapterFailures) +
+    " adapter failure(s), and " + String(stats.mockPlaceholders) +
+    " deterministic placeholder(s) remain.";
+}
+
+function sourceReviewsMarkdown(evidence) {
+  const lines = [
+    "# Source Reviews",
+    "",
+    "Node Alpha reviewed public-source-search evidence at metadata level. This is not a legal novelty, patentability, or freedom-to-operate conclusion.",
+    "",
+    "Status: " + evidence.status,
+    "Concrete sources reviewed: " + String(evidence.stats.concreteSourcesReviewed),
+    "Needs more research: " + String(evidence.stats.needsMoreResearch),
+    ""
+  ];
+  for (const review of evidence.reviews) {
+    lines.push("## " + review.title);
+    lines.push("");
+    lines.push("- Kind: " + review.kind);
+    lines.push("- Source type: " + review.sourceType);
+    lines.push("- Review status: " + review.reviewStatus);
+    lines.push("- URL: " + (review.url ?? "not available"));
+    lines.push("- Risk to novelty: " + review.riskToNovelty);
+    lines.push("- Usefulness for prototype: " + review.usefulnessForPrototype);
+    lines.push("- Needs human review: " + String(review.needsHumanReview));
+    lines.push("");
+    lines.push(review.summary);
+    lines.push("");
+    lines.push("Overlap: " + review.overlapWithInvention);
+    lines.push("");
+    lines.push("Difference: " + review.differenceFromInvention);
+    lines.push("");
+  }
+  if (evidence.reviews.length === 0) {
+    lines.push("No source results were available for review.");
+    lines.push("");
+  }
+  for (const error of evidence.errors) lines.push("- Degraded: " + error);
+  return lines.join("\\n").trimEnd() + "\\n";
+}
+
+function researchSynthesisMarkdown(evidence) {
+  return [
+    "# Research Synthesis",
+    "",
+    "Mission: " + mission.title,
+    "",
+    evidence.summary,
+    "",
+    "Concrete source types reviewed: " + (evidence.stats.sourceTypesReviewed.join(", ") || "none"),
+    "",
+    evidence.stats.needsMoreResearch
+      ? "Synthesis: additional public-source review is needed before treating the dossier as strong research evidence."
+      : "Synthesis: current public-source evidence is sufficient for this deterministic MVP research pass.",
+    "",
+    "This synthesis is an open research artifact, not a legal conclusion."
+  ].join("\\n") + "\\n";
+}
+
+function priorArtSection(evidence) {
+  const lines = [
+    "Node Alpha source-review status: " + evidence.status,
+    "",
+    "| Source | Type | Kind | Novelty Risk | Review Status |",
+    "| --- | --- | --- | --- | --- |"
+  ];
+  for (const review of evidence.reviews) {
+    lines.push("| " + markdownLink(review.title, review.url) + " | " + review.sourceType + " | " + review.kind + " | " + review.riskToNovelty + " | " + review.reviewStatus + " |");
+  }
+  if (evidence.reviews.length === 0) lines.push("| No reviewed source results | n/a | n/a | unknown | degraded |");
+  lines.push("");
+  lines.push("These entries are research evidence leads and do not make legal conclusions.");
+  return lines.join("\\n");
+}
+
+function noveltySection(evidence) {
+  return [
+    "- Concrete sources reviewed: " + String(evidence.stats.concreteSourcesReviewed),
+    "- Source types reviewed: " + (evidence.stats.sourceTypesReviewed.join(", ") || "none"),
+    "- High novelty-risk sources: " + String(evidence.stats.highNoveltyRiskSources),
+    "- Query links still unreviewed: " + String(evidence.stats.queryLinksUnreviewed),
+    "- Adapter failures requiring retry: " + String(evidence.stats.adapterFailures),
+    "- Needs more research: " + String(evidence.stats.needsMoreResearch)
+  ].join("\\n");
+}
+
+function skepticReviewMarkdown(evidence) {
+  return [
+    "# Skeptic Review",
+    "",
+    "Public research review status: " + evidence.status,
+    "",
+    "Risks:",
+    "- high novelty-risk sources: " + String(evidence.stats.highNoveltyRiskSources),
+    "- query links not reviewed as concrete sources: " + String(evidence.stats.queryLinksUnreviewed),
+    "- adapter failures requiring retry: " + String(evidence.stats.adapterFailures),
+    "- deterministic placeholders remaining: " + String(evidence.stats.mockPlaceholders),
+    "- Node Alpha local backend is not a sandbox",
+    "",
+    "Conclusion: " + (evidence.stats.needsMoreResearch ? "more public-source review is required before strong research claims." : "no deterministic blocking research gaps were found in this MVP pass."),
+    "",
+    "This skeptic review does not make legal novelty or patentability conclusions."
+  ].join("\\n") + "\\n";
+}
+
+function sourceSummary(kind, title, result) {
+  if (kind === "concrete_source") {
+    return "Metadata-level review of concrete public source " + title + ". Node Alpha MVP records citation, overlap, and difference fields but does not claim full-text review.";
+  }
+  if (kind === "query_link") {
+    return "Research lead only. Node Alpha did not treat this search URL as reviewed prior art.";
+  }
+  if (kind === "adapter_failure") {
+    return "Source adapter failed or returned unavailable evidence. Retry or manual review is recommended.";
+  }
+  return "Deterministic MVP placeholder. It prevents unsupported novelty claims until concrete sources are retrieved.";
+}
+
+function reviewStatus(kind) {
+  if (kind === "concrete_source") return "reviewed_metadata";
+  if (kind === "query_link") return "research_lead_unreviewed";
+  if (kind === "adapter_failure") return "adapter_failure";
+  return "mock_placeholder";
+}
+
+function noveltyRisk(kind, relevance) {
+  if (kind !== "concrete_source") return "unknown";
+  if (relevance === "high") return "high";
+  if (relevance === "medium") return "medium";
+  return "low";
+}
+
+function prototypeUsefulness(kind, sourceType, relevance) {
+  if (kind !== "concrete_source") return "low";
+  if (sourceType === "github") return relevance === "low" ? "medium" : "high";
+  if (sourceType === "paper" || sourceType === "standard") return "medium";
+  return relevance === "high" ? "medium" : "low";
+}
+
+function sourceKind(value) {
+  return value === "concrete_source" ||
+    value === "query_link" ||
+    value === "adapter_failure" ||
+    value === "mock_placeholder"
+    ? value
+    : "adapter_failure";
+}
+
+function sourceTypeValue(value) {
+  return value === "web" ||
+    value === "github" ||
+    value === "paper" ||
+    value === "patent" ||
+    value === "standard"
+    ? value
+    : "web";
+}
+
+function relevanceValue(value) {
+  return value === "low" || value === "medium" || value === "high"
+    ? value
+    : "medium";
+}
+
+function upsertSection(path, heading, body) {
+  const section = heading + "\\n\\n" + body.trim() + "\\n";
+  const existing = existsSync(path) ? readFileSync(path, "utf8") : "";
+  const start = existing.indexOf(heading);
+  if (start === -1) {
+    writeText(path, (existing.trimEnd() + "\\n\\n" + section).trimStart());
+    return;
+  }
+  const next = existing.indexOf("\\n## ", start + heading.length);
+  const updated =
+    next === -1
+      ? existing.slice(0, start) + section
+      : existing.slice(0, start) + section + existing.slice(next + 1);
+  writeText(path, updated);
+}
+
+function markdownLink(title, url) {
+  const safeTitle = String(title).replace(/\\|/g, "\\\\|");
+  return url ? "[" + safeTitle + "](" + url + ")" : safeTitle;
+}
+
+function readJson(path) {
+  try {
+    return JSON.parse(readFileSync(path, "utf8"));
+  } catch {
+    return null;
+  }
+}
+
+function writeJson(path, value) {
+  writeText(path, JSON.stringify(value, null, 2) + "\\n");
+}
+
+function writeText(path, value) {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, value, "utf8");
+}
+
+function hashEvidence(value) {
+  return createHash("sha256").update(JSON.stringify(value)).digest("hex");
+}
+
+function nonBlank(value) {
+  return typeof value === "string" && value.trim().length > 0 ? value.trim() : null;
+}
+`;
+}
+
+async function readResearchEvidenceStats(
+  workspaceInventionPath: string,
+): Promise<{
+  concreteSourcesReviewed: number;
+  sourceTypesReviewed: string[];
+  queryLinksUnreviewed: number;
+  adapterFailures: number;
+  highNoveltyRiskSources: number;
+  needsMoreResearch: boolean;
+}> {
+  try {
+    const evidence = JSON.parse(
+      await readFile(
+        join(workspaceInventionPath, "evidence", "source-reviews.json"),
+        "utf8",
+      ),
+    ) as Record<string, unknown>;
+    const stats = asRecord(evidence.stats);
+    return {
+      concreteSourcesReviewed: numberValue(stats.concreteSourcesReviewed),
+      sourceTypesReviewed: stringArray(stats.sourceTypesReviewed),
+      queryLinksUnreviewed: numberValue(stats.queryLinksUnreviewed),
+      adapterFailures: numberValue(stats.adapterFailures),
+      highNoveltyRiskSources: numberValue(stats.highNoveltyRiskSources),
+      needsMoreResearch:
+        typeof stats.needsMoreResearch === "boolean"
+          ? stats.needsMoreResearch
+          : true,
+    };
+  } catch {
+    return {
+      concreteSourcesReviewed: 0,
+      sourceTypesReviewed: [],
+      queryLinksUnreviewed: 0,
+      adapterFailures: 0,
+      highNoveltyRiskSources: 0,
+      needsMoreResearch: true,
+    };
+  }
+}
+
+function scoreResearchEvidence(input: {
+  concreteSourcesReviewed: number;
+  sourceTypesReviewed: string[];
+  queryLinksUnreviewed: number;
+  adapterFailures: number;
+  highNoveltyRiskSources: number;
+  needsMoreResearch: boolean;
+}): number {
+  const concreteScore = Math.min(60, input.concreteSourcesReviewed * 20);
+  const diversityScore = Math.min(20, input.sourceTypesReviewed.length * 10);
+  const reviewPresenceScore =
+    input.concreteSourcesReviewed > 0 ||
+    input.queryLinksUnreviewed > 0 ||
+    input.adapterFailures > 0
+      ? 10
+      : 0;
+  const penalties =
+    input.adapterFailures * 5 +
+    input.queryLinksUnreviewed * 2 +
+    input.highNoveltyRiskSources * 5 +
+    (input.needsMoreResearch ? 5 : 0);
+  return Math.max(
+    0,
+    Math.min(
+      100,
+      concreteScore + diversityScore + reviewPresenceScore - penalties,
+    ),
+  );
+}
+
+function asRecord(value: unknown): Record<string, unknown> {
+  return value && typeof value === "object"
+    ? (value as Record<string, unknown>)
+    : {};
+}
+
+function numberValue(value: unknown): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : 0;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string").sort()
+    : [];
+}
+
+async function copyIfExists(from: string, to: string): Promise<void> {
+  try {
+    await stat(from);
+  } catch {
+    return;
+  }
+  await cp(from, to, { recursive: true, force: true });
 }
 
 async function nonEmpty(path: string): Promise<boolean> {

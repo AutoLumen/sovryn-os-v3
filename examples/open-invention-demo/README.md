@@ -18,9 +18,12 @@ Demo artifacts:
 
 - `generated/dossier.json`
 - `generated/DEFENSIVE_PUBLICATION.md`
+- `generated/SOURCE_REVIEWS.md`
+- `generated/RESEARCH_SYNTHESIS.md`
 - `generated/prototype/`
 - `generated/evidence/research-plan.json`
 - `generated/evidence/public-source-search.json`
+- `generated/evidence/source-reviews.json`
 - `generated/evidence/public/public-source-search.summary.json`
 - `generated/evidence/command-journal.json`
 - `generated/evidence/artifact-score.json`

@@ -598,13 +598,16 @@ test("Node Alpha autonomous mode writes plan journal scores and research artifac
   const result = (run.data as any).result;
   assert.equal(result.mode, "autonomous");
   assert.equal(result.exitCode, 0);
-  assert.equal(result.commands.length, 8);
+  assert.equal(result.commands.length, 9);
   const evidenceDir = join(repo.root, mission.inventionPath, "evidence");
   await access(join(evidenceDir, "research-plan.json"));
   await access(join(evidenceDir, "command-journal.json"));
   await access(join(evidenceDir, "artifact-score.json"));
+  await access(join(evidenceDir, "source-reviews.json"));
   await access(join(evidenceDir, "landscape-scan.md"));
   await access(join(evidenceDir, "prior-art-mapping.md"));
+  await access(join(repo.root, mission.inventionPath, "SOURCE_REVIEWS.md"));
+  await access(join(repo.root, mission.inventionPath, "RESEARCH_SYNTHESIS.md"));
   const plan = JSON.parse(
     await readFile(join(evidenceDir, "research-plan.json"), "utf8"),
   );
@@ -619,6 +622,143 @@ test("Node Alpha autonomous mode writes plan journal scores and research artifac
   assert.equal(score.scoreType, "artifact_completeness");
   assert.deepEqual(score.missingArtifacts, []);
   assert.equal(score.qualitySignals.hasPriorArt, true);
+  assert.equal(score.qualitySignals.hasSourceReviews, true);
+  assert.equal(score.concreteSourcesReviewed, 0);
+  assert.equal(score.needsMoreResearch, true);
+  assert.equal(
+    plan.steps.some((step: any) => step.phase === "public_research_review"),
+    true,
+  );
+});
+
+test("Node Alpha public research phase reviews source evidence kinds", async () => {
+  const { repo, mission } = await createOpenInvention();
+  await replacePriorArtEvidence(repo.root, mission, () => [
+    {
+      kind: "concrete_source",
+      title: "sovryn/self-verifying-agent-research",
+      sourceType: "github",
+      url: "https://github.com/sovryn/self-verifying-agent-research",
+      relevance: "high",
+      overlap: "Uses evidence artifacts for autonomous research agents.",
+      difference: "Does not combine Sovryn publication gates with Node Alpha.",
+      citation: "sovryn/self-verifying-agent-research repository",
+      note: "Concrete GitHub source for metadata-level review.",
+    },
+    {
+      kind: "query_link",
+      title: "Patent search for verifiable agent research",
+      sourceType: "patent",
+      url: "https://patents.google.com/?q=verifiable+agent+research",
+      relevance: "medium",
+      overlap: "Search lead may contain related publication concepts.",
+      difference: "No concrete result was retrieved from the search link.",
+      citation: null,
+      note: "Query link only.",
+    },
+    {
+      kind: "adapter_failure",
+      title: "arXiv adapter failed",
+      sourceType: "paper",
+      url: null,
+      relevance: "low",
+      overlap: "Unknown because the adapter failed.",
+      difference: "Unknown because the adapter failed.",
+      citation: null,
+      note: "Adapter failure.",
+    },
+  ]);
+  await executeCli(["node", "register", "alpha", "--host", "local"], repo.root);
+  const run = await executeCli(
+    ["node", "run", "alpha", mission.id, "--mode", "autonomous", "--json"],
+    repo.root,
+  );
+  assert.equal(run.ok, true);
+  const evidenceDir = join(repo.root, mission.inventionPath, "evidence");
+  const sourceReviews = JSON.parse(
+    await readFile(join(evidenceDir, "source-reviews.json"), "utf8"),
+  );
+  assert.equal(sourceReviews.phase, "public_research_review");
+  assert.equal(sourceReviews.status, "completed");
+  assert.equal(sourceReviews.stats.concreteSourcesReviewed, 1);
+  assert.deepEqual(sourceReviews.stats.sourceTypesReviewed, ["github"]);
+  assert.equal(sourceReviews.stats.queryLinksUnreviewed, 1);
+  assert.equal(sourceReviews.stats.adapterFailures, 1);
+  assert.equal(sourceReviews.stats.highNoveltyRiskSources, 1);
+  assert.equal(
+    sourceReviews.reviews.find(
+      (review: any) => review.kind === "concrete_source",
+    ).reviewStatus,
+    "reviewed_metadata",
+  );
+  assert.equal(
+    sourceReviews.reviews.find((review: any) => review.kind === "query_link")
+      .reviewStatus,
+    "research_lead_unreviewed",
+  );
+  assert.equal(
+    sourceReviews.reviews.find(
+      (review: any) => review.kind === "adapter_failure",
+    ).reviewStatus,
+    "adapter_failure",
+  );
+  const priorArt = await readFile(
+    join(repo.root, mission.inventionPath, "PRIOR_ART.md"),
+    "utf8",
+  );
+  assert.match(priorArt, /Node Alpha Source Reviews/);
+  assert.match(priorArt, /sovryn\/self-verifying-agent-research/);
+  const skeptic = await readFile(
+    join(evidenceDir, "skeptic-review.md"),
+    "utf8",
+  );
+  assert.match(skeptic, /high novelty-risk sources: 1/);
+  const sourceReviewsMd = await readFile(
+    join(repo.root, mission.inventionPath, "SOURCE_REVIEWS.md"),
+    "utf8",
+  );
+  assert.match(sourceReviewsMd, /research_lead_unreviewed/);
+  const score = JSON.parse(
+    await readFile(join(evidenceDir, "artifact-score.json"), "utf8"),
+  );
+  assert.equal(score.concreteSourcesReviewed, 1);
+  assert.deepEqual(score.sourceTypesReviewed, ["github"]);
+  assert.equal(score.queryLinksUnreviewed, 1);
+  assert.equal(score.adapterFailures, 1);
+  assert.equal(score.highNoveltyRiskSources, 1);
+  assert.equal(score.researchEvidenceScore > 0, true);
+});
+
+test("Node Alpha public research phase degrades when public-source evidence is missing", async () => {
+  const { repo, mission } = await createOpenInvention();
+  await rm(
+    join(
+      repo.root,
+      mission.inventionPath,
+      "evidence",
+      "public-source-search.json",
+    ),
+    { force: true },
+  );
+  await executeCli(["node", "register", "alpha", "--host", "local"], repo.root);
+  const run = await executeCli(
+    ["node", "run", "alpha", mission.id, "--mode", "autonomous", "--json"],
+    repo.root,
+  );
+  assert.equal(run.ok, true);
+  assert.equal((run.data as any).result.exitCode, 0);
+  const evidenceDir = join(repo.root, mission.inventionPath, "evidence");
+  const sourceReviews = JSON.parse(
+    await readFile(join(evidenceDir, "source-reviews.json"), "utf8"),
+  );
+  assert.equal(sourceReviews.status, "degraded");
+  assert.deepEqual(sourceReviews.errors, ["public-source-search.json missing"]);
+  assert.equal(sourceReviews.stats.concreteSourcesReviewed, 0);
+  assert.equal(sourceReviews.stats.needsMoreResearch, true);
+  const score = JSON.parse(
+    await readFile(join(evidenceDir, "artifact-score.json"), "utf8"),
+  );
+  assert.equal(score.researchEvidenceScore, 0);
 });
 
 test("GitHub dry-run stages only public evidence", async () => {
@@ -656,6 +796,9 @@ test("GitHub dry-run stages only public evidence", async () => {
       "public-source-search.summary.json",
     ),
   );
+  await access(join(releasePath, "SOURCE_REVIEWS.md"));
+  await access(join(releasePath, "RESEARCH_SYNTHESIS.md"));
+  await access(join(releasePath, "evidence", "public", "source-reviews.json"));
   const publicSourceSummary = JSON.parse(
     await readFile(
       join(

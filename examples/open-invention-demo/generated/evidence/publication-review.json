@@ -71,6 +71,15 @@
         "adapterFailureCount": 0,
         "mockPlaceholderCount": 1
       }
+    },
+    {
+      "code": "FINAL_VERIFY_FRESH",
+      "passed": true,
+      "message": "Final verification must match the current publication source hash.",
+      "details": {
+        "verifiedPublicationSourceHash": "demo-publication-source-hash",
+        "currentPublicationSourceHash": "demo-publication-source-hash"
+      }
     }
   ],
   "secretFindings": [],

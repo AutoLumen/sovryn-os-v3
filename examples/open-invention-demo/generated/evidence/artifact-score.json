@@ -2,19 +2,25 @@
   "scoredAt": "2026-05-03T00:00:00.000Z",
   "scoreType": "artifact_completeness",
   "score": 96,
-  "completedSteps": 8,
+  "completedSteps": 9,
   "failedSteps": 0,
   "expectedArtifacts": [
     "README.md",
     "SPEC.md",
     "DEFENSIVE_PUBLICATION.md",
-    "PRIOR_ART.md"
+    "PRIOR_ART.md",
+    "evidence/source-reviews.json",
+    "SOURCE_REVIEWS.md",
+    "RESEARCH_SYNTHESIS.md"
   ],
   "presentArtifacts": [
     "README.md",
     "SPEC.md",
     "DEFENSIVE_PUBLICATION.md",
-    "PRIOR_ART.md"
+    "PRIOR_ART.md",
+    "evidence/source-reviews.json",
+    "SOURCE_REVIEWS.md",
+    "RESEARCH_SYNTHESIS.md"
   ],
   "missingArtifacts": [],
   "qualitySignals": {
@@ -22,7 +28,15 @@
     "hasPrototype": true,
     "hasTests": true,
     "hasDefensivePublication": true,
-    "hasSkepticReview": true
+    "hasSkepticReview": true,
+    "hasSourceReviews": true
   },
+  "researchEvidenceScore": 0,
+  "concreteSourcesReviewed": 0,
+  "sourceTypesReviewed": [],
+  "queryLinksUnreviewed": 0,
+  "adapterFailures": 0,
+  "highNoveltyRiskSources": 0,
+  "needsMoreResearch": true,
   "note": "Deterministic MVP artifact completeness score; not a research quality guarantee."
 }

@@ -28,18 +28,23 @@ runs the prototype tests.
 - create a research plan
 - execute bounded command steps
 - write a command journal
-- create landscape, prior-art, synthesis, skeptic, benchmark, and summary artifacts
+- create landscape, prior-art, source-review, synthesis, skeptic, benchmark, and summary artifacts
+- review `evidence/public-source-search.json` at metadata level
+- write `evidence/source-reviews.json`, `SOURCE_REVIEWS.md`, and `RESEARCH_SYNTHESIS.md`
 - run prototype verification
-- score expected artifacts
+- score expected artifacts and research-evidence completeness
 - copy evidence back to the invention dossier
 
 The score is an artifact completeness score, not a research quality score. It
 records expected, present, and missing artifacts plus basic quality signals such
-as prior-art, prototype, tests, defensive publication, and skeptic review.
+as prior-art, prototype, tests, defensive publication, source reviews, and
+skeptic review. The `researchEvidenceScore` is deterministic: concrete sources
+and source-type diversity increase it; query links, adapter failures, high
+novelty-risk sources, and unresolved research gaps reduce it.
 
 The loop is deliberately deterministic in the MVP. Future providers can replace
-or enrich the steps with public search, local models, browser automation,
-containers, SSH, or `sovryn-agentd`.
+or enrich the steps with full source reading, public search, local models,
+browser automation, containers, SSH, or `sovryn-agentd`.
 
 Node Alpha is not a security sandbox unless paired with containers, VMs,
 firewalling, network namespaces, or equivalent OS controls. The local MVP uses

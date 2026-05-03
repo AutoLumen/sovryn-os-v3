@@ -41,6 +41,11 @@ require concrete sources instead of deterministic placeholders. These results
 are research leads only. Sovryn does not make legal novelty, patentability, or
 freedom-to-operate conclusions.
 
+When Node Alpha runs in autonomous mode, it reads this evidence during the
+`public_research_review` phase. It creates source-review evidence and updates
+the dossier's research artifacts without pretending that query links, adapter
+failures, or deterministic placeholders are reviewed sources.
+
 ## Dossier
 
 Each invention has a typed dossier with technical field, problem, background,

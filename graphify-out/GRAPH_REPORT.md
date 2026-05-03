@@ -1,11 +1,11 @@
 # Graph Report - /Users/sovryn/Desktop/sovryn-os-v3  (2026-05-03)
 
 ## Corpus Check
-- 54 files · ~62,722 words
+- 54 files · ~66,368 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 404 nodes · 1010 edges · 14 communities detected
+- 412 nodes · 1026 edges · 14 communities detected
 - Extraction: 78% EXTRACTED · 22% INFERRED · 0% AMBIGUOUS · INFERRED: 225 edges (avg confidence: 0.8)
 - Token cost: 0 input · 0 output
 
@@ -40,13 +40,13 @@
 ## Surprising Connections (you probably didn't know these)
 - `appendLesson()` --calls--> `redactSecrets()`  [INFERRED]
   /Users/sovryn/Desktop/sovryn-os-v3/src/core/memory/memory.ts → /Users/sovryn/Desktop/sovryn-os-v3/src/shared/redaction.ts
+- `createOpenInvention()` --calls--> `executeCli()`  [INFERRED]
+  /Users/sovryn/Desktop/sovryn-os-v3/tests/open-invention.test.ts → /Users/sovryn/Desktop/sovryn-os-v3/src/cli/index.ts
 - `replacePriorArtEvidence()` --calls--> `hashEvidence()`  [INFERRED]
   /Users/sovryn/Desktop/sovryn-os-v3/tests/open-invention.test.ts → /Users/sovryn/Desktop/sovryn-os-v3/src/core/invention/pipeline.ts
 - `executeGitNexus()` --calls--> `runCommand()`  [INFERRED]
   /Users/sovryn/Desktop/sovryn-os-v3/packages/sovryn-plugin-gitnexus/src/index.ts → /Users/sovryn/Desktop/sovryn-os-v3/src/adapters/shell/command.ts
 - `executeGitNexus()` --calls--> `redactSecrets()`  [INFERRED]
-  /Users/sovryn/Desktop/sovryn-os-v3/packages/sovryn-plugin-gitnexus/src/index.ts → /Users/sovryn/Desktop/sovryn-os-v3/src/shared/redaction.ts
-- `unavailable()` --calls--> `redactSecrets()`  [INFERRED]
   /Users/sovryn/Desktop/sovryn-os-v3/packages/sovryn-plugin-gitnexus/src/index.ts → /Users/sovryn/Desktop/sovryn-os-v3/src/shared/redaction.ts
 
 ## Communities
@@ -60,40 +60,40 @@ Cohesion: 0.09
 Nodes (22): looksLikeNetworkCommand(), networkDenyEnv(), configPath(), ensureGitignore(), initConfig(), readText(), discoverVerifyCommands(), exists() (+14 more)
 
 ### Community 2 - "Community 2"
-Cohesion: 0.12
-Nodes (11): createStore(), FakeRunner, FileStore, hashVerifyEvidence(), hashVerifyOutcome(), hashVerifyResult(), applyRunnerOptions(), MissionService (+3 more)
+Cohesion: 0.13
+Nodes (12): createStore(), FileStore, hashVerifyEvidence(), hashVerifyOutcome(), hashVerifyResult(), executeCli(), inventionCommand(), applyRunnerOptions() (+4 more)
 
 ### Community 3 - "Community 3"
-Cohesion: 0.1
-Nodes (14): commandOutput(), createResearchPlan(), listArtifactFiles(), LocalNodeAlphaBackend, nonEmpty(), planStep(), scoreArtifactCompleteness(), shellQuote() (+6 more)
-
-### Community 4 - "Community 4"
 Cohesion: 0.07
 Nodes (22): writeEvent(), createMissionId(), exists(), slugify(), titleFromBrief(), phaseEvidenceFileName(), Builder, DocWriter (+14 more)
 
-### Community 5 - "Community 5"
+### Community 4 - "Community 4"
 Cohesion: 0.11
-Nodes (13): runCommand(), countLines(), GitAdapter, listFiles(), numstat(), shellQuote(), gitIdentity(), createReview() (+5 more)
+Nodes (20): asRecord(), commandOutput(), copyIfExists(), createResearchPlan(), listArtifactFiles(), LocalNodeAlphaBackend, nonEmpty(), numberValue() (+12 more)
+
+### Community 5 - "Community 5"
+Cohesion: 0.18
+Nodes (10): loadConfig(), toAppError(), readJson(), writeJson(), InventionService, errorEnvelope(), okEnvelope(), hashEvidence() (+2 more)
 
 ### Community 6 - "Community 6"
-Cohesion: 0.23
-Nodes (7): loadConfig(), readJson(), writeJson(), InventionService, hashEvidence(), writePhaseEvidence(), nowIso()
+Cohesion: 0.13
+Nodes (16): configExists(), doctor(), ensureInitialized(), flagBool(), flagInt(), flagRunMode(), flagString(), githubDoctor() (+8 more)
 
 ### Community 7 - "Community 7"
-Cohesion: 0.13
-Nodes (23): configExists(), toAppError(), doctor(), ensureInitialized(), executeCli(), flagBool(), flagInt(), flagRunMode() (+15 more)
+Cohesion: 0.11
+Nodes (13): runCommand(), countLines(), GitAdapter, listFiles(), numstat(), shellQuote(), gitIdentity(), createReview() (+5 more)
 
 ### Community 8 - "Community 8"
 Cohesion: 0.14
 Nodes (27): analyzePriorArtEvidence(), asRecord(), evaluatePublicationPolicy(), exists(), hashPublicationSource(), invalidPriorArtItemReasons(), isPriorArtKind(), isRelevance() (+19 more)
 
 ### Community 9 - "Community 9"
-Cohesion: 0.2
-Nodes (10): assertGitHubTargetSafe(), buildGhRepoCreateCommand(), copyIfExists(), exists(), GitHubPublisher, preparePublicEvidence(), writeFinalVerifySummary(), writePublicSourceSearchSummary() (+2 more)
+Cohesion: 0.13
+Nodes (14): assertGitHubTargetSafe(), buildGhRepoCreateCommand(), copyIfExists(), exists(), GitHubPublisher, preparePublicEvidence(), writeFinalVerifySummary(), writePublicSourceSearchSummary() (+6 more)
 
 ### Community 10 - "Community 10"
-Cohesion: 0.24
-Nodes (11): createGitNexusPlugin(), executeGitNexus(), pluginCommand(), unavailable(), loadBuiltinPlugins(), loadConfiguredPlugins(), loadPlugin(), loadPlugins() (+3 more)
+Cohesion: 0.2
+Nodes (12): FakeRunner, createGitNexusPlugin(), executeGitNexus(), pluginCommand(), unavailable(), loadBuiltinPlugins(), loadConfiguredPlugins(), loadPlugin() (+4 more)
 
 ### Community 11 - "Community 11"
 Cohesion: 0.28
@@ -116,12 +116,12 @@ Nodes (0):
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `executeCli()` connect `Community 7` to `Community 2`, `Community 5`, `Community 6`, `Community 9`, `Community 10`?**
-  _High betweenness centrality (0.072) - this node is a cross-community bridge._
+- **Why does `executeCli()` connect `Community 2` to `Community 5`, `Community 6`, `Community 7`, `Community 9`, `Community 10`?**
+  _High betweenness centrality (0.069) - this node is a cross-community bridge._
+- **Why does `nowIso()` connect `Community 5` to `Community 2`, `Community 3`, `Community 4`, `Community 6`?**
+  _High betweenness centrality (0.069) - this node is a cross-community bridge._
 - **Why does `PostgresStore` connect `Community 11` to `Community 1`?**
-  _High betweenness centrality (0.067) - this node is a cross-community bridge._
-- **Why does `nowIso()` connect `Community 6` to `Community 2`, `Community 3`, `Community 4`, `Community 7`?**
-  _High betweenness centrality (0.067) - this node is a cross-community bridge._
+  _High betweenness centrality (0.066) - this node is a cross-community bridge._
 - **Are the 18 inferred relationships involving `executeCli()` (e.g. with `createOpenInvention()` and `okEnvelope()`) actually correct?**
   _`executeCli()` has 18 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 24 inferred relationships involving `nowIso()` (e.g. with `writePhaseEvidence()` and `.inventOpen()`) actually correct?**

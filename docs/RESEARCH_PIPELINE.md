@@ -70,6 +70,21 @@ Each result has a quality kind:
 The evidence file records `status`, concrete/link/failure/mock counts, and the
 successful, failed, and query-link source types.
 
+Node Alpha autonomous mode adds a `public_research_review` phase. It reads the
+public-source-search evidence and writes:
+
+```text
+.sovryn/inventions/<slug>/evidence/source-reviews.json
+.sovryn/inventions/<slug>/SOURCE_REVIEWS.md
+.sovryn/inventions/<slug>/RESEARCH_SYNTHESIS.md
+```
+
+Concrete sources are reviewed at metadata level. Query links are marked as
+unreviewed research leads. Adapter failures are marked for retry/manual review.
+Mock placeholders remain deterministic MVP placeholders. The phase also updates
+`PRIOR_ART.md`, `NOVELTY_NOTES.md`, `evidence/skeptic-review.md`, and
+`evidence/artifact-score.json`.
+
 Publication review binds this evidence back to the dossier. Sovryn verifies
 that `dossier.evidenceHashes.public_source_search` matches the evidence file's
 hash, that the file hash is internally valid, and that the dossier's
@@ -80,3 +95,5 @@ Release packages include only a curated
 `evidence/public/public-source-search.summary.json` with source titles, URLs,
 citations, kinds, source types, relevance, and aggregate counts. Raw adapter
 errors and private local execution details are not copied into public evidence.
+When present, `evidence/source-reviews.json`, `SOURCE_REVIEWS.md`, and
+`RESEARCH_SYNTHESIS.md` are also staged as public research artifacts.

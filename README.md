@@ -129,6 +129,13 @@ that unknown prior-art kinds are invalid, not placeholders. Strict real
 publication can require concrete prior-art sources with
 `research.requireConcretePriorArtForPublish`.
 
+In autonomous mode, Node Alpha now runs a `public_research_review` phase over
+that evidence. It writes `evidence/source-reviews.json`, `SOURCE_REVIEWS.md`,
+and `RESEARCH_SYNTHESIS.md`, updates prior-art/novelty/skeptic artifacts, and
+adds a `researchEvidenceScore` to `artifact-score.json`. Query links, adapter
+failures, and MVP placeholders are marked as unreviewed/degraded evidence, not
+as concrete prior art.
+
 GitHub credentials stay with Sovryn Controller. The autonomous agent prepares
 artifacts, but `publish-github` is gated by dossier, license, verification,
 source-stability, source-hash freshness, secret-scan, safety, prior-art,

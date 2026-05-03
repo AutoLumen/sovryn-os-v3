@@ -655,6 +655,8 @@ function publicationSourceEntries(root: string): string[] {
     "DEFENSIVE_PUBLICATION.md",
     "PRIOR_ART.md",
     "NOVELTY_NOTES.md",
+    "SOURCE_REVIEWS.md",
+    "RESEARCH_SYNTHESIS.md",
     "SAFETY_REVIEW.md",
     "CITATION.cff",
     "LICENSE",

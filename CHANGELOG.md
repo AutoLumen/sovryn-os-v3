@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.0-alpha.3
+
+- Fixed the public CI smoke flow to use an explicit deterministic verify command
+  under the stricter no-empty-verify policy.
+
 ## 3.0.0-alpha.2
 
 - Failed verification when no verify commands are discovered.

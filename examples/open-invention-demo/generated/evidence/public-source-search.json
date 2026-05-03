@@ -1,0 +1,20 @@
+{
+  "kind": "public_source_search",
+  "mode": "mock",
+  "sources": ["web", "github", "papers", "standards", "patents"],
+  "resultCount": 1,
+  "results": [
+    {
+      "title": "Manual GitHub search required for A method for verifiable open-source agent research",
+      "sourceType": "github",
+      "url": null,
+      "relevance": "medium",
+      "overlap": "Potential overlap unknown until a public-source adapter retrieves concrete results.",
+      "difference": "Difference analysis pending. This deterministic placeholder prevents unsupported novelty claims.",
+      "citation": null,
+      "note": "Deterministic demo placeholder. Enable research.publicSearch.enabled to query public sources."
+    }
+  ],
+  "completedAt": "2026-05-03T00:00:00.000Z",
+  "evidenceHash": "demo"
+}

@@ -36,6 +36,7 @@
   "createdAt": "2026-05-03T00:00:00.000Z",
   "updatedAt": "2026-05-03T00:00:00.000Z",
   "evidenceHashes": {
+    "public_source_search": "demo",
     "publication_review": "demo"
   }
 }

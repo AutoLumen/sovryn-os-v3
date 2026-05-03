@@ -33,7 +33,27 @@ Internal roles are represented as modules: Scout, PriorArtMapper, Inventor,
 Skeptic, Builder, DocWriter, and Publisher. Prior-art mapping is not a legal
 conclusion.
 
-The dossier now includes a structured prior-art matrix with source type, URL,
-overlap, difference, relevance, and citation fields. The MVP fills this with a
-mock public-source adapter so future GitHub, paper, standards, patent, and web
-adapters can replace it without changing the dossier shape.
+The dossier includes a structured prior-art matrix with source type, URL,
+overlap, difference, relevance, and citation fields. By default the MVP keeps
+`invent-open` deterministic and fills this with mock public-source placeholders.
+
+Sovryn also includes public-source search adapters for GitHub repositories,
+OpenAlex works, arXiv papers, patent search links, standards/docs search links,
+and general web search links. Enable them in `.sovryn/config.json`:
+
+```json
+{
+  "research": {
+    "publicSearch": {
+      "enabled": true,
+      "maxResultsPerSource": 3,
+      "includeQueryLinks": true,
+      "githubTokenEnv": null
+    }
+  }
+}
+```
+
+Public-source search writes
+`.sovryn/inventions/<slug>/evidence/public-source-search.json`. Retrieved
+results are technical research leads, not legal prior-art conclusions.

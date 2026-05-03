@@ -20,6 +20,7 @@ Demo artifacts:
 - `generated/DEFENSIVE_PUBLICATION.md`
 - `generated/prototype/`
 - `generated/evidence/research-plan.json`
+- `generated/evidence/public-source-search.json`
 - `generated/evidence/command-journal.json`
 - `generated/evidence/artifact-score.json`
 - `generated/evidence/publication-review.json`

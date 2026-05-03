@@ -117,6 +117,13 @@ artifacts, and artifact completeness score. Future backends can use SSH,
 `sovryn-agentd`, containers, or VMs. Node Alpha is not a security sandbox unless
 paired with real OS isolation.
 
+Prior-art mapping defaults to deterministic placeholders. Optional
+public-source adapters can query GitHub, OpenAlex, arXiv, patent search links,
+standards/docs links, and general web search links when
+`research.publicSearch.enabled` is set in `.sovryn/config.json`. Results are
+written to `evidence/public-source-search.json` as research leads, not legal
+conclusions.
+
 GitHub credentials stay with Sovryn Controller. The autonomous agent prepares
 artifacts, but `publish-github` is gated by dossier, license, verification,
 source-stability, source-hash freshness, secret-scan, safety, prior-art,

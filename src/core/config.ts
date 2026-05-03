@@ -57,6 +57,14 @@ export type SovrynConfig = {
     tokenEnv: string;
     defaultVisibility: "public" | "private";
   };
+  research?: {
+    publicSearch: {
+      enabled: boolean;
+      maxResultsPerSource: number;
+      includeQueryLinks: boolean;
+      githubTokenEnv: string | null;
+    };
+  };
 };
 
 export const DEFAULT_CONFIG: SovrynConfig = {
@@ -112,6 +120,14 @@ export const DEFAULT_CONFIG: SovrynConfig = {
     defaultOrg: null,
     tokenEnv: "SOVRYN_GITHUB_TOKEN",
     defaultVisibility: "public",
+  },
+  research: {
+    publicSearch: {
+      enabled: false,
+      maxResultsPerSource: 3,
+      includeQueryLinks: true,
+      githubTokenEnv: null,
+    },
   },
 };
 

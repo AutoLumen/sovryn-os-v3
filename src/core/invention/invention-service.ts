@@ -31,7 +31,7 @@ import {
   phaseEvidenceFileName,
 } from "./pipeline.js";
 import {
-  MockPriorArtSearchAdapter,
+  createPriorArtSearchAdapter,
   priorArtResultsToMatrix,
 } from "./providers.js";
 import type {
@@ -59,7 +59,7 @@ export class InventionService {
     dossier: InventionDossier;
     artifactRefs: string[];
   }> {
-    await this.ensureInitialized();
+    const config = await this.config();
     const id = createMissionId();
     const title = titleFromBrief(brief);
     const slug = await this.uniqueSlug(slugify(title));
@@ -74,11 +74,28 @@ export class InventionService {
 
     const scout = new Scout().run(brief);
     const priorArt = new PriorArtMapper().run(brief);
-    const priorArtSearchResults = await new MockPriorArtSearchAdapter().search({
+    const priorArtSources: Array<
+      "web" | "github" | "papers" | "standards" | "patents"
+    > = ["web", "github", "papers", "standards", "patents"];
+    const priorArtSearchResults = await createPriorArtSearchAdapter(
+      config,
+    ).search({
       brief,
-      sources: ["web", "github", "papers", "standards", "patents"],
+      sources: priorArtSources,
     });
     const priorArtMatrix = priorArtResultsToMatrix(priorArtSearchResults);
+    const publicSourceSearchEvidence = {
+      kind: "public_source_search",
+      mode: config.research?.publicSearch?.enabled ? "public_source" : "mock",
+      sources: priorArtSources,
+      resultCount: priorArtSearchResults.length,
+      results: priorArtSearchResults,
+      completedAt: nowIso(),
+      evidenceHash: "",
+    };
+    publicSourceSearchEvidence.evidenceHash = hashEvidence(
+      publicSourceSearchEvidence,
+    );
     const dossier: InventionDossier = {
       id,
       slug,
@@ -137,9 +154,15 @@ export class InventionService {
       publicationMode: "draft",
       createdAt,
       updatedAt: createdAt,
-      evidenceHashes: {},
+      evidenceHashes: {
+        public_source_search: publicSourceSearchEvidence.evidenceHash,
+      },
     };
 
+    await writeJson(
+      join(inventionDir, "evidence", "public-source-search.json"),
+      publicSourceSearchEvidence,
+    );
     await this.writeDossierFiles(inventionDir, dossier);
     await this.writePrototype(inventionDir, dossier);
 

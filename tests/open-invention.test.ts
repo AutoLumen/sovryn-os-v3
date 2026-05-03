@@ -62,6 +62,14 @@ test("invent-open creates an open invention mission and dossier files", async ()
       repo.root,
       mission.inventionPath,
       "evidence",
+      "public-source-search.json",
+    ),
+  );
+  await access(
+    join(
+      repo.root,
+      mission.inventionPath,
+      "evidence",
       "github-publication.json",
     ),
   );

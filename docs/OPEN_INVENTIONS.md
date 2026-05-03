@@ -53,6 +53,11 @@ arXiv abstract metadata, and OpenAlex work metadata. The resulting
 `evidence/source-readings.json` can upgrade Node Alpha reviews from
 `reviewed_metadata` to `reviewed_deep_source`.
 
+Factory Mode is available through `sovryn factory-open "<research-goal>"`. It
+creates an Open Invention mission, extracts features, maps novelty gaps,
+generates candidate inventions, selects one, updates the dossier, writes a
+factory report, scores evidence strength, and blocks weak real publication.
+
 ## Dossier
 
 Each invention has a typed dossier with technical field, problem, background,

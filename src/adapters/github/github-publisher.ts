@@ -187,6 +187,10 @@ export class GitHubPublisher {
     for (const entry of ["SOURCE_REVIEWS.md", "RESEARCH_SYNTHESIS.md"]) {
       await copyIfExists(join(inventionDir, entry), join(releasePath, entry));
     }
+    await copyIfExists(
+      join(inventionDir, "FACTORY_REPORT.md"),
+      join(releasePath, "FACTORY_REPORT.md"),
+    );
     await preparePublicEvidence(inventionDir, releasePath);
     await writeFile(
       join(releasePath, "PUBLICATION_NOTICE.md"),
@@ -233,6 +237,11 @@ async function preparePublicEvidence(
     "invention-synthesis.md",
     "skeptic-review.md",
     "source-reviews.json",
+    "factory-features.json",
+    "novelty-gaps.json",
+    "invention-candidates.json",
+    "factory-selection.json",
+    "factory-score.json",
     "autonomous-summary.md",
   ]) {
     await copyIfExists(join(evidenceDir, file), join(publicEvidenceDir, file));

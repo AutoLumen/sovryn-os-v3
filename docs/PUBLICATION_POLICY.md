@@ -19,6 +19,7 @@ GitHub publication is blocked unless:
 - `evidence/public-source-search.json` is present, hash-valid, and bound to the dossier
 - the prior-art matrix has concrete public-source results or deterministic MVP placeholders
 - strict real-publish policy, when enabled, has concrete prior-art evidence instead of placeholders only
+- Factory Mode evidence, when present, is strong enough for real publication
 - the GitHub target is present unless dry-run mode is used
 - the mission is finalized for real publication
 
@@ -58,6 +59,10 @@ For stricter real publication, set:
 Dry-runs can still package deterministic MVP placeholders. Real GitHub
 publication then requires at least one concrete prior-art source from the
 bound public-source evidence file.
+
+Factory Mode adds `FACTORY_STRENGTH_FOR_PUBLISH`. Dry-runs can still package
+weak factory output for inspection, but real GitHub publication is blocked when
+`evidence/factory-score.json` exists and `canPublishStrongly` is false.
 
 Sovryn does not guarantee novelty, patentability, freedom to operate, or legal
 patent protection. Public publication may affect patent rights.

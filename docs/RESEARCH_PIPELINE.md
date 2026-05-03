@@ -77,6 +77,12 @@ The first deep readers cover GitHub repository metadata/README, arXiv abstract
 metadata, and OpenAlex work metadata including reconstructed inverted abstracts.
 They still produce research evidence, not legal conclusions.
 
+Factory Mode extends the pipeline with feature extraction, novelty-gap mapping,
+candidate invention generation, selected-candidate dossier updates, and a
+factory-readiness score. It writes `FACTORY_REPORT.md` and factory evidence
+files under `evidence/`. Real publication is blocked when factory evidence is
+present but weak.
+
 Public-source search writes
 `.sovryn/inventions/<slug>/evidence/public-source-search.json`. Retrieved
 results are technical research leads, not legal prior-art conclusions.

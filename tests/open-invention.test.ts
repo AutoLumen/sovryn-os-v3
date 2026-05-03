@@ -134,6 +134,61 @@ test("invent-open uses stable fallback slugs for punctuation-only briefs", async
   assert.equal((second.data as any).mission.slug, "open-invention-2");
 });
 
+test("factory-open creates selected candidate evidence and updates dossier", async () => {
+  const repo = await makeTempRepo();
+  await executeCli(["init"], repo.root);
+  const response = await executeCli(
+    [
+      "factory-open",
+      "A factory for verifiable open-source invention research",
+      "--json",
+    ],
+    repo.root,
+  );
+  assert.equal(response.ok, true);
+  const mission = (response.data as any).mission;
+  const factory = (response.data as any).factory;
+  assert.equal(factory.features.kind, "factory_features");
+  assert.equal(factory.gaps.kind, "novelty_gaps");
+  assert.equal(factory.candidates.kind, "invention_candidates");
+  assert.equal(factory.selection.kind, "factory_selection");
+  assert.equal(factory.selection.selectedCandidate.id, "factory-evidence-loop");
+  assert.equal(factory.score.scoreType, "factory_readiness");
+  assert.equal(factory.score.strength, "weak");
+  assert.equal(factory.score.canPublishStrongly, false);
+  await access(join(repo.root, mission.inventionPath, "FACTORY_REPORT.md"));
+  await access(
+    join(repo.root, mission.inventionPath, "evidence", "factory-features.json"),
+  );
+  await access(
+    join(repo.root, mission.inventionPath, "evidence", "novelty-gaps.json"),
+  );
+  await access(
+    join(
+      repo.root,
+      mission.inventionPath,
+      "evidence",
+      "invention-candidates.json",
+    ),
+  );
+  await access(
+    join(
+      repo.root,
+      mission.inventionPath,
+      "evidence",
+      "factory-selection.json",
+    ),
+  );
+  await access(
+    join(repo.root, mission.inventionPath, "evidence", "factory-score.json"),
+  );
+  const dossier = JSON.parse(
+    await readFile(join(repo.root, mission.dossierPath), "utf8"),
+  );
+  assert.match(dossier.proposedSolution, /Factory Mode pipeline/);
+  assert.equal(typeof dossier.evidenceHashes.factory_score, "string");
+});
+
 test("publication review blocks missing license", async () => {
   const { repo, mission } = await createOpenInvention();
   await rm(join(repo.root, mission.inventionPath, "LICENSE"));
@@ -553,6 +608,42 @@ test("real publish can require concrete prior-art evidence", async () => {
     checkPassed({ checks }, "CONCRETE_PRIOR_ART_FOR_PUBLISH"),
     false,
   );
+});
+
+test("real publish blocks weak Factory Mode evidence", async () => {
+  const repo = await makeTempRepo();
+  await executeCli(["init"], repo.root);
+  const create = await executeCli(
+    [
+      "factory-open",
+      "A factory for verifiable open-source invention research",
+      "--json",
+    ],
+    repo.root,
+  );
+  assert.equal(create.ok, true);
+  const mission = (create.data as any).mission;
+  const finalize = await executeCli(
+    ["invention", "finalize", mission.id, "--json"],
+    repo.root,
+  );
+  assert.equal(finalize.ok, true);
+  const publish = await executeCli(
+    [
+      "publish-github",
+      mission.id,
+      "--org",
+      "example",
+      "--repo",
+      "factory-demo",
+      "--json",
+    ],
+    repo.root,
+  );
+  assert.equal(publish.ok, false);
+  assert.equal(publish.errors[0].code, "PUBLICATION_BLOCKED");
+  const checks = (publish.errors[0].details as any).checks;
+  assert.equal(checkPassed({ checks }, "FACTORY_STRENGTH_FOR_PUBLISH"), false);
 });
 
 test("Node Alpha local backend creates workspace logs and artifacts", async () => {

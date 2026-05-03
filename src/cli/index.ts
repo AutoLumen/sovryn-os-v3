@@ -35,6 +35,7 @@ Commands:
   sovryn reject <mission-id> [--json]
   sovryn doctor [--json]
   sovryn invent-open "<brief>" [--json]
+  sovryn factory-open "<research-goal>" [--json]
   sovryn invention status <mission-id> [--json]
   sovryn invention dossier <mission-id> [--json]
   sovryn invention verify <mission-id> [--json]
@@ -154,6 +155,18 @@ export async function executeCli(
           );
         const result = await new InventionService(root).inventOpen(brief);
         return okEnvelope("invention.create", result, {
+          artifactRefs: result.artifactRefs,
+        });
+      }
+      case "factory-open": {
+        const goal = parsed.positionals.join(" ").trim();
+        if (!goal)
+          throw new AppError(
+            "FACTORY_GOAL_REQUIRED",
+            "factory-open requires a research goal.",
+          );
+        const result = await new InventionService(root).factoryOpen(goal);
+        return okEnvelope("factory.create", result, {
           artifactRefs: result.artifactRefs,
         });
       }

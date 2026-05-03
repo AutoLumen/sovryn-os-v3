@@ -39,6 +39,7 @@ import {
   createSourceReadingEvidence,
   createSourceReadingProvider,
 } from "./source-readers.js";
+import { buildFactoryMode, type FactoryResult } from "./factory.js";
 import type {
   InventionDossier,
   InventionIndex,
@@ -276,6 +277,88 @@ export class InventionService {
         mission.inventionPath,
         mission.dossierPath,
         join(mission.inventionPath, "DEFENSIVE_PUBLICATION.md"),
+      ],
+    };
+  }
+
+  async factoryOpen(goal: string): Promise<{
+    mission: OpenInventionMissionState;
+    dossier: InventionDossier;
+    factory: FactoryResult;
+    artifactRefs: string[];
+  }> {
+    const created = await this.inventOpen(goal);
+    const inventionDir = this.inventionDir(created.mission.slug);
+    const publicSourceSearch = await readJson<Record<string, unknown>>(
+      join(inventionDir, "evidence", "public-source-search.json"),
+    );
+    const sourceReadings = await readJson<Record<string, unknown>>(
+      join(inventionDir, "evidence", "source-readings.json"),
+    );
+    const factory = buildFactoryMode({
+      goal,
+      dossier: created.dossier,
+      publicSourceSearch,
+      sourceReadings,
+    });
+    await writeJson(
+      join(inventionDir, "evidence", "factory-features.json"),
+      factory.features,
+    );
+    await writeJson(
+      join(inventionDir, "evidence", "novelty-gaps.json"),
+      factory.gaps,
+    );
+    await writeJson(
+      join(inventionDir, "evidence", "invention-candidates.json"),
+      factory.candidates,
+    );
+    await writeJson(
+      join(inventionDir, "evidence", "factory-selection.json"),
+      factory.selection,
+    );
+    await writeJson(
+      join(inventionDir, "evidence", "factory-score.json"),
+      factory.score,
+    );
+    await writeFile(
+      join(inventionDir, "FACTORY_REPORT.md"),
+      factory.reportMarkdown,
+      "utf8",
+    );
+
+    const selected = factory.selection.selectedCandidate;
+    const dossier = created.dossier;
+    dossier.proposedSolution = selected.proposedSolution;
+    dossier.implementationNotes = `${dossier.implementationNotes}\n\nFactory Mode selected candidate: ${selected.title}. ${selected.summary}`;
+    dossier.noveltyNotes = [
+      ...dossier.noveltyNotes,
+      ...factory.gaps.gaps.map(
+        (gap) => `Factory novelty gap: ${gap.title} - ${gap.opportunity}`,
+      ),
+    ];
+    dossier.evidenceHashes.factory_features = factory.features.evidenceHash;
+    dossier.evidenceHashes.novelty_gaps = factory.gaps.evidenceHash;
+    dossier.evidenceHashes.invention_candidates =
+      factory.candidates.evidenceHash;
+    dossier.evidenceHashes.factory_selection = factory.selection.evidenceHash;
+    dossier.evidenceHashes.factory_score = factory.score.evidenceHash;
+    dossier.updatedAt = nowIso();
+    await this.writeDossierFiles(inventionDir, dossier);
+
+    return {
+      mission: created.mission,
+      dossier,
+      factory,
+      artifactRefs: [
+        ...created.artifactRefs,
+        join(created.mission.inventionPath, "FACTORY_REPORT.md"),
+        join(created.mission.inventionPath, "evidence", "factory-score.json"),
+        join(
+          created.mission.inventionPath,
+          "evidence",
+          "invention-candidates.json",
+        ),
       ],
     };
   }

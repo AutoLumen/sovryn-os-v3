@@ -182,6 +182,39 @@ export async function evaluatePublicationPolicy(input: {
     });
   }
 
+  const factoryScore = asRecord(
+    await readJsonIfExists(
+      join(input.inventionDir, "evidence", "factory-score.json"),
+    ),
+  );
+  const factoryScorePresent = Object.keys(factoryScore).length > 0;
+  const factoryScoreValue =
+    typeof factoryScore.score === "number" &&
+    Number.isFinite(factoryScore.score)
+      ? factoryScore.score
+      : null;
+  const factoryCanPublishStrongly =
+    factoryScore.canPublishStrongly === true && (factoryScoreValue ?? 0) >= 60;
+  checks.push({
+    code: "FACTORY_STRENGTH_FOR_PUBLISH",
+    passed:
+      input.target?.dryRun === true ||
+      !factoryScorePresent ||
+      factoryCanPublishStrongly,
+    message:
+      factoryScorePresent && !factoryCanPublishStrongly
+        ? "Factory Mode evidence is weak and blocks real publication."
+        : "Factory Mode evidence is absent, dry-run only, or strong enough for publication.",
+    details: {
+      factoryScorePresent,
+      score: factoryScoreValue,
+      strength: factoryScore.strength ?? null,
+      canPublishStrongly: factoryScore.canPublishStrongly ?? null,
+      blockers: factoryScore.blockers ?? [],
+      dryRun: input.target?.dryRun ?? false,
+    },
+  });
+
   checks.push({
     code: "DEFENSIVE_PUBLICATION_PRESENT",
     passed: await nonEmpty(

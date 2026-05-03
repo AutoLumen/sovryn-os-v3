@@ -47,6 +47,7 @@ sovryn finalize <mission-id> --json
 sovryn reject <mission-id> --json
 sovryn doctor --json
 sovryn invent-open "A method for verifiable open-source agent research" --json
+sovryn factory-open "A factory for verifiable open-source invention research" --json
 sovryn node register alpha --host local --json
 sovryn node run alpha <mission-id> --json
 sovryn node run alpha <mission-id> --mode autonomous --max-steps 25 --json
@@ -140,6 +141,12 @@ Deep source reading is opt-in through `research.sourceReading.enabled`. The
 first readers cover GitHub repository README/metadata, arXiv abstract metadata,
 and OpenAlex work metadata. Their output is `evidence/source-readings.json` and
 is used by Node Alpha to mark concrete sources as `reviewed_deep_source`.
+
+Factory Mode is available with `sovryn factory-open "<research-goal>"`. It
+builds on Open Inventions by extracting features from source search/readings,
+mapping novelty gaps, generating candidate inventions, selecting one candidate,
+writing `FACTORY_REPORT.md`, scoring factory readiness, and blocking weak real
+publication through the `FACTORY_STRENGTH_FOR_PUBLISH` gate.
 
 GitHub credentials stay with Sovryn Controller. The autonomous agent prepares
 artifacts, but `publish-github` is gated by dossier, license, verification,

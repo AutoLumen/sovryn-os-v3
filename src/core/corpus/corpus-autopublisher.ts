@@ -113,6 +113,12 @@ export type CorpusAutopublishCandidate = {
   counterEvidenceRelevanceScore?: number;
   publicReadabilityScore?: number;
   qualityStatusRecommendation?: string;
+  realSourceMode?: boolean;
+  realSourceConcreteSourceCount?: number;
+  realSourceCardCount?: number;
+  realSourceThresholdMet?: boolean;
+  fixtureFallbackUsed?: boolean;
+  queryLinksReviewedAsPriorArt?: boolean;
   evidenceHash: string;
 };
 
@@ -156,6 +162,11 @@ type AutopublishRecord = {
   noCriticalFailures: boolean;
   specificityScore?: number;
   antiTemplateStatus?: string;
+  realSourceMode?: boolean;
+  realSourceConcreteSourceCount?: number;
+  realSourceCardCount?: number;
+  realSourceThresholdMet?: boolean;
+  fixtureFallbackUsed?: boolean;
   disclaimer: string;
   evidenceHash: string;
 };
@@ -885,6 +896,16 @@ export class CorpusAutopublisher {
           qualityReview.counterEvidenceRelevanceScore,
         publicReadabilityScore: qualityReview.publicReadabilityScore,
         qualityStatusRecommendation: qualityReview.statusRecommendation,
+        realSourceMode: pilot.realSourceMode === true,
+        realSourceConcreteSourceCount: number(
+          pilot.realSourceConcreteSourceCount,
+          0,
+        ),
+        realSourceCardCount: number(pilot.realSourceCardCount, 0),
+        realSourceThresholdMet: pilot.realSourceThresholdMet === true,
+        fixtureFallbackUsed: pilot.fixtureFallbackUsed === true,
+        queryLinksReviewedAsPriorArt:
+          pilot.queryLinksReviewedAsPriorArt === true,
         evidenceHash: "",
       });
       candidates.push(candidate);
@@ -969,6 +990,11 @@ export class CorpusAutopublisher {
         noCriticalFailures: candidate.noCriticalFailures,
         specificityScore: candidate.specificityScore,
         antiTemplateStatus: candidate.qualityStatusRecommendation,
+        realSourceMode: candidate.realSourceMode,
+        realSourceConcreteSourceCount: candidate.realSourceConcreteSourceCount,
+        realSourceCardCount: candidate.realSourceCardCount,
+        realSourceThresholdMet: candidate.realSourceThresholdMet,
+        fixtureFallbackUsed: candidate.fixtureFallbackUsed,
         disclaimer: AUTOPUBLISH_DISCLAIMER,
         evidenceHash: "",
       });
@@ -1040,6 +1066,11 @@ export class CorpusAutopublisher {
         publicationSafetyScore: record.publicationSafetyScore,
         specificityScore: record.specificityScore,
         antiTemplateStatus: record.antiTemplateStatus,
+        realSourceMode: record.realSourceMode,
+        realSourceConcreteSourceCount: record.realSourceConcreteSourceCount,
+        realSourceCardCount: record.realSourceCardCount,
+        realSourceThresholdMet: record.realSourceThresholdMet,
+        fixtureFallbackUsed: record.fixtureFallbackUsed,
         humanReviewRequired: false,
         path: join("results", record.slug),
         disclaimer: AUTOPUBLISH_DISCLAIMER,
@@ -1436,6 +1467,56 @@ export function evaluateAutopublishCandidate(
       },
     ),
     gate(
+      "REAL_SOURCE_SEARCH_ENABLED",
+      candidate.realSourceMode !== true || candidate.realSourceMode === true,
+      "Real-source candidates must explicitly mark real-source mode.",
+      {
+        realSourceMode: candidate.realSourceMode === true,
+      },
+    ),
+    gate(
+      "SOURCE_CARDS_REAL_SOURCE_BOUND",
+      candidate.realSourceMode !== true ||
+        metric(candidate.realSourceCardCount, 0) >= 3,
+      "Real-source candidates must bind at least three source cards to concrete public sources.",
+      {
+        realSourceCardCount: metric(candidate.realSourceCardCount, 0),
+      },
+    ),
+    gate(
+      "QUERY_LINKS_NOT_COUNTED_AS_REVIEWED",
+      candidate.realSourceMode !== true ||
+        candidate.queryLinksReviewedAsPriorArt !== true,
+      "Query links must not be counted as reviewed prior art.",
+      {
+        queryLinksReviewedAsPriorArt:
+          candidate.queryLinksReviewedAsPriorArt === true,
+      },
+    ),
+    gate(
+      "FIXTURE_FALLBACK_DECLARED",
+      candidate.realSourceMode !== true ||
+        candidate.fixtureFallbackUsed === true ||
+        candidate.fixtureFallbackUsed === false,
+      "Fixture fallback use must be recorded for real-source candidates.",
+      {
+        fixtureFallbackUsed: candidate.fixtureFallbackUsed === true,
+      },
+    ),
+    gate(
+      "AUTOPUBLISH_ONLY_IF_REAL_SOURCE_THRESHOLD_MET",
+      candidate.realSourceMode !== true ||
+        candidate.realSourceThresholdMet === true,
+      "Real-source campaign results may autopublish only when concrete source thresholds are met.",
+      {
+        realSourceThresholdMet: candidate.realSourceThresholdMet === true,
+        realSourceConcreteSourceCount: metric(
+          candidate.realSourceConcreteSourceCount,
+          0,
+        ),
+      },
+    ),
+    gate(
       "RESULT_SPECIFICITY_PASSED",
       metric(candidate.specificityScore, 100) >= 60,
       "Result must be domain-specific and not template-like.",
@@ -1772,6 +1853,14 @@ function resultSummary(
     publicationSafetyScore: candidate.publicationSafetyScore,
     specificityScore: candidate.specificityScore,
     antiTemplateStatus: candidate.qualityStatusRecommendation,
+    realSourceMode: candidate.realSourceMode === true,
+    realSourceConcreteSourceCount: metric(
+      candidate.realSourceConcreteSourceCount,
+      0,
+    ),
+    realSourceCardCount: metric(candidate.realSourceCardCount, 0),
+    realSourceThresholdMet: candidate.realSourceThresholdMet === true,
+    fixtureFallbackUsed: candidate.fixtureFallbackUsed === true,
     humanReviewRequired: false,
     disclaimer: AUTOPUBLISH_DISCLAIMER,
     evidenceHash: candidate.evidenceHash,
@@ -1798,6 +1887,10 @@ Candidate status: ${candidate.candidateStatus}
 - Replay critical pass rate: ${candidate.replayCriticalPassRate}
 - Specificity score: ${metric(candidate.specificityScore, 0)}
 - Anti-template status: ${text(candidate.qualityStatusRecommendation, "unknown")}
+- Real-source mode: ${candidate.realSourceMode === true}
+- Real-source cards: ${metric(candidate.realSourceCardCount, 0)}
+- Fixture fallback used: ${candidate.fixtureFallbackUsed === true}
+- Real-source threshold met: ${candidate.realSourceThresholdMet === true}
 
 ## Automated Publication Record
 

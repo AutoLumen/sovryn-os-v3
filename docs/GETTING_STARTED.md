@@ -37,6 +37,7 @@ node dist/cli.js e2e run --profile beta-fixture --release-candidates 3 --json
 node dist/cli.js external-research run chemistry-record-auditor --profile container-netoff --json
 node dist/cli.js external-research run energy-record-auditor --profile container-netoff --json
 node dist/cli.js external-research campaign multi-domain --fixture-install --json
+node dist/cli.js external-research campaign real-sources --domains 3 --fixture-sources --json
 ```
 
 Sovryn is not a legal patent filing system and does not provide legal novelty,

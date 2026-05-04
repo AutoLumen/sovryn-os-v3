@@ -21,10 +21,18 @@ let energyFixturePromise: Promise<ExternalResearchFixture> | null = null;
 let patchFixturePromise: Promise<ExternalResearchFixture> | null = null;
 let campaignFixturePromise: Promise<{ root: string; campaign: any }> | null =
   null;
+let realSourceCampaignFixturePromise: Promise<{
+  root: string;
+  campaign: any;
+}> | null = null;
+let realSourceFallbackFixturePromise: Promise<{
+  root: string;
+  campaign: any;
+}> | null = null;
 
-test("package version is beta.18", async () => {
+test("package version is beta.19", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  assert.equal(pkg.version, "3.0.0-beta.18");
+  assert.equal(pkg.version, "3.0.0-beta.19");
 });
 
 test("CLI help lists external research command", async () => {
@@ -994,6 +1002,624 @@ test("Beta.17 CLI help lists multi-domain campaign", async () => {
   );
 });
 
+test("Beta.19 CLI help lists real-source campaign", async () => {
+  const help = await executeCli(["--help", "--json"]);
+  assert.match(
+    (help.data as any).help,
+    /external-research campaign real-sources/,
+  );
+});
+
+test("Beta.19 real-source campaign creates three domain results", async () => {
+  const { campaign } = await realSourceCampaignFixture();
+  assert.equal(campaign.domainCount, 3);
+  assert.equal(campaign.realSourceMode, true);
+  assert.deepEqual(campaign.resultSlugs, [
+    "energy-usage-anomaly-auditor",
+    "patch-risk-auditor",
+    "scientific-dataset-reliability-auditor",
+  ]);
+});
+
+test("Beta.19 real-source mode uses adapter and cache path", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const evidence = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "energy-data-quality",
+      "real-source-search.json",
+    ),
+  );
+  assert.equal(evidence.realPublicSearchEnabled, true);
+  assert.equal(evidence.fixtureSourceAdapterUsed, true);
+  assert.equal(evidence.realSourceReplayCachePresent, true);
+  assert.equal(typeof evidence.cacheKey, "string");
+});
+
+test("Beta.19 source discovery summary counts source kinds correctly", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const evidence = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "software-supply-chain-assurance",
+      "real-source-search.json",
+    ),
+  );
+  assert.equal(evidence.sourceKindCounts.concrete_source, 5);
+  assert.equal(evidence.sourceKindCounts.query_link, 2);
+  assert.equal(evidence.sourceKindCounts.adapter_failure, 1);
+  assert.equal(evidence.sourceKindCounts.fixture_fallback, 0);
+});
+
+test("Beta.19 query links are not treated as reviewed prior art", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const evidence = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "scientific-dataset-reliability",
+      "real-source-search.json",
+    ),
+  );
+  assert.equal(evidence.queryLinksReviewedAsPriorArt, false);
+  assert.equal(
+    evidence.sources.some(
+      (source: any) =>
+        source.kind === "query_link" && source.reviewedAsPriorArt === true,
+    ),
+    false,
+  );
+});
+
+test("Beta.19 adapter failure does not block when enough concrete sources exist", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const evidence = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "energy-data-quality",
+      "real-source-search.json",
+    ),
+  );
+  assert.equal(evidence.adapterFailureCount, 1);
+  assert.equal(evidence.realSourceThresholdMet, true);
+  assert.equal(evidence.degraded, false);
+});
+
+test("Beta.19 source cards include real source metadata", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const cards = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "energy-data-quality",
+      "source-cards.json",
+    ),
+  );
+  assert.equal(cards.realSourceMode, true);
+  assert.equal(cards.cards.length >= 3, true);
+  assert.equal(typeof cards.cards[0].title, "string");
+  assert.equal(typeof cards.cards[0].url, "string");
+  assert.equal(cards.cards[0].reviewedAsPriorArt, true);
+});
+
+test("Beta.19 source card files are written per concrete source", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const cards = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "software-supply-chain-assurance",
+      "source-cards.json",
+    ),
+  );
+  await access(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "software-supply-chain-assurance",
+      "source-cards",
+      `${cards.cards[0].sourceId}.json`,
+    ),
+  );
+  const markdown = await readFile(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "software-supply-chain-assurance",
+      "source-cards",
+      `${cards.cards[0].sourceId}.md`,
+    ),
+    "utf8",
+  );
+  assert.match(markdown, /not a legal novelty conclusion/);
+});
+
+test("Beta.19 source readings are bounded public metadata", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const readings = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "scientific-dataset-reliability",
+      "source-readings.json",
+    ),
+  );
+  assert.equal(readings.readingMode, "bounded_public_metadata");
+  assert.equal(readings.concreteSourcesRead >= 3, true);
+  assert.equal(readings.readings[0].readStatus, "read");
+});
+
+test("Beta.19 claim matrix binds only to source-card refs", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const matrix = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "energy-data-quality",
+      "claim-feature-matrix.json",
+    ),
+  );
+  assert.equal(matrix.realSourceMode, true);
+  assert.equal(matrix.rows[0].supportedBySourceCards.length > 0, true);
+  assert.deepEqual(matrix.rows[0].evidenceRefs, [
+    "source-cards.json",
+    "real-source-search.json",
+  ]);
+});
+
+test("Beta.19 counter evidence is generated from real-source cards", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const counter = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "software-supply-chain-assurance",
+      "counter-evidence.json",
+    ),
+  );
+  assert.equal(counter.items.length >= 3, true);
+  assert.match(counter.items[0].whyItWeakensNovelty, /already be known/);
+});
+
+test("Beta.19 experiment and benchmark plans are written per domain", async () => {
+  const { root } = await realSourceCampaignFixture();
+  await access(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "scientific-dataset-reliability",
+      "experiment-plan.json",
+    ),
+  );
+  const benchmark = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "scientific-dataset-reliability",
+      "benchmark-plan.json",
+    ),
+  );
+  assert.equal(benchmark.status, "planned_not_claimed");
+});
+
+test("Beta.19 each real-source domain binds to a factory run", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const binding = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "energy-data-quality",
+      "factory-binding.json",
+    ),
+  );
+  assert.match(binding.factoryId, /^(fac_|factory-)/);
+  assert.equal(typeof binding.sourceDiscoveryEvidenceHash, "string");
+});
+
+test("Beta.19 scientific dataset domain creates a custom tool", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const pilot = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "pilots",
+      "scientific-dataset-reliability-auditor",
+      "pilot-run.json",
+    ),
+  );
+  assert.equal(pilot.title, "Scientific Dataset Reliability Auditor");
+  assert.equal(pilot.workerNoSilentFallback, true);
+});
+
+test("Beta.19 scientific prototype detects duplicate and outlier records", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const releaseSummary = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "scientific-dataset-reliability-auditor",
+      "release",
+      "public",
+      "prototype",
+      "sample-output.json",
+    ),
+  );
+  assert.equal(
+    releaseSummary.issues.some(
+      (issue: any) => issue.issueType === "duplicate_record",
+    ),
+    true,
+  );
+  assert.equal(
+    releaseSummary.issues.some((issue: any) => issue.issueType === "outlier"),
+    true,
+  );
+});
+
+test("Beta.19 public release summary marks realSourceMode", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const summary = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "energy-usage-anomaly-auditor",
+      "release",
+      "public",
+      "SUMMARY.json",
+    ),
+  );
+  assert.equal(summary.realSourceMode, true);
+  assert.equal(summary.realSourceThresholdMet, true);
+});
+
+test("Beta.19 public release includes curated real-source summary only", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const releaseRoot = join(
+    root,
+    ".sovryn",
+    "external-research",
+    "patch-risk-auditor",
+    "release",
+    "public",
+  );
+  await access(join(releaseRoot, "real-source-search.summary.json"));
+  const hygiene = await scanCorpusPublicHygiene(releaseRoot);
+  assert.equal(hygiene.passed, true);
+});
+
+test("Beta.19 pilot-results aggregates real-source campaign pilots", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const results = await readJson<any>(
+    join(root, ".sovryn", "pilots", "pilot-results.json"),
+  );
+  assert.equal(results.realSourceCampaign, true);
+  assert.equal(results.pilots.length, 3);
+});
+
+test("Beta.19 pilot records real-source thresholds", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const pilot = await readJson<any>(
+    join(root, ".sovryn", "pilots", "patch-risk-auditor", "pilot-run.json"),
+  );
+  assert.equal(pilot.realSourceMode, true);
+  assert.equal(pilot.realSourceThresholdMet, true);
+  assert.equal(pilot.queryLinksReviewedAsPriorArt, false);
+});
+
+test("Beta.19 autopublish dry-run sees real-source eligible results", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const targetRepo = await makeTargetCorpusRepo();
+  const response = await must(
+    executeCli(
+      [
+        "corpus",
+        "autopublish",
+        "--target-repo",
+        targetRepo,
+        "--dry-run",
+        "--json",
+      ],
+      root,
+    ),
+  );
+  assert.equal(response.eligibleResults, 2);
+});
+
+test("Beta.19 autopublish verification includes real-source gates", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const targetRepo = await makeTargetCorpusRepo();
+  await must(
+    executeCli(
+      [
+        "corpus",
+        "autopublish",
+        "--target-repo",
+        targetRepo,
+        "--dry-run",
+        "--json",
+      ],
+      root,
+    ),
+  );
+  const verification = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "corpus-autopublish",
+      "staged",
+      "results",
+      "energy-usage-anomaly-auditor",
+      "verification.json",
+    ),
+  );
+  const gates = verification.gates.map((gate: any) => gate.code);
+  assert.equal(gates.includes("SOURCE_CARDS_REAL_SOURCE_BOUND"), true);
+  assert.equal(
+    gates.includes("AUTOPUBLISH_ONLY_IF_REAL_SOURCE_THRESHOLD_MET"),
+    true,
+  );
+});
+
+test("Beta.19 autopublish staged summary marks realSourceMode", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const targetRepo = await makeTargetCorpusRepo();
+  await must(
+    executeCli(
+      [
+        "corpus",
+        "autopublish",
+        "--target-repo",
+        targetRepo,
+        "--dry-run",
+        "--json",
+      ],
+      root,
+    ),
+  );
+  const summary = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "corpus-autopublish",
+      "staged",
+      "results",
+      "energy-usage-anomaly-auditor",
+      "SUMMARY.json",
+    ),
+  );
+  assert.equal(summary.realSourceMode, true);
+  assert.equal(summary.realSourceThresholdMet, true);
+});
+
+test("Beta.19 fallback mode declares fixture fallback", async () => {
+  const { root } = await realSourceFallbackFixture();
+  const evidence = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "energy-data-quality",
+      "real-source-search.json",
+    ),
+  );
+  assert.equal(evidence.fixtureFallbackUsed, true);
+  assert.equal(evidence.degraded, true);
+  assert.equal(evidence.realSourceThresholdMet, false);
+});
+
+test("Beta.19 fallback sources are not reviewed prior art", async () => {
+  const { root } = await realSourceFallbackFixture();
+  const evidence = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "energy-data-quality",
+      "real-source-search.json",
+    ),
+  );
+  assert.equal(
+    evidence.sources.some(
+      (source: any) =>
+        source.kind === "fixture_fallback" &&
+        source.reviewedAsPriorArt === true,
+    ),
+    false,
+  );
+});
+
+test("Beta.19 adapter failure degrades when no concrete source exists", async () => {
+  const { root } = await realSourceFallbackFixture();
+  const evidence = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "energy-data-quality",
+      "real-source-search.json",
+    ),
+  );
+  assert.equal(evidence.adapterFailureCount >= 1, true);
+  assert.equal(evidence.reviewedConcreteSourceCount, 0);
+});
+
+test("Beta.19 fallback pilot is not autopublish ready", async () => {
+  const { root } = await realSourceFallbackFixture();
+  const pilot = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "pilots",
+      "energy-usage-anomaly-auditor",
+      "pilot-run.json",
+    ),
+  );
+  assert.equal(pilot.realSourceThresholdMet, false);
+  assert.equal(pilot.candidateStatus, "needs_revision");
+});
+
+test("Beta.19 autopublish blocks missing real-source threshold", async () => {
+  const { root } = await realSourceFallbackFixture();
+  const targetRepo = await makeTargetCorpusRepo();
+  const response = await must(
+    executeCli(
+      [
+        "corpus",
+        "autopublish",
+        "--target-repo",
+        targetRepo,
+        "--dry-run",
+        "--json",
+      ],
+      root,
+    ),
+  );
+  assert.equal(response.eligibleResults, 0);
+  const rejected = await readJson<any>(
+    join(root, ".sovryn", "corpus-autopublish", "rejected-results.json"),
+  );
+  assert.equal(
+    rejected.results[0].failedGates.includes(
+      "AUTOPUBLISH_ONLY_IF_REAL_SOURCE_THRESHOLD_MET",
+    ),
+    true,
+  );
+});
+
+test("Beta.19 real-source campaign writes campaign report", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const report = await readFile(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "REAL_SOURCE_CAMPAIGN_REPORT.md",
+    ),
+    "utf8",
+  );
+  assert.match(report, /Real-Source External Research Campaign/);
+  assert.match(report, /does not\s+claim legal novelty/);
+});
+
+test("Beta.19 campaign gates include real-source replay cache", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const evidence = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "real-source-campaign",
+      "energy-data-quality",
+      "real-source-search.json",
+    ),
+  );
+  const gateCodes = evidence.gates.map((gate: any) => gate.code);
+  assert.equal(gateCodes.includes("REAL_SOURCE_REPLAY_CACHE_PRESENT"), true);
+});
+
+test("Beta.19 source discovery cache index is populated", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const status = await must(
+    executeCli(["research", "cache", "status", "--json"], root),
+  );
+  assert.equal(status.entries.length >= 1, true);
+});
+
+test("Beta.19 public source adapter reports exist after campaign", async () => {
+  const { root } = await realSourceCampaignFixture();
+  await access(join(root, ".sovryn", "adapters", "adapter-health.json"));
+  await access(join(root, ".sovryn", "adapters", "source-quality-report.json"));
+});
+
+test("Beta.19 campaign supports domain limit", async () => {
+  const repo = await makeTempRepo();
+  await executeCli(["init", "--json"], repo.root);
+  const response = await must(
+    executeCli(
+      [
+        "external-research",
+        "campaign",
+        "real-sources",
+        "--domains",
+        "1",
+        "--fixture-sources",
+        "--json",
+      ],
+      repo.root,
+    ),
+  );
+  assert.equal(response.domainCount, 1);
+  assert.deepEqual(response.resultSlugs, ["energy-usage-anomaly-auditor"]);
+});
+
+test("Beta.19 no public leaks in all real-source release packages", async () => {
+  const { root } = await realSourceCampaignFixture();
+  for (const slug of [
+    "energy-usage-anomaly-auditor",
+    "patch-risk-auditor",
+    "scientific-dataset-reliability-auditor",
+  ]) {
+    const hygiene = await scanCorpusPublicHygiene(
+      join(root, ".sovryn", "external-research", slug, "release", "public"),
+    );
+    assert.equal(hygiene.passed, true);
+  }
+});
+
+test("Beta.19 real-source public summary excludes raw command logs", async () => {
+  const { root } = await realSourceCampaignFixture();
+  const summary = await readFile(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "energy-usage-anomaly-auditor",
+      "release",
+      "public",
+      "REAL_SOURCE_EVIDENCE.md",
+    ),
+    "utf8",
+  );
+  assert.doesNotMatch(summary, /stdout|stderr|command-journal/i);
+});
+
 async function externalResearchFixture(): Promise<ExternalResearchFixture> {
   fixturePromise ??= createExternalResearchFixture();
   return fixturePromise;
@@ -1020,6 +1646,22 @@ async function multiDomainCampaignFixture(): Promise<{
 }> {
   campaignFixturePromise ??= createMultiDomainCampaignFixture();
   return campaignFixturePromise;
+}
+
+async function realSourceCampaignFixture(): Promise<{
+  root: string;
+  campaign: any;
+}> {
+  realSourceCampaignFixturePromise ??= createRealSourceCampaignFixture();
+  return realSourceCampaignFixturePromise;
+}
+
+async function realSourceFallbackFixture(): Promise<{
+  root: string;
+  campaign: any;
+}> {
+  realSourceFallbackFixturePromise ??= createRealSourceFallbackFixture();
+  return realSourceFallbackFixturePromise;
 }
 
 async function createExternalResearchFixture(): Promise<ExternalResearchFixture> {
@@ -1191,6 +1833,52 @@ async function createMultiDomainCampaignFixture(): Promise<{
         "--profile",
         "container-netoff",
         "--fixture-install",
+        "--json",
+      ],
+      repo.root,
+    ),
+  );
+  return { root: repo.root, campaign: response };
+}
+
+async function createRealSourceCampaignFixture(): Promise<{
+  root: string;
+  campaign: any;
+}> {
+  const repo = await makeTempRepo();
+  await executeCli(["init", "--json"], repo.root);
+  const response = await must(
+    executeCli(
+      [
+        "external-research",
+        "campaign",
+        "real-sources",
+        "--domains",
+        "3",
+        "--fixture-sources",
+        "--json",
+      ],
+      repo.root,
+    ),
+  );
+  return { root: repo.root, campaign: response };
+}
+
+async function createRealSourceFallbackFixture(): Promise<{
+  root: string;
+  campaign: any;
+}> {
+  const repo = await makeTempRepo();
+  await executeCli(["init", "--json"], repo.root);
+  const response = await must(
+    executeCli(
+      [
+        "external-research",
+        "campaign",
+        "real-sources",
+        "--domains",
+        "1",
+        "--force-fallback",
         "--json",
       ],
       repo.root,

@@ -24,6 +24,7 @@ import {
   V1RcGateService,
 } from "../core/external-research/overnight-external-trial.js";
 import { PatchRiskAuditorResearchService } from "../core/external-research/patch-risk-auditor.js";
+import { RealSourceExternalCampaignService } from "../core/external-research/real-source-campaign.js";
 import { InventionService } from "../core/invention/invention-service.js";
 import { MissionService } from "../core/mission/mission-service.js";
 import { NodeManager } from "../core/node/node-manager.js";
@@ -181,6 +182,7 @@ Commands:
   sovryn external-research run energy-record-auditor [--profile sandbox-local|container-netoff] [--fixture-install] [--json]
   sovryn external-research run patch-risk-auditor [--profile sandbox-local|container-netoff] [--fixture-install] [--json]
   sovryn external-research campaign multi-domain [--profile sandbox-local|container-netoff] [--fixture-install] [--json]
+  sovryn external-research campaign real-sources [--domains 3] [--fixture-sources] [--json]
   sovryn invention status <mission-id> [--json]
   sovryn invention dossier <mission-id> [--json]
   sovryn invention verify <mission-id> [--json]
@@ -1125,6 +1127,14 @@ async function externalResearchCommand(
   if (subcommand === "campaign" && target === "multi-domain") {
     return new MultiDomainExternalCampaignService(root).run({
       fixtureInstall: flagBool(parsed.flags, "--fixture-install"),
+      profile: flagExternalResearchProfile(parsed.flags, "container-netoff"),
+    });
+  }
+  if (subcommand === "campaign" && target === "real-sources") {
+    return new RealSourceExternalCampaignService(root).run({
+      domains: flagInt(parsed.flags, "--domains", 3),
+      fixtureSources: flagBool(parsed.flags, "--fixture-sources"),
+      forceFallback: flagBool(parsed.flags, "--force-fallback"),
       profile: flagExternalResearchProfile(parsed.flags, "container-netoff"),
     });
   }

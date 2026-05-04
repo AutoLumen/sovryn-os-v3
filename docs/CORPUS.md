@@ -220,3 +220,41 @@ Results marked `needs_revision`, `blocked`, `demo_pilot`, or `superseded` cannot
 be showcase results. The audit verifies version groups, superseded maps,
 showcase output, lifecycle fields in `INDEX.json`, and consistency between the
 index and public site.
+
+## Beta.19 Real-Source Campaign Corpus Gates
+
+Beta.19 adds a real-source external campaign that can feed the corpus only when
+concrete public-source evidence is strong enough:
+
+```bash
+sovryn external-research campaign real-sources --domains 3 --json
+sovryn external-research campaign real-sources --domains 3 --fixture-sources --json
+sovryn corpus autopublish --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --dry-run --json
+```
+
+Each domain writes:
+
+```text
+.sovryn/external-research/real-source-campaign/<domain>/
+  real-source-search.json
+  source-readings.json
+  source-cards.json
+  source-cards/<source-id>.json
+  source-cards/<source-id>.md
+  claim-feature-matrix.json
+  counter-evidence.json
+  experiment-plan.json
+  benchmark-plan.json
+  REAL_SOURCE_EVIDENCE.md
+```
+
+The public release receives only curated summaries such as
+`real-source-search.summary.json` and `REAL_SOURCE_EVIDENCE.md`. Raw adapter
+logs, command journals, stdout/stderr, local paths, secrets, and full raw source
+content remain excluded.
+
+For real-source campaign results, corpus autopublish adds gates for source-card
+binding and threshold satisfaction. A result with only query links, adapter
+failures, mock placeholders, or declared `fixture_fallback` records is recorded
+as degraded or `needs_revision`; it is not allowed into the public corpus as an
+autopublished result.

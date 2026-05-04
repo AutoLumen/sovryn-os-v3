@@ -1,6 +1,6 @@
 # Beta Operationalization
 
-Sovryn OS v3 `3.0.0-beta.18` adds an operational proof layer above the Alpha
+Sovryn OS v3 `3.0.0-beta.19` adds an operational proof layer above the Alpha
 Factory. The goal is to show that Sovryn can run bounded autonomous research
 workflows, measure quality, keep publication governed, execute worker jobs
 without silent fallback, export a public corpus, and produce three
@@ -36,6 +36,13 @@ Beta.18 adds corpus lifecycle curation on top of that proof: the public corpus
 keeps every old result folder, but `corpus site build` now groups versions,
 maps superseded entries, selects showcase results, records revision queues, and
 exports lifecycle fields in `INDEX.json`, the public API, and the static site.
+Beta.19 adds the real-source external research campaign. It runs safe
+energy-data-quality, software-supply-chain-assurance, and scientific dataset
+reliability domains with public-source search enabled, writes
+`real-source-search.json`, real-source-bound source cards, claim/feature
+matrices, counter-evidence, experiment plans, benchmark plans, and pilot
+bindings, then allows corpus autopublish only when concrete-source thresholds
+are met.
 
 Sovryn produces Open Inventions, Defensive Publications, and Open Source
 Research Artifacts. It does not file legal patents and does not provide legal
@@ -112,6 +119,34 @@ worker output, command journals, local absolute paths, secrets, private config,
 or full raw source dumps. It gives readers a human-facing entry point into the
 corpus while preserving machine-readable JSON for search, quality, result
 status, and graph traversal.
+
+## Real-Source External Campaign
+
+```bash
+sovryn external-research campaign real-sources --domains 3 --json
+sovryn external-research campaign real-sources --domains 3 --fixture-sources --json
+```
+
+The non-fixture command uses the public-source adapter/cache path and records
+adapter health, source-kind counts, query links, adapter failures, and concrete
+source-card counts. The fixture command is deterministic for CI and simulates
+concrete adapter results without requiring network.
+
+Real-source campaign gates include:
+
+- `REAL_SOURCE_SEARCH_ENABLED`
+- `CONCRETE_SOURCES_PRESENT`
+- `SOURCE_CARDS_REAL_SOURCE_BOUND`
+- `FIXTURE_FALLBACK_DECLARED`
+- `QUERY_LINKS_NOT_COUNTED_AS_REVIEWED`
+- `REAL_SOURCE_REPLAY_CACHE_PRESENT`
+- `AUTOPUBLISH_ONLY_IF_REAL_SOURCE_THRESHOLD_MET`
+
+Query links, adapter failures, mock placeholders, and declared
+`fixture_fallback` records are never counted as reviewed prior art. If fallback
+is needed because concrete source adapters fail, the domain is degraded and
+corpus autopublish is blocked unless a later run produces enough concrete
+source-card evidence.
 
 ## Overnight External Trial and v1-RC Gate
 

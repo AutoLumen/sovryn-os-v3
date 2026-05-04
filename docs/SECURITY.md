@@ -235,6 +235,13 @@ weak, blocked, superseded, or needs-revision outputs remain visible but cannot
 be promoted as showcase results. Site audit continues to block raw logs,
 secrets, local paths, unsafe content, and fake legal claims.
 
+Beta.19 applies the same hygiene rules to real-source external campaigns. The
+campaign may record public-source titles, URLs, citations, source-kind counts,
+adapter failures, and cache keys, but public releases receive curated summaries
+only. Query links, adapter failures, mock placeholders, and declared fixture
+fallbacks are not treated as reviewed prior art, and real-source campaign
+autopublish is blocked unless concrete-source-card thresholds are met.
+
 Alpha.25 adds security, reliability, and abuse audit commands:
 
 ```bash

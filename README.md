@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `3.0.0-beta.18`
+Current version: `3.0.0-beta.19`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -48,7 +48,7 @@ Alpha.26 was the first integrated beta-candidate path: release candidates,
 quality evaluation, security audit, reliability audit, public corpus export, and
 curated beta packaging are all connected.
 
-The current Beta.1-Beta.18 operationalization line builds on Alpha.26:
+The current Beta.1-Beta.19 operationalization line builds on Alpha.26:
 
 | Version         | Focus                         | Result                                                                                                                                                                                   |
 | --------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -70,8 +70,9 @@ The current Beta.1-Beta.18 operationalization line builds on Alpha.26:
 | `3.0.0-beta.16` | Public Corpus Product Layer   | Builds a readable public corpus site/API, result pages, badges, status summaries, graph export, site audit, and result explanation commands for `sovryn-open-inventions`.                |
 | `3.0.0-beta.17` | Overnight External Trial      | Runs a bounded external-domain overnight trial, dry-run or corpus-autopublishes eligible results, and writes a v1-RC gate report.                                                        |
 | `3.0.0-beta.18` | Corpus Lifecycle Curation     | Adds lifecycle status, version groups, superseded maps, showcase selection, revision queue reports, and status-aware public corpus exports without deleting old evidence.                |
+| `3.0.0-beta.19` | Real-Source External Campaign | Adds a three-domain real-source campaign that uses public-source adapter/cache evidence, source cards, fallback declarations, and real-source autopublish gates.                         |
 
-At `3.0.0-beta.18`, Sovryn can run local autonomy campaigns, build release
+At `3.0.0-beta.19`, Sovryn can run local autonomy campaigns, build release
 candidates, govern publication queues, execute worker jobs, benchmark research
 quality, export a public corpus API/site shell, and produce launch/pilot
 evidence, then validate the full path through a deterministic fresh-repo E2E
@@ -122,6 +123,16 @@ showcase eligibility, revision rationale, human-readable summary, domain, and
 result kind. `corpus site build` also writes version-group, superseded,
 showcase, and revision-queue aggregates plus `CORPUS_STATUS.md`,
 `SHOWCASE_RESULTS.md`, `REVISION_QUEUE.md`, and `VERSIONING.md`.
+Beta.19 adds a real-source external research campaign:
+`sovryn external-research campaign real-sources --domains 3 --json` runs safe
+energy-data-quality, software-supply-chain-assurance, and scientific-dataset
+reliability goals through Factory, public-source adapter/cache discovery,
+bounded source-card generation, custom tool validation, and corpus autopublish
+eligibility checks. Query links, adapter failures, mock placeholders, and
+declared fixture fallbacks are never counted as reviewed concrete prior art.
+Autopublish is blocked for real-source campaign results unless the result has
+at least three concrete-source-bound source cards and the real-source threshold
+is recorded as met.
 
 The beta operations line preserves the same operating rules:
 
@@ -646,6 +657,31 @@ and prepares the public corpus slug `energy-usage-anomaly-auditor` only if
 automated quality, replay, safety, public-hygiene, and no-silent-fallback gates
 pass. It does not use private smart-meter data, personal identifiers,
 surveillance logic, or energy-market trading advice.
+
+Beta.19 adds a real-source external campaign:
+
+```bash
+sovryn external-research campaign real-sources --domains 3 --json
+```
+
+The campaign covers safe energy-data quality, software-supply-chain assurance,
+and scientific dataset reliability goals. It enables public-source search and
+source reading, writes `real-source-search.json`, source-card files,
+claim/feature matrices, counter-evidence, experiment plans, and benchmark plans
+for each domain, then binds those artifacts to the generated pilot and
+Open-Invention records.
+
+The deterministic test mode is explicit:
+
+```bash
+sovryn external-research campaign real-sources --domains 3 --fixture-sources --json
+```
+
+Fixture adapter sources simulate concrete public-source results for CI.
+Declared fallback sources are different: they are marked `fixture_fallback`,
+are not reviewed as prior art, and degrade the result. Corpus autopublish adds
+real-source gates and rejects a real-source campaign result unless concrete
+source-card thresholds are met.
 
 Beta.14 adds a bounded multi-domain campaign:
 

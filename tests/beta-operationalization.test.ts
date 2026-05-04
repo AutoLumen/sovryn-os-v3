@@ -56,9 +56,9 @@ test("CLI help lists Beta operationalization commands", async () => {
   }
 });
 
-test("package version is beta.18", async () => {
+test("package version is beta.19", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  assert.equal(pkg.version, "3.0.0-beta.18");
+  assert.equal(pkg.version, "3.0.0-beta.19");
 });
 
 test("init ignores new operational evidence directories", async () => {

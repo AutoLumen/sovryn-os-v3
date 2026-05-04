@@ -193,6 +193,10 @@ Commands:
   sovryn science question "<field-or-problem>" [--json]
   sovryn science hypothesize <question-id> [--json]
   sovryn science experiment design <hypothesis-id> [--json]
+  sovryn science data generate <study-id> [--json]
+  sovryn science instrument build <study-id> [--json]
+  sovryn science experiment run <experiment-id> [--json]
+  sovryn science experiment status <experiment-id> [--json]
   sovryn science study status <study-id> [--json]
   sovryn science review <study-id> [--json]
   sovryn invention status <mission-id> [--json]
@@ -1276,14 +1280,42 @@ async function scienceCommand(
     }
     case "experiment": {
       const action = parsed.positionals[1];
-      const hypothesisId = parsed.positionals[2];
-      if (action !== "design" || !hypothesisId) {
+      const id = parsed.positionals[2];
+      if (action === "design" && id) return service.designExperiment(id);
+      if (action === "run" && id) return service.runExperiment(id);
+      if (action === "status" && id) return service.experimentStatus(id);
+      if (!id) {
         throw new AppError(
           "SCIENCE_EXPERIMENT_USAGE",
-          "Use: sovryn science experiment design <hypothesis-id>.",
+          "Use: sovryn science experiment <design|run|status> <id>.",
         );
       }
-      return service.designExperiment(hypothesisId);
+      throw new AppError(
+        "SCIENCE_EXPERIMENT_USAGE",
+        "Use: sovryn science experiment <design|run|status> <id>.",
+      );
+    }
+    case "data": {
+      const action = parsed.positionals[1];
+      const studyId = parsed.positionals[2];
+      if (action !== "generate" || !studyId) {
+        throw new AppError(
+          "SCIENCE_DATA_USAGE",
+          "Use: sovryn science data generate <study-id>.",
+        );
+      }
+      return service.generateData(studyId);
+    }
+    case "instrument": {
+      const action = parsed.positionals[1];
+      const studyId = parsed.positionals[2];
+      if (action !== "build" || !studyId) {
+        throw new AppError(
+          "SCIENCE_INSTRUMENT_USAGE",
+          "Use: sovryn science instrument build <study-id>.",
+        );
+      }
+      return service.buildInstruments(studyId);
     }
     case "study": {
       const action = parsed.positionals[1];
@@ -1309,7 +1341,7 @@ async function scienceCommand(
     default:
       throw new AppError(
         "SCIENCE_COMMAND_REQUIRED",
-        "Use: sovryn science <question|hypothesize|experiment design|study status|review>.",
+        "Use: sovryn science <question|hypothesize|data generate|instrument build|experiment design|experiment run|experiment status|study status|review>.",
       );
   }
 }

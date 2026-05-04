@@ -1,19 +1,27 @@
 # Scientific Method Core
 
-Sovryn OS `3.1.0-alpha.1` adds the first autonomous computational-science layer.
-It is a planning and review layer, not an experiment runtime yet.
+Sovryn OS `3.1.0-alpha.2` includes the first autonomous
+computational-science layer and a deterministic experiment/data/instrument
+runtime for safe synthetic energy-data studies.
 
 The core flow is:
 
 1. Create a scientific question.
 2. Generate hypotheses with explicit null hypotheses.
 3. Design a bounded computational experiment.
-4. Review the study against scientific-method and safety gates.
+4. Generate synthetic data.
+5. Build bounded software instruments.
+6. Run deterministic experiment seeds through Node Alpha evidence.
+7. Review the study against scientific-method, runtime, and safety gates.
 
 ```bash
 sovryn science question "Do provenance-aware anomaly scoring methods reduce false positives in synthetic energy-usage datasets compared with simple threshold baselines?" --json
 sovryn science hypothesize <question-id> --json
 sovryn science experiment design <hypothesis-id> --json
+sovryn science data generate <study-id> --json
+sovryn science instrument build <study-id> --json
+sovryn science experiment run <experiment-id> --json
+sovryn science experiment status <experiment-id> --json
 sovryn science review <study-id> --json
 ```
 
@@ -25,17 +33,29 @@ Study artifacts are written under:
   question.json
   hypotheses.json
   experiment-design.json
+  data-plan.json
+  synthetic-datasets/
+  instrument-plan.json
+  toolchain-plan.json
+  toolchain-policy-review.json
+  instruments/
+  experiment-runs/
+  node-alpha-execution.json
+  experiment-status.json
   safety-scope.json
   SCIENCE_PLAN.md
   STUDY_STATUS.md
+  NODE_ALPHA_EXECUTION.md
   science-review.json
   SCIENCE_REVIEW.md
 ```
 
 The alpha gates require a question, hypotheses, null hypotheses, experiment
 design, baseline, metrics, falsification criteria, and safety scope. They also
-block unsupported scientific claims before experiments, statistics, replication,
-and falsification exist.
+block unsupported scientific claims before statistics, replication, and
+falsification exist. Runtime gates require generated data, instrument plans,
+instrument tests, toolchain policy review, Node Alpha execution evidence,
+no-silent-fallback evidence, and deterministic experiment runs.
 
 Hard safety boundaries remain in force:
 

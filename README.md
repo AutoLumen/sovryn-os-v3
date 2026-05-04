@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `3.1.0-alpha.1`
+Current version: `3.1.0-alpha.2`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -30,15 +30,17 @@ novelty, patentability, or freedom-to-operate opinions.
 ## Current v1.1 Line
 
 Sovryn OS v1.1 starts the transition from autonomous open-invention researcher
-to autonomous computational scientist. The first alpha does not claim scientific
-support or run experiments yet. It adds the formal study structure that later
-runtime phases must satisfy: question, hypothesis, null hypothesis, experiment
-design, baseline, metrics, falsification criteria, replication plan, and safety
-scope.
+to autonomous computational scientist. Alpha.1 added the formal study structure:
+question, hypothesis, null hypothesis, experiment design, baseline, metrics,
+falsification criteria, replication plan, and safety scope. Alpha.2 adds the
+first deterministic data/instrument/runtime path for safe synthetic
+computational experiments. It still does not claim scientific support until
+later statistics, ablations, replication, and falsification phases exist.
 
-| Version         | Focus                  | Result                                                                                                                                                |
-| --------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `3.1.0-alpha.1` | Scientific Method Core | Adds `sovryn science` commands for safe computational questions, hypotheses with null hypotheses, experiment designs, study status, and gate reviews. |
+| Version         | Focus                       | Result                                                                                                                                                     |
+| --------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `3.1.0-alpha.1` | Scientific Method Core      | Adds `sovryn science` commands for safe computational questions, hypotheses with null hypotheses, experiment designs, study status, and gate reviews.      |
+| `3.1.0-alpha.2` | Data and Instrument Runtime | Adds synthetic dataset generation, generated baseline/candidate/runner instruments, Node Alpha execution evidence, and deterministic experiment run gates. |
 
 New science commands:
 
@@ -46,6 +48,10 @@ New science commands:
 sovryn science question "energy anomaly detection" --json
 sovryn science hypothesize <question-id> --json
 sovryn science experiment design <hypothesis-id> --json
+sovryn science data generate <study-id> --json
+sovryn science instrument build <study-id> --json
+sovryn science experiment run <experiment-id> --json
+sovryn science experiment status <experiment-id> --json
 sovryn science study status <study-id> --json
 sovryn science review <study-id> --json
 ```

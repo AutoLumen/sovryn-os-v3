@@ -16,10 +16,11 @@ type ExternalResearchFixture = {
 };
 
 let fixturePromise: Promise<ExternalResearchFixture> | null = null;
+let v2FixturePromise: Promise<ExternalResearchFixture> | null = null;
 
-test("package version is beta.11", async () => {
+test("package version is beta.12", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  assert.equal(pkg.version, "3.0.0-beta.11");
+  assert.equal(pkg.version, "3.0.0-beta.12");
 });
 
 test("CLI help lists external research command", async () => {
@@ -308,9 +309,329 @@ test("corpus autopublish dry-run discovers chemistry result", async () => {
   assert.match(staged.title, /Molecular Record Auditor/);
 });
 
+test("Beta.12 v2 run uses deterministic versioned slug", async () => {
+  const { run } = await externalResearchV2Fixture();
+  assert.equal(run.runId, "chemistry-record-auditor-v2");
+  assert.equal(run.slug, "chemistry-record-auditor-tool-v2");
+});
+
+test("Beta.12 v2 prefers container-netoff when available", async () => {
+  const { run } = await externalResearchV2Fixture();
+  assert.equal(run.requestedWorkerProfile, "container-netoff");
+  assert.equal(run.containerNetoffAvailable, true);
+  assert.equal(run.workerProfileUsed, "container-netoff");
+});
+
+test("Beta.12 v2 records no silent fallback", async () => {
+  const { root } = await externalResearchV2Fixture();
+  const execution = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "chemistry-record-auditor-v2",
+      "container-netoff-execution.json",
+    ),
+  );
+  assert.equal(execution.noSilentFallback, true);
+  assert.equal(execution.workerProfileUsed, "container-netoff");
+});
+
+test("Beta.12 v2 records network-off final validation", async () => {
+  const { root } = await externalResearchV2Fixture();
+  const execution = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "chemistry-record-auditor-v2",
+      "container-netoff-execution.json",
+    ),
+  );
+  assert.equal(execution.finalNetworkAccess, false);
+  assert.equal(execution.passed, true);
+});
+
+test("Beta.12 v2 writes provisioning evidence", async () => {
+  const { root } = await externalResearchV2Fixture();
+  const evidence = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "chemistry-record-auditor-v2",
+      "provisioning-evidence.json",
+    ),
+  );
+  assert.equal(evidence.packageName, "pint");
+  assert.equal(evidence.available, true);
+});
+
+test("Beta.12 v2 records package version", async () => {
+  const { root } = await externalResearchV2Fixture();
+  const summary = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "chemistry-record-auditor-v2",
+      "package-lock-summary.json",
+    ),
+  );
+  assert.equal(summary.packages[0].name, "pint");
+  assert.equal(typeof summary.packages[0].version, "string");
+});
+
+test("Beta.12 v2 package lock summary is copied into prototype", async () => {
+  const { prototypeRoot } = await externalResearchV2Fixture();
+  const summary = await readJson<any>(
+    join(prototypeRoot, "package-lock-summary.json"),
+  );
+  assert.equal(summary.packages[0].name, "pint");
+});
+
+test("Beta.12 v2 writes package usage report", async () => {
+  const { prototypeRoot } = await externalResearchV2Fixture();
+  const usage = await readFile(join(prototypeRoot, "PACKAGE_USAGE.md"), "utf8");
+  assert.match(usage, /Final validation: container-netoff/);
+});
+
+test("Beta.12 v2 container test validates package-bound evidence", async () => {
+  const { prototypeRoot } = await externalResearchV2Fixture();
+  const testFile = await readFile(
+    join(prototypeRoot, "tests", "container-netoff-validation.mjs"),
+    "utf8",
+  );
+  assert.match(testFile, /package-lock-summary/);
+  assert.match(testFile, /usedForUnitNormalization/);
+});
+
+test("Beta.12 v2 keeps Python preflight test separate from container test", async () => {
+  const { prototypeRoot } = await externalResearchV2Fixture();
+  const pkg = await readJson<any>(join(prototypeRoot, "package.json"));
+  assert.equal(pkg.scripts.test, "node tests/container-netoff-validation.mjs");
+  assert.match(pkg.scripts["test:python"], /unittest/);
+});
+
+test("Beta.12 v2 toolchain plan has two-phase execution model", async () => {
+  const { root } = await externalResearchV2Fixture();
+  const plan = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "chemistry-record-auditor-v2",
+      "toolchain-plan.json",
+    ),
+  );
+  assert.equal(plan.profile, "container-netoff");
+  assert.equal(plan.phases.length >= 2, true);
+});
+
+test("Beta.12 v2 toolchain policy names container-netoff final profile", async () => {
+  const { root } = await externalResearchV2Fixture();
+  const review = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "chemistry-record-auditor-v2",
+      "toolchain-policy-review.json",
+    ),
+  );
+  assert.equal(review.finalExecutionProfile, "container-netoff");
+  assert.equal(review.sudoAllowed, false);
+});
+
+test("Beta.12 v2 toolchain doctor records container availability", async () => {
+  const { root } = await externalResearchV2Fixture();
+  const doctor = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "chemistry-record-auditor-v2",
+      "toolchain-doctor.json",
+    ),
+  );
+  assert.equal(doctor.containerNetoffAvailable, true);
+  assert.equal(doctor.dockerOrPodmanDetected, true);
+});
+
+test("Beta.12 v2 worker assurance report is written", async () => {
+  const { root } = await externalResearchV2Fixture();
+  const report = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "chemistry-record-auditor-v2",
+      "worker-assurance-report.json",
+    ),
+  );
+  assert.equal(report.requestedProfile, "container-netoff");
+  assert.equal(report.highAssuranceSatisfied, true);
+});
+
+test("Beta.12 v2 public hygiene report is written", async () => {
+  const { root } = await externalResearchV2Fixture();
+  const report = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "chemistry-record-auditor-v2",
+      "public-hygiene-report.json",
+    ),
+  );
+  assert.equal(report.passed, true);
+  assert.equal(report.findingCount, 0);
+});
+
+test("Beta.12 v2 public summary reflects high assurance worker profile", async () => {
+  const { releaseRoot } = await externalResearchV2Fixture();
+  const summary = await readJson<any>(join(releaseRoot, "SUMMARY.json"));
+  assert.equal(summary.nodeAlphaProfile, "container-netoff");
+  assert.match(summary.workerAssurance, /container-netoff/);
+});
+
+test("Beta.12 v2 public README says container-netoff was used", async () => {
+  const { releaseRoot } = await externalResearchV2Fixture();
+  const readme = await readFile(join(releaseRoot, "README.md"), "utf8");
+  assert.match(readme, /container-netoff validation/);
+  assert.match(readme, /No silent fallback/);
+});
+
+test("Beta.12 v2 public package includes package usage but not venv", async () => {
+  const { releaseRoot } = await externalResearchV2Fixture();
+  await access(join(releaseRoot, "PACKAGE_USAGE.md"));
+  const text = await readAllText(releaseRoot);
+  assert.doesNotMatch(text, /\.venv\/bin/);
+});
+
+test("Beta.12 v2 public package excludes raw install logs", async () => {
+  const { releaseRoot } = await externalResearchV2Fixture();
+  const text = await readAllText(releaseRoot);
+  assert.doesNotMatch(text, /install-log\.redacted/i);
+  assert.doesNotMatch(text, /"stdout"\s*:/i);
+});
+
+test("Beta.12 v2 public package excludes local paths and secrets", async () => {
+  const { releaseRoot } = await externalResearchV2Fixture();
+  const scan = await scanCorpusPublicHygiene(releaseRoot);
+  assert.equal(scan.passed, true, JSON.stringify(scan.findings, null, 2));
+});
+
+test("Beta.12 v2 pilot record is eligible and versioned", async () => {
+  const { root } = await externalResearchV2Fixture();
+  const results = await readJson<any>(
+    join(root, ".sovryn", "pilots", "pilot-results.json"),
+  );
+  assert.equal(results.pilots[0].pilotId, "chemistry-record-auditor-tool-v2");
+  assert.equal(results.pilots[0].workerProfileUsed, "container-netoff");
+});
+
+test("Beta.12 v2 autopublish dry-run discovers v2 result", async () => {
+  const { root } = await externalResearchV2Fixture();
+  const targetRepo = await makeTargetCorpusRepo();
+  const response = await must(
+    executeCli(
+      [
+        "corpus",
+        "autopublish",
+        "--target-repo",
+        targetRepo,
+        "--dry-run",
+        "--json",
+      ],
+      root,
+    ),
+  );
+  assert.equal(response.eligibleResults, 1);
+  await access(
+    join(
+      root,
+      ".sovryn",
+      "corpus-autopublish",
+      "staged",
+      "results",
+      "chemistry-record-auditor-tool-v2",
+      "AUTOPUBLISH_RECORD.json",
+    ),
+  );
+});
+
+test("Beta.12 v2 autopublish dry-run updates staged INDEX and VERIFICATION", async () => {
+  const { root } = await externalResearchV2Fixture();
+  const targetRepo = await makeTargetCorpusRepo();
+  await must(
+    executeCli(
+      [
+        "corpus",
+        "autopublish",
+        "--target-repo",
+        targetRepo,
+        "--dry-run",
+        "--json",
+      ],
+      root,
+    ),
+  );
+  const index = await readJson<any>(
+    join(root, ".sovryn", "corpus-autopublish", "staged", "INDEX.json"),
+  );
+  const verification = await readFile(
+    join(root, ".sovryn", "corpus-autopublish", "staged", "VERIFICATION.md"),
+    "utf8",
+  );
+  assert.equal(
+    index.results.some(
+      (item: any) => item.slug === "chemistry-record-auditor-tool-v2",
+    ),
+    true,
+  );
+  assert.match(verification, /chemistry-record-auditor-tool-v2/);
+});
+
+test("Beta.12 v2 final report records container-netoff and no sudo", async () => {
+  const { root } = await externalResearchV2Fixture();
+  const report = await readFile(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "chemistry-record-auditor-v2",
+      "FINAL_REPORT.md",
+    ),
+    "utf8",
+  );
+  assert.match(report, /Beta\.12/);
+  assert.match(report, /Worker profile used: container-netoff/);
+  assert.match(report, /sudo used: false/);
+});
+
+test("Beta.12 v2 package evidence still records pint use", async () => {
+  const { prototypeRoot } = await externalResearchV2Fixture();
+  const output = await readJson<any>(join(prototypeRoot, "sample-output.json"));
+  assert.equal(output.externalToolEvidence.package, "pint");
+  assert.equal(output.externalToolEvidence.usedForUnitNormalization, true);
+});
+
+test("Beta.12 v2 retains chemistry safety scope", async () => {
+  const { releaseRoot } = await externalResearchV2Fixture();
+  const readme = await readFile(join(releaseRoot, "README.md"), "utf8");
+  assert.match(readme, /not chemical synthesis/i);
+  assert.match(readme, /not wet-lab guidance/i);
+});
+
 async function externalResearchFixture(): Promise<ExternalResearchFixture> {
   fixturePromise ??= createExternalResearchFixture();
   return fixturePromise;
+}
+
+async function externalResearchV2Fixture(): Promise<ExternalResearchFixture> {
+  v2FixturePromise ??= createExternalResearchV2Fixture();
+  return v2FixturePromise;
 }
 
 async function createExternalResearchFixture(): Promise<ExternalResearchFixture> {
@@ -344,6 +665,45 @@ async function createExternalResearchFixture(): Promise<ExternalResearchFixture>
       ".sovryn",
       "external-research",
       "chemistry-record-auditor",
+      "prototype",
+      "mol-record-auditor",
+    ),
+  };
+}
+
+async function createExternalResearchV2Fixture(): Promise<ExternalResearchFixture> {
+  const repo = await makeTempRepo();
+  await executeCli(["init", "--json"], repo.root);
+  const response = await must(
+    executeCli(
+      [
+        "external-research",
+        "run",
+        "chemistry-record-auditor",
+        "--profile",
+        "container-netoff",
+        "--fixture-install",
+        "--json",
+      ],
+      repo.root,
+    ),
+  );
+  return {
+    root: repo.root,
+    run: response.run,
+    releaseRoot: join(
+      repo.root,
+      ".sovryn",
+      "external-research",
+      "chemistry-record-auditor-v2",
+      "release",
+      "public",
+    ),
+    prototypeRoot: join(
+      repo.root,
+      ".sovryn",
+      "external-research",
+      "chemistry-record-auditor-v2",
       "prototype",
       "mol-record-auditor",
     ),

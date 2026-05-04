@@ -60,3 +60,17 @@ the prototype through Node Alpha, and publishes only curated evidence if the
 same corpus autopublish gates pass. It is chemistry-style data-quality auditing
 only, not synthesis, wet-lab guidance, drug design, hazardous optimization, or a
 legal opinion.
+
+## Beta.12 High-Assurance v2 Result
+
+Beta.12 adds a versioned high-assurance chemistry auditor path:
+
+```bash
+sovryn external-research run chemistry-record-auditor --profile container-netoff --json
+```
+
+The generated slug is `chemistry-record-auditor-tool-v2`. The public corpus
+entry is eligible only when package provisioning evidence exists, final
+validation uses `container-netoff` with network disabled, no silent fallback is
+recorded, public hygiene passes, replay-critical evidence remains fresh, and the
+same automated corpus-autopublish gates pass.

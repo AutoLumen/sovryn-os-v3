@@ -163,7 +163,7 @@ Commands:
   sovryn e2e doctor [--json]
   sovryn e2e run --profile beta-fixture [--release-candidates 3] [--json]
   sovryn e2e report [--json]
-  sovryn external-research run chemistry-record-auditor [--fixture-install] [--json]
+  sovryn external-research run chemistry-record-auditor [--profile sandbox-local|container-netoff] [--fixture-install] [--json]
   sovryn invention status <mission-id> [--json]
   sovryn invention dossier <mission-id> [--json]
   sovryn invention verify <mission-id> [--json]
@@ -1032,7 +1032,20 @@ async function externalResearchCommand(
   }
   return new ChemistryRecordAuditorResearchService(root).run({
     fixtureInstall: flagBool(parsed.flags, "--fixture-install"),
+    profile: flagExternalResearchProfile(parsed.flags),
   });
+}
+
+function flagExternalResearchProfile(
+  flags: Map<string, string | boolean>,
+): "sandbox-local" | "container-netoff" {
+  const value = flagString(flags, "--profile") ?? "sandbox-local";
+  if (value === "sandbox-local" || value === "container-netoff") return value;
+  throw new AppError(
+    "EXTERNAL_RESEARCH_PROFILE_INVALID",
+    "External research profile must be sandbox-local or container-netoff.",
+    { profile: value },
+  );
 }
 
 function parseArgs(argv: string[]): ParsedArgs {

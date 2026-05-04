@@ -1614,6 +1614,15 @@ New autopublished results in latest run: ${records.length}
 
 Every autopublished result includes SUMMARY.json, curated release evidence, pilot evidence, verification.json, PUBLICATION_INTENT.json, and AUTOPUBLISH_RECORD.json.
 
+## Latest Results
+
+${records
+  .map(
+    (record) =>
+      `- ${record.slug}: ${record.qualityLabel}, ${record.candidateStatus}, replay-critical ${record.replayCriticalPassRate}`,
+  )
+  .join("\n")}
+
 ## Automated Gates
 
 - Target repo exists and remote is restricted to n57d30top/sovryn-open-inventions.

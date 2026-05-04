@@ -18,10 +18,13 @@ type ExternalResearchFixture = {
 let fixturePromise: Promise<ExternalResearchFixture> | null = null;
 let v2FixturePromise: Promise<ExternalResearchFixture> | null = null;
 let energyFixturePromise: Promise<ExternalResearchFixture> | null = null;
+let patchFixturePromise: Promise<ExternalResearchFixture> | null = null;
+let campaignFixturePromise: Promise<{ root: string; campaign: any }> | null =
+  null;
 
-test("package version is beta.13", async () => {
+test("package version is beta.14", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  assert.equal(pkg.version, "3.0.0-beta.13");
+  assert.equal(pkg.version, "3.0.0-beta.14");
 });
 
 test("CLI help lists external research command", async () => {
@@ -824,6 +827,173 @@ test("Beta.13 CLI help lists energy external research command", async () => {
   );
 });
 
+test("Beta.14 patch-risk run creates deterministic external result", async () => {
+  const { run } = await externalPatchFixture();
+  assert.equal(run.runId, "patch-risk-auditor");
+  assert.equal(run.slug, "patch-risk-auditor");
+  assert.equal(run.customToolName, "patch-risk-auditor");
+});
+
+test("Beta.14 patch-risk run provisions acorn under policy", async () => {
+  const { run, root } = await externalPatchFixture();
+  assert.equal(run.externalPackageSelected, "acorn");
+  assert.equal(run.externalPackageStatus, "provisioned_fixture");
+  const evidence = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "patch-risk-auditor",
+      "install-evidence.json",
+    ),
+  );
+  assert.equal(evidence.packageName, "acorn");
+  assert.equal(evidence.sudoUsed, false);
+  assert.equal(evidence.curlPipeShellUsed, false);
+});
+
+test("Beta.14 patch-risk run uses container-netoff with no fallback", async () => {
+  const { run, root } = await externalPatchFixture();
+  assert.equal(run.workerProfileUsed, "container-netoff");
+  const execution = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "external-research",
+      "patch-risk-auditor",
+      "container-netoff-execution.json",
+    ),
+  );
+  assert.equal(execution.noSilentFallback, true);
+  assert.equal(execution.finalNetworkAccess, false);
+});
+
+test("Beta.14 patch-risk tool detects risky dependency addition", async () => {
+  const { prototypeRoot } = await externalPatchFixture();
+  const output = await readJson<any>(join(prototypeRoot, "sample-output.json"));
+  assert.equal(hasPatchFinding(output, "dependency_addition"), true);
+  assert.equal(hasPatchFinding(output, "install_script_added"), true);
+});
+
+test("Beta.14 patch-risk tool detects benign patch", async () => {
+  const { prototypeRoot } = await externalPatchFixture();
+  const output = await readJson<any>(join(prototypeRoot, "sample-output.json"));
+  assert.equal(
+    output.patchScores.some(
+      (item: any) =>
+        item.patchId === "benign-docs-update" && item.status === "low_risk",
+    ),
+    true,
+  );
+});
+
+test("Beta.14 patch-risk public package excludes unsafe internals", async () => {
+  const { releaseRoot } = await externalPatchFixture();
+  const scan = await scanCorpusPublicHygiene(releaseRoot);
+  assert.equal(scan.passed, true, JSON.stringify(scan.findings, null, 2));
+  const text = await readAllText(releaseRoot);
+  assert.doesNotMatch(text, /node_modules\/acorn/);
+  assert.doesNotMatch(text, /install-log\.redacted/i);
+});
+
+test("Beta.14 patch-risk README states defensive safety scope", async () => {
+  const { releaseRoot } = await externalPatchFixture();
+  const readme = await readFile(join(releaseRoot, "README.md"), "utf8");
+  assert.match(readme, /Synthetic toy patch records only/);
+  assert.match(readme, /not a harmful-code\s+generator/);
+});
+
+test("Beta.14 patch-risk autopublish dry-run discovers result", async () => {
+  const { root } = await externalPatchFixture();
+  const targetRepo = await makeTargetCorpusRepo();
+  const response = await must(
+    executeCli(
+      [
+        "corpus",
+        "autopublish",
+        "--target-repo",
+        targetRepo,
+        "--dry-run",
+        "--json",
+      ],
+      root,
+    ),
+  );
+  assert.equal(response.eligibleResults, 1);
+});
+
+test("Beta.14 multi-domain campaign creates three domain plans", async () => {
+  const { campaign } = await multiDomainCampaignFixture();
+  assert.equal(campaign.domainCount, 3);
+  assert.deepEqual(campaign.resultSlugs, [
+    "chemistry-record-auditor-tool-v2",
+    "energy-usage-anomaly-auditor",
+    "patch-risk-auditor",
+  ]);
+});
+
+test("Beta.14 multi-domain campaign scorecard includes all domains", async () => {
+  const { root } = await multiDomainCampaignFixture();
+  const scorecard = await readJson<any>(
+    join(
+      root,
+      ".sovryn",
+      "multi-domain-campaign",
+      "cross-domain-scorecard.json",
+    ),
+  );
+  assert.equal(scorecard.domainCount, 3);
+  assert.equal(scorecard.customToolsBuilt, 3);
+  assert.equal(scorecard.containerNetoffExecutions >= 1, true);
+});
+
+test("Beta.14 multi-domain campaign records toolchain and worker summaries", async () => {
+  const { root } = await multiDomainCampaignFixture();
+  const toolchain = await readJson<any>(
+    join(root, ".sovryn", "multi-domain-campaign", "toolchain-summary.json"),
+  );
+  const worker = await readJson<any>(
+    join(root, ".sovryn", "multi-domain-campaign", "worker-summary.json"),
+  );
+  assert.equal(toolchain.packages.length, 3);
+  assert.equal(worker.noSilentFallback, true);
+});
+
+test("Beta.14 campaign pilot-results aggregates all domains", async () => {
+  const { root } = await multiDomainCampaignFixture();
+  const results = await readJson<any>(
+    join(root, ".sovryn", "pilots", "pilot-results.json"),
+  );
+  assert.equal(results.pilots.length, 3);
+});
+
+test("Beta.14 campaign autopublish handles multiple new slugs", async () => {
+  const { root } = await multiDomainCampaignFixture();
+  const targetRepo = await makeTargetCorpusRepo();
+  const response = await must(
+    executeCli(
+      [
+        "corpus",
+        "autopublish",
+        "--target-repo",
+        targetRepo,
+        "--dry-run",
+        "--json",
+      ],
+      root,
+    ),
+  );
+  assert.equal(response.eligibleResults, 3);
+});
+
+test("Beta.14 CLI help lists multi-domain campaign", async () => {
+  const help = await executeCli(["--help", "--json"]);
+  assert.match(
+    (help.data as any).help,
+    /external-research campaign multi-domain/,
+  );
+});
+
 async function externalResearchFixture(): Promise<ExternalResearchFixture> {
   fixturePromise ??= createExternalResearchFixture();
   return fixturePromise;
@@ -837,6 +1007,19 @@ async function externalResearchV2Fixture(): Promise<ExternalResearchFixture> {
 async function externalEnergyFixture(): Promise<ExternalResearchFixture> {
   energyFixturePromise ??= createExternalEnergyFixture();
   return energyFixturePromise;
+}
+
+async function externalPatchFixture(): Promise<ExternalResearchFixture> {
+  patchFixturePromise ??= createExternalPatchFixture();
+  return patchFixturePromise;
+}
+
+async function multiDomainCampaignFixture(): Promise<{
+  root: string;
+  campaign: any;
+}> {
+  campaignFixturePromise ??= createMultiDomainCampaignFixture();
+  return campaignFixturePromise;
 }
 
 async function createExternalResearchFixture(): Promise<ExternalResearchFixture> {
@@ -954,6 +1137,68 @@ async function createExternalEnergyFixture(): Promise<ExternalResearchFixture> {
   };
 }
 
+async function createExternalPatchFixture(): Promise<ExternalResearchFixture> {
+  const repo = await makeTempRepo();
+  await executeCli(["init", "--json"], repo.root);
+  const response = await must(
+    executeCli(
+      [
+        "external-research",
+        "run",
+        "patch-risk-auditor",
+        "--profile",
+        "container-netoff",
+        "--fixture-install",
+        "--json",
+      ],
+      repo.root,
+    ),
+  );
+  return {
+    root: repo.root,
+    run: response.run,
+    releaseRoot: join(
+      repo.root,
+      ".sovryn",
+      "external-research",
+      "patch-risk-auditor",
+      "release",
+      "public",
+    ),
+    prototypeRoot: join(
+      repo.root,
+      ".sovryn",
+      "external-research",
+      "patch-risk-auditor",
+      "prototype",
+      "patch-risk-auditor",
+    ),
+  };
+}
+
+async function createMultiDomainCampaignFixture(): Promise<{
+  root: string;
+  campaign: any;
+}> {
+  const repo = await makeTempRepo();
+  await executeCli(["init", "--json"], repo.root);
+  const response = await must(
+    executeCli(
+      [
+        "external-research",
+        "campaign",
+        "multi-domain",
+        "--profile",
+        "container-netoff",
+        "--fixture-install",
+        "--json",
+      ],
+      repo.root,
+    ),
+  );
+  return { root: repo.root, campaign: response };
+}
+
 async function makeTargetCorpusRepo(): Promise<string> {
   const repo = await makeTempRepo({ noVerify: true });
   await mkdir(join(repo.root, "aggregate"), { recursive: true });
@@ -1001,6 +1246,10 @@ function compound(output: any, name: string): any {
 
 function hasEnergyIssue(output: any, issueType: string): boolean {
   return output.datasetIssues.some((item: any) => item.issueType === issueType);
+}
+
+function hasPatchFinding(output: any, findingType: string): boolean {
+  return output.findings.some((item: any) => item.findingType === findingType);
 }
 
 async function readAllText(root: string): Promise<string> {

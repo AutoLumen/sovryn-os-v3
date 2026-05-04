@@ -17,6 +17,8 @@ import {
 import { E2EService } from "../core/e2e/e2e-service.js";
 import { ChemistryRecordAuditorResearchService } from "../core/external-research/chemistry-record-auditor.js";
 import { EnergyRecordAuditorResearchService } from "../core/external-research/energy-record-auditor.js";
+import { MultiDomainExternalCampaignService } from "../core/external-research/multi-domain-campaign.js";
+import { PatchRiskAuditorResearchService } from "../core/external-research/patch-risk-auditor.js";
 import { InventionService } from "../core/invention/invention-service.js";
 import { MissionService } from "../core/mission/mission-service.js";
 import { NodeManager } from "../core/node/node-manager.js";
@@ -166,6 +168,8 @@ Commands:
   sovryn e2e report [--json]
   sovryn external-research run chemistry-record-auditor [--profile sandbox-local|container-netoff] [--fixture-install] [--json]
   sovryn external-research run energy-record-auditor [--profile sandbox-local|container-netoff] [--fixture-install] [--json]
+  sovryn external-research run patch-risk-auditor [--profile sandbox-local|container-netoff] [--fixture-install] [--json]
+  sovryn external-research campaign multi-domain [--profile sandbox-local|container-netoff] [--fixture-install] [--json]
   sovryn invention status <mission-id> [--json]
   sovryn invention dossier <mission-id> [--json]
   sovryn invention verify <mission-id> [--json]
@@ -1026,10 +1030,16 @@ async function externalResearchCommand(
 ): Promise<Record<string, unknown>> {
   const subcommand = parsed.positionals[0];
   const target = parsed.positionals[1];
+  if (subcommand === "campaign" && target === "multi-domain") {
+    return new MultiDomainExternalCampaignService(root).run({
+      fixtureInstall: flagBool(parsed.flags, "--fixture-install"),
+      profile: flagExternalResearchProfile(parsed.flags, "container-netoff"),
+    });
+  }
   if (subcommand !== "run") {
     throw new AppError(
       "EXTERNAL_RESEARCH_COMMAND_REQUIRED",
-      "Use: sovryn external-research run <chemistry-record-auditor|energy-record-auditor>.",
+      "Use: sovryn external-research run <chemistry-record-auditor|energy-record-auditor|patch-risk-auditor>.",
     );
   }
   if (target === "chemistry-record-auditor") {
@@ -1044,9 +1054,15 @@ async function externalResearchCommand(
       profile: flagExternalResearchProfile(parsed.flags, "container-netoff"),
     });
   }
+  if (target === "patch-risk-auditor") {
+    return new PatchRiskAuditorResearchService(root).run({
+      fixtureInstall: flagBool(parsed.flags, "--fixture-install"),
+      profile: flagExternalResearchProfile(parsed.flags, "container-netoff"),
+    });
+  }
   throw new AppError(
     "EXTERNAL_RESEARCH_TARGET_UNSUPPORTED",
-    "Supported external research targets are chemistry-record-auditor and energy-record-auditor.",
+    "Supported external research targets are chemistry-record-auditor, energy-record-auditor, and patch-risk-auditor.",
     { target },
   );
 }

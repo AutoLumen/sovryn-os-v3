@@ -1,6 +1,6 @@
 # Beta Operationalization
 
-Sovryn OS v3 `3.0.0-beta.13` adds an operational proof layer above the Alpha
+Sovryn OS v3 `3.0.0-beta.14` adds an operational proof layer above the Alpha
 Factory. The goal is to show that Sovryn can run bounded autonomous research
 workflows, measure quality, keep publication governed, execute worker jobs
 without silent fallback, export a public corpus, and produce three
@@ -16,6 +16,11 @@ auditor that provisions `pandas`, detects duplicate timestamps, missing
 intervals, high-usage spikes, weather-normalized anomalies, and weak provenance,
 and stays outside private smart-meter, surveillance, and energy-market trading
 use cases.
+Beta.14 adds a bounded multi-domain campaign that joins chemistry-style data
+quality, synthetic energy anomaly detection, and defensive software patch-risk
+auditing. The new `patch-risk-auditor` uses synthetic toy patches and
+policy-provisioned parser evidence only; it does not exploit real systems,
+generate malware, or publish offensive payloads.
 
 Sovryn produces Open Inventions, Defensive Publications, and Open Source
 Research Artifacts. It does not file legal patents and does not provide legal

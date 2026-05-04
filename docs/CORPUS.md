@@ -89,3 +89,17 @@ duplicate timestamps, missing intervals, high-usage spikes, weather-normalized
 anomalies, and weak provenance. The public result must not include private
 smart-meter data, household-identifying data, surveillance workflows, or
 energy-market trading advice.
+
+## Beta.14 Multi-Domain Campaign
+
+Beta.14 adds a campaign-level external research proof:
+
+```bash
+sovryn external-research campaign multi-domain --fixture-install --json
+```
+
+The campaign binds three safe external domains: chemistry-style data quality,
+synthetic energy anomaly auditing, and defensive software patch-risk auditing.
+The software-supply-chain result uses `patch-risk-auditor` and synthetic toy
+patches only. It must not include exploit instructions, malware, real target
+systems, raw logs, secrets, local paths, or legal patentability claims.

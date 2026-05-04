@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `3.0.0-beta.13`
+Current version: `3.0.0-beta.14`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -48,7 +48,7 @@ Alpha.26 was the first integrated beta-candidate path: release candidates,
 quality evaluation, security audit, reliability audit, public corpus export, and
 curated beta packaging are all connected.
 
-The current Beta.1-Beta.13 operationalization line builds on Alpha.26:
+The current Beta.1-Beta.14 operationalization line builds on Alpha.26:
 
 | Version         | Focus                         | Result                                                                                                                                                                                   |
 | --------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -65,8 +65,9 @@ The current Beta.1-Beta.13 operationalization line builds on Alpha.26:
 | `3.0.0-beta.11` | External Research Autopublish | Runs a safe non-Sovryn chemistry-data-quality research campaign, builds `mol-record-auditor`, provisions `pint`, validates through Node Alpha, and corpus-autopublishes if gates pass.   |
 | `3.0.0-beta.12` | High-Assurance Tool Execution | Adds a versioned chemistry auditor v2 path that separates package provisioning from final `container-netoff` validation and records worker-assurance evidence before corpus autopublish. |
 | `3.0.0-beta.13` | External Energy Research      | Adds `energy-record-auditor`, a safe synthetic energy-data anomaly auditor using policy-provisioned `pandas`, container-netoff validation, and corpus autopublish gates.                 |
+| `3.0.0-beta.14` | Multi-Domain Campaign         | Adds a bounded campaign that combines chemistry data quality, energy anomaly auditing, and defensive software patch-risk auditing with custom tools and worker evidence.                 |
 
-At `3.0.0-beta.13`, Sovryn can run local autonomy campaigns, build release
+At `3.0.0-beta.14`, Sovryn can run local autonomy campaigns, build release
 candidates, govern publication queues, execute worker jobs, benchmark research
 quality, export a public corpus API/site shell, and produce launch/pilot
 evidence, then validate the full path through a deterministic fresh-repo E2E
@@ -95,6 +96,10 @@ records for duplicate timestamps, missing intervals, weather-normalized
 anomalies, high-usage spikes, and weak provenance. It uses policy-provisioned
 `pandas` evidence and remains scoped away from private smart-meter data,
 surveillance, and energy-market trading.
+Beta.14 adds a third external domain, defensive software supply-chain review,
+through `patch-risk-auditor`, and a multi-domain campaign report that compares
+chemistry-data quality, energy-data quality, and AI-generated patch-risk
+auditing without publishing exploit payloads or unsafe offensive guidance.
 
 The beta operations line preserves the same operating rules:
 
@@ -619,6 +624,18 @@ and prepares the public corpus slug `energy-usage-anomaly-auditor` only if
 automated quality, replay, safety, public-hygiene, and no-silent-fallback gates
 pass. It does not use private smart-meter data, personal identifiers,
 surveillance logic, or energy-market trading advice.
+
+Beta.14 adds a bounded multi-domain campaign:
+
+```bash
+sovryn external-research campaign multi-domain --fixture-install --json
+```
+
+The campaign covers chemistry-style data quality, synthetic energy anomaly
+auditing, and defensive patch-risk auditing. The supply-chain domain uses
+`patch-risk-auditor` with policy-provisioned `acorn` evidence against synthetic
+toy patch examples only. It does not exploit real systems, generate malware, or
+publish attack payloads.
 
 Autopublish writes `.sovryn/corpus-autopublish/` with
 `autopublish-plan.json`, `AUTOPUBLISH_PLAN.md`, `rejected-results.json`, and

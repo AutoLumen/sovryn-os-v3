@@ -187,6 +187,13 @@ provisioning rules remain unchanged: no host `sudo`, no curl-pipe-shell, no
 global install by default, redacted logs only, and final validation through the
 requested worker profile with no silent fallback.
 
+Beta.14 adds defensive software patch-risk auditing with synthetic toy patches
+only. It must not exploit real systems, generate malware, publish offensive
+payloads, or score real pull requests without explicit safe input. The tool may
+flag risky dependency and script patterns for defensive review, but public
+outputs must remain curated summaries and must not include raw command logs,
+secrets, local absolute paths, or unsafe operational instructions.
+
 Alpha.22 adds `.sovryn/quality/` evaluator artifacts. The quality evaluator
 scans curated public releases for secret-like text, raw log references, local
 absolute paths, and unsafe legal patentability language. These checks are an

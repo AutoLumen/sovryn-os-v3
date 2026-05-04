@@ -63,6 +63,14 @@ sovryn research morning-report --json
 sovryn research adapters doctor --json
 sovryn research cache status --json
 sovryn research cache prune --json
+sovryn corpus index --json
+sovryn corpus search "source-card trust scoring" --json
+sovryn corpus dedupe --json
+sovryn corpus report --json
+sovryn release candidates build --max 3 --json
+sovryn release candidates review --json
+sovryn release candidates package --json
+sovryn release registry update --json
 sovryn worker doctor --profile container-local --json
 sovryn worker doctor --profile container-netoff --json
 sovryn worker doctor --all --json
@@ -314,6 +322,40 @@ evidence and duplicate-risk signals. It is local memory by default and is not
 published automatically. `PUBLIC_RELEASES.md` is a public Open Invention
 registry for releases or dry-run release packages; it is not a patent filing,
 not a patentability opinion, and not a freedom-to-operate opinion.
+
+## Release Candidates
+
+Alpha.21 adds a release-candidate workflow for proving that the factory can
+produce reviewable Open Invention release candidates. It runs three
+fixture-backed strong Factory goals by default, improves each run, creates an
+Open Invention mission, performs a GitHub dry-run publication through the
+existing controller-owned path, indexes corpus evidence, and queues the
+candidate for human review.
+
+```bash
+sovryn release candidates build --max 3 --json
+sovryn release candidates review --json
+sovryn release candidates package --json
+```
+
+Release-candidate artifacts are written under `.sovryn/releases/candidates/`:
+
+```text
+.sovryn/releases/candidates/
+  release-candidates.json
+  release-candidate-review.json
+  publication-queue.json
+  RELEASE_CANDIDATES.md
+  RELEASE_CANDIDATE_REVIEW.md
+  PUBLICATION_QUEUE.md
+  public/
+```
+
+The review layer checks completeness, Factory replay evidence, curated public
+evidence, prototype execution, corpus duplicate review, raw-log exclusion,
+secret scanning, careful non-legal language, and human-review requirements.
+Release candidates are not published automatically. Real GitHub publication
+still goes through Open Invention finalization and Sovryn publication gates.
 
 ## Node Alpha Toolchains
 

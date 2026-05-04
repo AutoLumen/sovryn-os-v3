@@ -294,6 +294,7 @@ async function ensureGitignore(root: string): Promise<void> {
     ".sovryn/adapters/",
     ".sovryn/workers/",
     ".sovryn/corpus/",
+    ".sovryn/releases/",
   ];
   const missing = required.filter(
     (line) => !existing.split("\n").includes(line),

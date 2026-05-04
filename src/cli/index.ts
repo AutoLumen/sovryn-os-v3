@@ -15,6 +15,7 @@ import { InventionService } from "../core/invention/invention-service.js";
 import { MissionService } from "../core/mission/mission-service.js";
 import { NodeManager } from "../core/node/node-manager.js";
 import { NodeAlphaToolchainManager } from "../core/node/toolchain-manager.js";
+import { ReleaseCandidateService } from "../core/release/release-candidate-service.js";
 import { ResearchOpportunityEngine } from "../core/research/opportunity-engine.js";
 import {
   adapterDoctor,
@@ -78,6 +79,9 @@ Commands:
   sovryn corpus search "<query>" [--json]
   sovryn corpus dedupe [--json]
   sovryn corpus report [--json]
+  sovryn release candidates build --max 3 [--json]
+  sovryn release candidates review [--json]
+  sovryn release candidates package [--json]
   sovryn release registry update [--json]
   sovryn invention status <mission-id> [--json]
   sovryn invention dossier <mission-id> [--json]
@@ -412,13 +416,26 @@ async function releaseCommand(
   parsed: ParsedArgs,
   root: string,
 ): Promise<Record<string, unknown>> {
+  if (parsed.positionals[0] === "candidates") {
+    const action = parsed.positionals[1];
+    const service = new ReleaseCandidateService(root);
+    if (action === "build") {
+      return service.build({ max: flagInt(parsed.flags, "--max", 3) });
+    }
+    if (action === "review") return service.review();
+    if (action === "package") return service.package();
+    throw new AppError(
+      "RELEASE_CANDIDATES_COMMAND_REQUIRED",
+      "Use: sovryn release candidates <build|review|package>.",
+    );
+  }
   if (
     parsed.positionals[0] !== "registry" ||
     parsed.positionals[1] !== "update"
   ) {
     throw new AppError(
       "RELEASE_COMMAND_REQUIRED",
-      "Use: sovryn release registry update.",
+      "Use: sovryn release <candidates|registry>.",
     );
   }
   return new CorpusService(root).updateReleaseRegistry();

@@ -162,6 +162,7 @@ export class FactoryService {
       mode?: FactoryRunMode;
       maxCycles?: number;
       realSources?: boolean;
+      fixtureEvidence?: boolean;
     } = {},
   ): Promise<{
     run: ResearchFactoryRun;
@@ -181,7 +182,7 @@ export class FactoryService {
 
     const queries = plan.sourceQueries.slice(0, maxCycles);
     let sovrynConfig = await this.config();
-    if (options.realSources) {
+    if (options.realSources || options.fixtureEvidence) {
       sovrynConfig = {
         ...sovrynConfig,
         research: {
@@ -194,6 +195,17 @@ export class FactoryService {
             ...DEFAULT_CONFIG.research!.publicSearch,
             ...sovrynConfig.research?.publicSearch,
             enabled: true,
+            fixtureMode: options.fixtureEvidence
+              ? true
+              : (sovrynConfig.research?.publicSearch?.fixtureMode ?? false),
+          },
+          sourceReading: {
+            ...DEFAULT_CONFIG.research!.sourceReading,
+            ...sovrynConfig.research?.sourceReading,
+            enabled: true,
+            fixtureMode: options.fixtureEvidence
+              ? true
+              : (sovrynConfig.research?.sourceReading?.fixtureMode ?? false),
           },
         },
       };

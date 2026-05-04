@@ -216,6 +216,35 @@ not published automatically. Its `PUBLIC_RELEASES.md` registry is an
 open-source research registry, not a legal patent filing or legal novelty
 opinion.
 
+## Release Candidates
+
+Alpha.21 adds a release-candidate workflow for producing human-reviewable Open
+Invention release candidates from the existing Factory, dry-run publication,
+worker execution, replay, corpus, and registry layers.
+
+```bash
+sovryn release candidates build --max 3 --json
+sovryn release candidates review --json
+sovryn release candidates package --json
+```
+
+The workflow creates up to three fixture-backed strong research runs for:
+
+- verifiable autonomous research agents,
+- evidence-bound source-card trust scoring,
+- container-isolated prototype validation for research agents.
+
+Each candidate binds a Factory run, generated Open Invention mission, curated
+public Factory release, publication intent, corpus duplicate review, prototype
+execution evidence, replay evidence, and release-readiness score. The package is
+written under `.sovryn/releases/candidates/public/` and includes only curated
+public evidence. It does not copy raw command logs, stdout/stderr, secrets,
+private config, or legal patentability claims.
+
+Release candidates are not automatic public releases. They are a review queue
+for Open Inventions that may later be finalized and published through Sovryn's
+existing publication gates.
+
 ## Dossier
 
 Each invention has a typed dossier with technical field, problem, background,

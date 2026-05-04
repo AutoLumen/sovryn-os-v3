@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.0.0-alpha.21
+
+- Added the release-candidate workflow for building, reviewing, and packaging
+  human-reviewable Open Invention release candidates.
+- Added `sovryn release candidates build`, `review`, and `package`.
+- Added release-candidate scoring, publication queue reports, corpus duplicate
+  review, curated public candidate packages, and gates for replay evidence,
+  prototype execution, raw-log exclusion, secret scanning, and non-legal
+  publication language.
+- Added `docs/RELEASE_CANDIDATES.md` and
+  `examples/release-candidate-demo/`.
+
 ## 3.0.0-alpha.20
 
 - Added Corpus Memory under `.sovryn/corpus/` for indexing Factory runs, Open

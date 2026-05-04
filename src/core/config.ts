@@ -416,6 +416,7 @@ async function ensureGitignore(root: string): Promise<void> {
     ".sovryn/pilots/",
     ".sovryn/e2e/",
     ".sovryn/corpus-autopublish/",
+    ".sovryn/science/",
     "public-corpus/",
   ];
   const missing = required.filter(

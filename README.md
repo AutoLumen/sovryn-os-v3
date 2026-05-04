@@ -1,17 +1,19 @@
 # Sovryn OS v3
 
-Current version: `3.0.0-rc.1`
+Current version: `3.1.0-alpha.1`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
 records artifacts, enforces policy, and requires review before finalization.
 
-Sovryn OS also includes an autonomous open-source research factory. It can
-discover research opportunities, run Factory Mode, generate Open Invention
-release candidates, evaluate quality, run overnight operator cycles, export a
-curated public corpus, audit security/reliability evidence, run autonomy
-campaigns, govern publication queues, execute persistent worker jobs, benchmark
-research quality, and package launch/pilot evidence.
+Sovryn OS also includes an autonomous open-source research factory and the first
+v1.1 scientific-method layer. It can discover research opportunities, run
+Factory Mode, generate Open Invention release candidates, evaluate quality, run
+overnight operator cycles, export a curated public corpus, audit
+security/reliability evidence, run autonomy campaigns, govern publication
+queues, execute persistent worker jobs, benchmark research quality, package
+launch/pilot evidence, and now create hypothesis-driven computational-science
+study plans.
 
 Sovryn OS is not a blind agent framework. It does not judge truth with an LLM,
 does not require paid APIs, does not mutate the main tree by default, does not
@@ -24,6 +26,40 @@ output.
 Sovryn produces Open Inventions, Defensive Publications, and Open Source
 Research Artifacts. It does not file legal patents and does not provide legal
 novelty, patentability, or freedom-to-operate opinions.
+
+## Current v1.1 Line
+
+Sovryn OS v1.1 starts the transition from autonomous open-invention researcher
+to autonomous computational scientist. The first alpha does not claim scientific
+support or run experiments yet. It adds the formal study structure that later
+runtime phases must satisfy: question, hypothesis, null hypothesis, experiment
+design, baseline, metrics, falsification criteria, replication plan, and safety
+scope.
+
+| Version         | Focus                  | Result                                                                                                                                                |
+| --------------- | ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `3.1.0-alpha.1` | Scientific Method Core | Adds `sovryn science` commands for safe computational questions, hypotheses with null hypotheses, experiment designs, study status, and gate reviews. |
+
+New science commands:
+
+```bash
+sovryn science question "energy anomaly detection" --json
+sovryn science hypothesize <question-id> --json
+sovryn science experiment design <hypothesis-id> --json
+sovryn science study status <study-id> --json
+sovryn science review <study-id> --json
+```
+
+Science studies write evidence under `.sovryn/science/studies/<study-slug>/`.
+The alpha review gates block missing null hypotheses, missing baselines, missing
+metrics, missing falsification criteria, unsupported scientific claims, and
+unsafe wet-lab, hazardous chemistry, exploit-development, biological
+optimization, or medical-treatment scopes. The layer is limited to safe
+computational science over synthetic data, public non-sensitive data,
+simulations, statistics, benchmarks, and software instruments.
+
+See [docs/SCIENTIFIC_METHOD.md](docs/SCIENTIFIC_METHOD.md) for the alpha
+science workflow and safety boundaries.
 
 ## Current Beta Line
 

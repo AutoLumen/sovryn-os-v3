@@ -43,6 +43,7 @@ import {
 import { QualityEvaluator } from "../core/quality/quality-service.js";
 import { ReleaseCandidateService } from "../core/release/release-candidate-service.js";
 import { ResearchOpportunityEngine } from "../core/research/opportunity-engine.js";
+import { ScienceService } from "../core/science/science-service.js";
 import {
   adapterDoctor,
   pruneResearchCache,
@@ -189,6 +190,11 @@ Commands:
   sovryn external-research run patch-risk-auditor [--profile sandbox-local|container-netoff] [--fixture-install] [--json]
   sovryn external-research campaign multi-domain [--profile sandbox-local|container-netoff] [--fixture-install] [--json]
   sovryn external-research campaign real-sources [--domains 3] [--fixture-sources] [--json]
+  sovryn science question "<field-or-problem>" [--json]
+  sovryn science hypothesize <question-id> [--json]
+  sovryn science experiment design <hypothesis-id> [--json]
+  sovryn science study status <study-id> [--json]
+  sovryn science review <study-id> [--json]
   sovryn invention status <mission-id> [--json]
   sovryn invention dossier <mission-id> [--json]
   sovryn invention verify <mission-id> [--json]
@@ -535,6 +541,16 @@ export async function executeCli(
       case "external-research": {
         const result = await externalResearchCommand(parsed, root);
         return okEnvelope("external-research", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
+      case "science": {
+        const result = await scienceCommand(parsed, root);
+        return okEnvelope("science", result, {
           artifactRefs: Array.isArray(result.artifactRefs)
             ? result.artifactRefs.filter(
                 (value): value is string => typeof value === "string",
@@ -1229,6 +1245,73 @@ async function externalResearchCommand(
     "Supported external research targets are chemistry-record-auditor, energy-record-auditor, and patch-risk-auditor.",
     { target },
   );
+}
+
+async function scienceCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const service = new ScienceService(root);
+  switch (subcommand) {
+    case "question": {
+      const problem = parsed.positionals.slice(1).join(" ").trim();
+      if (!problem) {
+        throw new AppError(
+          "SCIENCE_QUESTION_REQUIRED",
+          "science question requires a field or problem statement.",
+        );
+      }
+      return service.question(problem);
+    }
+    case "hypothesize": {
+      const questionId = parsed.positionals[1];
+      if (!questionId) {
+        throw new AppError(
+          "SCIENCE_QUESTION_ID_REQUIRED",
+          "science hypothesize requires a question id.",
+        );
+      }
+      return service.hypothesize(questionId);
+    }
+    case "experiment": {
+      const action = parsed.positionals[1];
+      const hypothesisId = parsed.positionals[2];
+      if (action !== "design" || !hypothesisId) {
+        throw new AppError(
+          "SCIENCE_EXPERIMENT_USAGE",
+          "Use: sovryn science experiment design <hypothesis-id>.",
+        );
+      }
+      return service.designExperiment(hypothesisId);
+    }
+    case "study": {
+      const action = parsed.positionals[1];
+      const studyId = parsed.positionals[2];
+      if (action !== "status" || !studyId) {
+        throw new AppError(
+          "SCIENCE_STUDY_USAGE",
+          "Use: sovryn science study status <study-id>.",
+        );
+      }
+      return service.status(studyId);
+    }
+    case "review": {
+      const studyId = parsed.positionals[1];
+      if (!studyId) {
+        throw new AppError(
+          "SCIENCE_STUDY_ID_REQUIRED",
+          "science review requires a study id.",
+        );
+      }
+      return service.review(studyId);
+    }
+    default:
+      throw new AppError(
+        "SCIENCE_COMMAND_REQUIRED",
+        "Use: sovryn science <question|hypothesize|experiment design|study status|review>.",
+      );
+  }
 }
 
 function flagExternalResearchProfile(

@@ -8,6 +8,8 @@
 - discovered Factory, mission, and release-candidate IDs;
 - critical failures;
 - degraded reasons;
+- replay diagnostics and replay-critical pass rate;
+- launch limitation summary;
 - public artifact scan result;
 - worker isolation availability notes;
 - confirmation that no real publication occurred;
@@ -16,9 +18,11 @@
 Readiness labels:
 
 - `failed`: critical security leak, unexpected real publish, silent host
-  fallback, or no Factory run.
+  fallback, blocking launch limitation, replay-critical pass rate below 90, or
+  no Factory run.
 - `degraded`: major workflow ran, but a non-critical limitation such as
-  unavailable container runtime was recorded.
+  unavailable container runtime or documented volatile replay observation was
+  recorded.
 - `pass`: all major flows completed with no critical failures.
 - `strong-pass`: multiple release candidates, worker execution, replay success,
   and clean public scans are present.

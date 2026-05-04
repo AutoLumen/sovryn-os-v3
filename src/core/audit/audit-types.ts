@@ -94,18 +94,44 @@ export type ReplayAllReport = {
   factoryRunCount: number;
   passedCount: number;
   failedCount: number;
+  totalArtifacts: number;
+  replayCriticalArtifacts: number;
+  degradedCount: number;
+  skippedNonCritical: number;
+  replayPassRate: number;
+  replayCriticalPassRate: number;
+  blockingReplayFailures: string[];
+  nonBlockingReplayLimitations: string[];
+  recommendedFixes: string[];
   results: Array<{
     factoryId: string;
     factorySlug: string;
+    artifactPath: string;
+    classification:
+      | "replay-critical"
+      | "replay-summary"
+      | "volatile-observation"
+      | "non-public-local"
+      | "non-replayable-by-design";
     passed: boolean;
     failedGates: string[];
     staleEvidence: string[];
+    blocking: boolean;
+    recommendedFixes: string[];
     error: string | null;
   }>;
   releaseCandidateReview: {
     checked: boolean;
     passed: boolean;
     failedGates: string[];
+    classification:
+      | "replay-critical"
+      | "replay-summary"
+      | "volatile-observation"
+      | "non-public-local"
+      | "non-replayable-by-design";
+    blocking: boolean;
+    recommendedFixes: string[];
     error: string | null;
   };
   checks: AuditGate[];

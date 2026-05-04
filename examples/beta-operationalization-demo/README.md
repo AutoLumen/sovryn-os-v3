@@ -1,6 +1,6 @@
 # Beta Operationalization Demo
 
-This example shows the `3.0.0-beta.7` operations path after Alpha.26.
+This example shows the `3.0.0-beta.8` operations path after Alpha.26.
 
 ```bash
 npm install

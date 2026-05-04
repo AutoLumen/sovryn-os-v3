@@ -1,4 +1,4 @@
-# Beta.7 E2E Demo Script
+# Beta.8 E2E Demo Script
 
 Run from the Sovryn OS v3 repository root after building:
 

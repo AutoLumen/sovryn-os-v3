@@ -380,6 +380,19 @@ test("reliability replay-all writes report artifacts", async () => {
   await access(join(repo.root, ".sovryn", "audits", "REPLAY_ALL_REPORT.md"));
 });
 
+test("reliability replay-all reports critical and total pass rates", async () => {
+  const repo = await initializedRepo();
+  const response = await executeCli(
+    ["reliability", "replay-all", "--json"],
+    repo.root,
+  );
+  const report = (response.data as any).report;
+  assert.equal(report.replayPassRate, 100);
+  assert.equal(report.replayCriticalPassRate, 100);
+  assert.equal(report.replayCriticalArtifacts, 0);
+  assert.equal(Array.isArray(report.blockingReplayFailures), true);
+});
+
 test("reliability replay-all records missing factory evidence as failure", async () => {
   const repo = await initializedRepo();
   await mkdir(join(repo.root, ".sovryn", "factory"), { recursive: true });
@@ -402,6 +415,30 @@ test("reliability replay-all records missing factory evidence as failure", async
     repo.root,
   );
   assert.equal((response.data as any).report.passed, false);
+  assert.equal((response.data as any).report.replayCriticalPassRate, 0);
+  assert.match(
+    (response.data as any).report.blockingReplayFailures.join("\n"),
+    /factory_missing/,
+  );
+});
+
+test("reliability replay-all recommends fixes for missing factory evidence", async () => {
+  const repo = await initializedRepo();
+  await mkdir(join(repo.root, ".sovryn", "factory"), { recursive: true });
+  await writeFile(
+    join(repo.root, ".sovryn", "factory", "index.json"),
+    '{"factoryRuns":[{"id":"missing","slug":"missing","researchGoal":"x","status":"completed","updatedAt":"x"}]}\n',
+  );
+  const response = await executeCli(
+    ["reliability", "replay-all", "--json"],
+    repo.root,
+  );
+  assert.equal(
+    (response.data as any).report.recommendedFixes.some((item: string) =>
+      /factory replay/.test(item),
+    ),
+    true,
+  );
 });
 
 test("reliability audit passes on empty initialized repository", async () => {
@@ -501,14 +538,14 @@ test("safety scan-goal returns stable JSON envelope command", async () => {
     repo.root,
   );
   assert.equal(response.command, "safety");
-  assert.equal(response.version, "3.0.0-beta.7");
+  assert.equal(response.version, "3.0.0-beta.8");
 });
 
 test("security audit returns stable JSON envelope command", async () => {
   const repo = await initializedRepo();
   const response = await executeCli(["security", "audit", "--json"], repo.root);
   assert.equal(response.command, "security");
-  assert.equal(response.version, "3.0.0-beta.7");
+  assert.equal(response.version, "3.0.0-beta.8");
 });
 
 test("reliability audit returns stable JSON envelope command", async () => {
@@ -518,7 +555,7 @@ test("reliability audit returns stable JSON envelope command", async () => {
     repo.root,
   );
   assert.equal(response.command, "reliability");
-  assert.equal(response.version, "3.0.0-beta.7");
+  assert.equal(response.version, "3.0.0-beta.8");
 });
 
 async function initializedRepo() {

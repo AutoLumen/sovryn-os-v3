@@ -76,6 +76,70 @@ export type E2EPublicFinding = {
   message: string;
 };
 
+export type ReplayArtifactClass =
+  | "replay-critical"
+  | "replay-summary"
+  | "volatile-observation"
+  | "non-public-local"
+  | "non-replayable-by-design";
+
+export type E2EReplayArtifactDiagnostic = {
+  artifactId: string;
+  artifactPath: string;
+  classification: ReplayArtifactClass;
+  status: "passed" | "failed" | "degraded" | "skipped";
+  expectedHash: string | null;
+  actualHash: string | null;
+  staleReason: string | null;
+  missingDependency: string | null;
+  diagnosis:
+    | "real_bug"
+    | "expected_non_determinism"
+    | "missing_binding"
+    | "none";
+  recommendedFix: string;
+};
+
+export type E2EReplayDiagnostics = {
+  kind: "e2e_replay_diagnostics";
+  generatedAt: string;
+  replayReportPath: string;
+  replayPassRate: number;
+  replayCriticalPassRate: number;
+  artifacts: E2EReplayArtifactDiagnostic[];
+  evidenceHash: string;
+};
+
+export type E2ELaunchLimitation = {
+  limitationId: string;
+  description: string;
+  blocking: boolean;
+  category:
+    | "docs"
+    | "demo"
+    | "quality"
+    | "security"
+    | "reliability"
+    | "publication"
+    | "corpus"
+    | "worker"
+    | "external";
+  evidencePath: string;
+  fixAction: string;
+  acceptedForBeta: boolean;
+  requiresHumanReview: boolean;
+};
+
+export type E2ELaunchLimitations = {
+  kind: "e2e_launch_limitations";
+  generatedAt: string;
+  launchCheckPath: string;
+  blockingLimitations: E2ELaunchLimitation[];
+  acceptedBetaLimitations: E2ELaunchLimitation[];
+  informationalLimitations: E2ELaunchLimitation[];
+  evidenceHash: string;
+};
+
 export type E2EScorecard = {
   kind: "e2e_scorecard";
   scoredAt: string;
@@ -96,6 +160,14 @@ export type E2EScorecard = {
   factoryRunCount: number;
   workerExecutionCount: number;
   replayPassRate: number;
+  replayTotalPassRate: number;
+  replayCriticalPassRate: number;
+  blockingLaunchLimitations: E2ELaunchLimitation[];
+  acceptedBetaLimitations: E2ELaunchLimitation[];
+  launchBlockingPassed: boolean;
+  publicArtifactScanPassed: boolean;
+  publicationGovernancePassed: boolean;
+  workerNoFallbackPassed: boolean;
   qualityLabelDistribution: Record<string, number>;
   publicLeakCount: number;
   criticalFailureCount: number;
@@ -142,7 +214,7 @@ type E2EPhaseInput = {
   degradedReasons?: string[];
 };
 
-const TARGET_VERSION = "3.0.0-beta.7";
+const TARGET_VERSION = "3.0.0-beta.8";
 const MAX_OUTPUT_CHARS = 6000;
 const MAX_PARSE_OUTPUT_CHARS = 2_000_000;
 
@@ -201,7 +273,7 @@ export class E2EService {
     await rm(this.e2eRoot(), { recursive: true, force: true });
     await mkdir(this.e2eRoot(), { recursive: true });
     const toolRoot = this.toolRoot();
-    const freshRepo = await mkdtemp(join(tmpdir(), "sovryn-beta7-e2e-"));
+    const freshRepo = await mkdtemp(join(tmpdir(), "sovryn-beta8-e2e-"));
     const cliPath = await this.findCliPath();
     const context: CommandContext = {
       results: [],
@@ -230,6 +302,9 @@ export class E2EService {
     phases.push(await this.launchPilotFlow(context));
 
     const scan = await scanE2EPublicArtifacts(freshRepo);
+    const replayContract = await this.writeReplayContract();
+    const replayDiagnostics = await this.writeReplayDiagnostics(freshRepo);
+    const launchLimitations = await this.writeLaunchLimitations(freshRepo);
     const artifacts = await this.artifactInventory(freshRepo, scan);
     const failures = phases.flatMap((phase) =>
       phase.criticalFailures.map((failure) => ({
@@ -246,6 +321,10 @@ export class E2EService {
       ).length,
       workerExecutionCount: await countWorkerExecutions(freshRepo),
       replayPassRate: await replayRate(freshRepo),
+      replayTotalPassRate: await replayTotalRate(freshRepo),
+      replayCriticalPassRate: await replayCriticalRate(freshRepo),
+      blockingLaunchLimitations: launchLimitations.blockingLimitations,
+      acceptedBetaLimitations: launchLimitations.acceptedBetaLimitations,
       qualityLabelDistribution: await qualityLabels(freshRepo),
       unexpectedRealPublish: await realPublishOccurred(freshRepo),
       silentHostFallback: await silentHostFallbackOccurred(freshRepo),
@@ -265,6 +344,9 @@ export class E2EService {
         e2eRef("e2e-run.json"),
         e2eRef("e2e-scorecard.json"),
         e2eRef("E2E_REPORT.md"),
+        e2eRef("replay-diagnostics.json"),
+        e2eRef("launch-limitations.json"),
+        e2eRef("replay-contract.json"),
       ],
       evidenceHash: "",
     });
@@ -285,7 +367,14 @@ export class E2EService {
     await writeJson(join(this.e2eRoot(), "e2e-run.json"), run);
     await writeFile(
       join(this.e2eRoot(), "E2E_REPORT.md"),
-      renderE2EReport(run, context.results, scan.findings),
+      renderE2EReport(
+        run,
+        context.results,
+        scan.findings,
+        replayDiagnostics,
+        launchLimitations,
+        replayContract,
+      ),
       "utf8",
     );
     await writeFile(
@@ -354,7 +443,7 @@ export class E2EService {
     const help = context.results[indexes[0]];
     const commandGroups = requiredCommandGroups(help.stdoutRedacted);
     const checks = [
-      check("PACKAGE_VERSION_BETA7", pkg.version === TARGET_VERSION, {
+      check("PACKAGE_VERSION_BETA8", pkg.version === TARGET_VERSION, {
         version: pkg.version,
       }),
       check("CLI_HELP_WORKS", help.exitCode === 0, {}),
@@ -1184,6 +1273,15 @@ export class E2EService {
         },
       ),
       check(
+        "REPLAY_CRITICAL_PASS_RATE_ABOVE_MINIMUM",
+        Number(reliability?.replayCriticalPassRate ?? 0) >= 90,
+        {
+          replayCriticalPassRate: reliability?.replayCriticalPassRate,
+          replayPassRate: reliability?.replayPassRate,
+          blockingReplayFailures: reliability?.blockingReplayFailures,
+        },
+      ),
+      check(
         "NO_FAKE_SANDBOX_CLAIMS",
         !(await textMatches(
           context.freshRepo,
@@ -1342,10 +1440,16 @@ export class E2EService {
       launchPackage,
     ]);
     const checkData = commandData(context.results[indexes[0]], "check");
+    const launchLimitations = extractLaunchLimitations(checkData);
     const checks = [
       check("LAUNCH_CHECK_RECORDED", typeof checkData?.passed === "boolean", {
         passed: checkData?.passed,
       }),
+      check(
+        "LAUNCH_BLOCKING_LIMITATIONS_CLEARED",
+        launchLimitations.blockingLimitations.length === 0,
+        { blockingLimitations: launchLimitations.blockingLimitations },
+      ),
       check("LAUNCH_PACKAGE_EXISTS", await exists(launchPackage), {}),
       check(
         "PILOT_REPORT_EXISTS",
@@ -1374,9 +1478,9 @@ export class E2EService {
       ),
     ];
     const degradedReasons =
-      checkData?.passed === false
+      launchLimitations.acceptedBetaLimitations.length > 0
         ? [
-            "Launch check reported known limitations; review launch-check.json before public beta launch.",
+            `Launch check reported ${launchLimitations.acceptedBetaLimitations.length} accepted beta limitation(s).`,
           ]
         : [];
     return this.writePhase("launch-pilot-flow.json", {
@@ -1477,6 +1581,44 @@ export class E2EService {
     await writeJson(path, config);
   }
 
+  private async writeReplayContract(): Promise<Record<string, unknown>> {
+    const contract = buildReplayContract();
+    await writeJson(join(this.e2eRoot(), "replay-contract.json"), contract);
+    return contract;
+  }
+
+  private async writeReplayDiagnostics(
+    freshRepo: string,
+  ): Promise<E2EReplayDiagnostics> {
+    const diagnostics = await buildReplayDiagnostics(freshRepo);
+    await writeJson(
+      join(this.e2eRoot(), "replay-diagnostics.json"),
+      diagnostics,
+    );
+    await writeFile(
+      join(this.e2eRoot(), "REPLAY_DIAGNOSTICS.md"),
+      renderReplayDiagnostics(diagnostics),
+      "utf8",
+    );
+    return diagnostics;
+  }
+
+  private async writeLaunchLimitations(
+    freshRepo: string,
+  ): Promise<E2ELaunchLimitations> {
+    const limitations = await buildLaunchLimitations(freshRepo);
+    await writeJson(
+      join(this.e2eRoot(), "launch-limitations.json"),
+      limitations,
+    );
+    await writeFile(
+      join(this.e2eRoot(), "LAUNCH_LIMITATIONS.md"),
+      renderLaunchLimitations(limitations),
+      "utf8",
+    );
+    return limitations;
+  }
+
   private async artifactInventory(
     freshRepo: string,
     scan: { findings: E2EPublicFinding[] },
@@ -1554,6 +1696,10 @@ export function buildE2EScorecard(input: {
   factoryRunCount: number;
   workerExecutionCount: number;
   replayPassRate: number;
+  replayTotalPassRate?: number;
+  replayCriticalPassRate?: number;
+  blockingLaunchLimitations?: E2ELaunchLimitation[];
+  acceptedBetaLimitations?: E2ELaunchLimitation[];
   qualityLabelDistribution: Record<string, number>;
   unexpectedRealPublish: boolean;
   silentHostFallback: boolean;
@@ -1561,6 +1707,15 @@ export function buildE2EScorecard(input: {
   const phaseMap = new Map(input.phases.map((phase) => [phase.phase, phase]));
   const phasePassed = (phase: E2EPhaseName): boolean =>
     phaseMap.get(phase)?.passed === true;
+  const replayTotalPassRate = input.replayTotalPassRate ?? input.replayPassRate;
+  const replayCriticalPassRate =
+    input.replayCriticalPassRate ?? input.replayPassRate;
+  const blockingLaunchLimitations = input.blockingLaunchLimitations ?? [];
+  const acceptedBetaLimitations = input.acceptedBetaLimitations ?? [];
+  const publicationGovernancePassed = phasePassed("publication_flow");
+  const workerNoFallbackPassed = !input.silentHostFallback;
+  const launchBlockingPassed = blockingLaunchLimitations.length === 0;
+  const publicArtifactScanPassed = input.publicLeakCount === 0;
   const critical = [
     ...input.phases.flatMap((phase) => phase.criticalFailures),
     ...(input.publicLeakCount > 0 ? ["Public leak detected."] : []),
@@ -1570,15 +1725,34 @@ export function buildE2EScorecard(input: {
     ...(input.silentHostFallback
       ? ["Container profile silently fell back to host execution."]
       : []),
+    ...blockingLaunchLimitations.map(
+      (item) => `Blocking launch limitation: ${item.description}`,
+    ),
+    ...(replayCriticalPassRate < 90
+      ? [
+          `Replay-critical pass rate is ${replayCriticalPassRate}; fix blocking replay failures before launch.`,
+        ]
+      : []),
     ...(input.factoryRunCount < 1 ? ["No Factory run was created."] : []),
+    ...(input.releaseCandidateCount < 1
+      ? ["No release candidate was created."]
+      : []),
+    ...(!publicationGovernancePassed
+      ? ["Publication governance dry-run did not pass."]
+      : []),
   ];
   const degraded = input.phases.flatMap((phase) => phase.degradedReasons);
-  if (input.releaseCandidateCount < 1) {
-    degraded.push("No release candidate was created.");
-  }
-  if (input.replayPassRate < 80) {
+  if (
+    replayCriticalPassRate >= 90 &&
+    replayTotalPassRate < replayCriticalPassRate
+  ) {
     degraded.push(
-      `Reliability replay pass rate is ${input.replayPassRate}; review stale or blocked replay evidence before launch.`,
+      `Total replay pass rate is ${replayTotalPassRate}; non-critical volatile observations should be reviewed but are not launch-blocking.`,
+    );
+  }
+  if (acceptedBetaLimitations.length > 0) {
+    degraded.push(
+      `${acceptedBetaLimitations.length} accepted beta limitation(s) remain documented for human review.`,
     );
   }
   const majorPass =
@@ -1591,7 +1765,7 @@ export function buildE2EScorecard(input: {
         ? "degraded"
         : input.releaseCandidateCount > 1 &&
             input.workerExecutionCount > 0 &&
-            input.replayPassRate >= 90 &&
+            replayCriticalPassRate >= 95 &&
             majorPass
           ? "strong-pass"
           : majorPass
@@ -1615,7 +1789,7 @@ export function buildE2EScorecard(input: {
     qualityBenchmarkPassed: phasePassed("quality_benchmark_flow"),
     publicationDryRunPassed: phasePassed("publication_flow"),
     securityAuditPassed: phasePassed("audit_safety_flow"),
-    reliabilityReplayPassed: input.replayPassRate >= 80,
+    reliabilityReplayPassed: replayCriticalPassRate >= 90,
     safetyScanPassed: phasePassed("audit_safety_flow"),
     corpusExportPassed: phasePassed("corpus_flow"),
     launchPilotPassed: phasePassed("launch_pilot_flow"),
@@ -1623,6 +1797,14 @@ export function buildE2EScorecard(input: {
     factoryRunCount: input.factoryRunCount,
     workerExecutionCount: input.workerExecutionCount,
     replayPassRate: input.replayPassRate,
+    replayTotalPassRate,
+    replayCriticalPassRate,
+    blockingLaunchLimitations,
+    acceptedBetaLimitations,
+    launchBlockingPassed,
+    publicArtifactScanPassed,
+    publicationGovernancePassed,
+    workerNoFallbackPassed,
     qualityLabelDistribution: input.qualityLabelDistribution,
     publicLeakCount: input.publicLeakCount,
     criticalFailureCount: critical.length,
@@ -1633,6 +1815,231 @@ export function buildE2EScorecard(input: {
     degradedReasons: degraded,
     evidenceHash: "",
   });
+}
+
+export function buildReplayContract(): Record<string, unknown> {
+  return withHash({
+    kind: "e2e_replay_contract" as const,
+    generatedAt: nowIso(),
+    classes: [
+      {
+        classification: "replay-critical",
+        description:
+          "Evidence that gates publication, launch, replay integrity, safety, or release readiness.",
+        blocksReadiness: true,
+        examples: [
+          ".sovryn/factory/<slug>/replay-report.json",
+          ".sovryn/factory/<slug>/factory-score.json",
+          ".sovryn/releases/candidates/release-candidate-review.json",
+        ],
+      },
+      {
+        classification: "replay-summary",
+        description:
+          "Derived summary files that should be regenerated from replay-critical evidence.",
+        blocksReadiness: false,
+        examples: ["REPLAY_REPORT.md", "factory-score.summary.json"],
+      },
+      {
+        classification: "volatile-observation",
+        description:
+          "Observed command timing, timestamps, or environment health that can change without changing publication evidence.",
+        blocksReadiness: false,
+        examples: ["worker doctor runtime version", "command duration"],
+      },
+      {
+        classification: "non-public-local",
+        description:
+          "Local-only evidence that must not enter curated public release packages.",
+        blocksReadiness: false,
+        examples: ["raw command result previews", "local execution cwd"],
+      },
+      {
+        classification: "non-replayable-by-design",
+        description:
+          "Evidence intentionally excluded from readiness math unless it affects safety or publication gates.",
+        blocksReadiness: false,
+        examples: ["external service availability observations"],
+      },
+    ],
+    readinessRule:
+      "Replay-critical artifacts must be stable and hash-bound. Volatile observations are reported separately and must not leak into public packages.",
+    evidenceHash: "",
+  });
+}
+
+export async function buildReplayDiagnostics(
+  root: string,
+): Promise<E2EReplayDiagnostics> {
+  const replayPath = join(root, ".sovryn", "audits", "replay-all-report.json");
+  const replay = await readJson<Record<string, any>>(replayPath).catch(
+    () => null,
+  );
+  const artifacts: E2EReplayArtifactDiagnostic[] = [];
+  const results = Array.isArray(replay?.results) ? replay.results : [];
+  for (const result of results) {
+    const slug =
+      typeof result.factorySlug === "string" ? result.factorySlug : "unknown";
+    const factoryId =
+      typeof result.factoryId === "string" ? result.factoryId : slug;
+    const artifactPath = join(".sovryn", "factory", slug, "replay-report.json");
+    const replayArtifact = await readJson<Record<string, any>>(
+      join(root, artifactPath),
+    ).catch(() => null);
+    const factoryRun = await readJson<Record<string, any>>(
+      join(root, ".sovryn", "factory", slug, "factory-run.json"),
+    ).catch(() => null);
+    const expectedHash =
+      typeof factoryRun?.evidenceHashes?.replay_report === "string"
+        ? factoryRun.evidenceHashes.replay_report
+        : null;
+    const actualHash =
+      typeof replayArtifact?.evidenceHash === "string"
+        ? replayArtifact.evidenceHash
+        : null;
+    const failedGates = Array.isArray(result.failedGates)
+      ? result.failedGates.filter(
+          (gate: unknown): gate is string => typeof gate === "string",
+        )
+      : [];
+    const staleEvidence = Array.isArray(result.staleEvidence)
+      ? result.staleEvidence.filter(
+          (item: unknown): item is string => typeof item === "string",
+        )
+      : [];
+    const missingDependency =
+      replayArtifact === null
+        ? artifactPath
+        : failedGates.includes("IMPROVEMENT_CYCLES_RECORDED")
+          ? ".sovryn/factory/<slug>/factory-cycle-log.json"
+          : null;
+    const staleReason =
+      staleEvidence.length > 0
+        ? staleEvidence.join(", ")
+        : failedGates.length > 0
+          ? failedGates.join(", ")
+          : expectedHash && actualHash && expectedHash !== actualHash
+            ? "expected replay hash does not match replay-report.json"
+            : null;
+    artifacts.push({
+      artifactId: factoryId,
+      artifactPath,
+      classification: "replay-critical",
+      status:
+        result.passed === true && staleReason === null
+          ? "passed"
+          : replayArtifact === null
+            ? "failed"
+            : "failed",
+      expectedHash,
+      actualHash,
+      staleReason,
+      missingDependency,
+      diagnosis: diagnosisForReplayFailure(
+        failedGates,
+        expectedHash,
+        actualHash,
+      ),
+      recommendedFix:
+        Array.isArray(result.recommendedFixes) &&
+        typeof result.recommendedFixes[0] === "string"
+          ? result.recommendedFixes[0]
+          : recommendedReplayFix(failedGates),
+    });
+  }
+  const review = replay?.releaseCandidateReview;
+  if (review?.checked === true) {
+    const failedGates = Array.isArray(review.failedGates)
+      ? review.failedGates.filter(
+          (gate: unknown): gate is string => typeof gate === "string",
+        )
+      : [];
+    artifacts.push({
+      artifactId: "release-candidate-review",
+      artifactPath: ".sovryn/releases/candidates/release-candidate-review.json",
+      classification: "replay-critical",
+      status: review.passed === true ? "passed" : "failed",
+      expectedHash: null,
+      actualHash: null,
+      staleReason: failedGates.length > 0 ? failedGates.join(", ") : null,
+      missingDependency:
+        review.passed === true ? null : "release-candidate evidence",
+      diagnosis: failedGates.length > 0 ? "missing_binding" : "none",
+      recommendedFix:
+        Array.isArray(review.recommendedFixes) &&
+        typeof review.recommendedFixes[0] === "string"
+          ? review.recommendedFixes[0]
+          : recommendedReplayFix(failedGates),
+    });
+  }
+  return withHash<E2EReplayDiagnostics>({
+    kind: "e2e_replay_diagnostics",
+    generatedAt: nowIso(),
+    replayReportPath: ".sovryn/audits/replay-all-report.json",
+    replayPassRate: Number(replay?.replayPassRate ?? 0),
+    replayCriticalPassRate: Number(replay?.replayCriticalPassRate ?? 0),
+    artifacts,
+    evidenceHash: "",
+  });
+}
+
+export async function buildLaunchLimitations(
+  root: string,
+): Promise<E2ELaunchLimitations> {
+  const launchCheck = await readJson<Record<string, any>>(
+    join(root, ".sovryn", "launch", "launch-check.json"),
+  ).catch(() => null);
+  const extracted = extractLaunchLimitations(
+    launchCheck as Record<string, unknown> | null,
+  );
+  return withHash<E2ELaunchLimitations>({
+    kind: "e2e_launch_limitations",
+    generatedAt: nowIso(),
+    launchCheckPath: ".sovryn/launch/launch-check.json",
+    blockingLimitations: extracted.blockingLimitations,
+    acceptedBetaLimitations: extracted.acceptedBetaLimitations,
+    informationalLimitations: extracted.informationalLimitations,
+    evidenceHash: "",
+  });
+}
+
+function extractLaunchLimitations(value: unknown): {
+  blockingLimitations: E2ELaunchLimitation[];
+  acceptedBetaLimitations: E2ELaunchLimitation[];
+  informationalLimitations: E2ELaunchLimitation[];
+} {
+  const record = isRecord(value) ? value : {};
+  const blockingLimitations = arrayOfLaunchLimitations(
+    record.blockingLimitations,
+  );
+  const acceptedBetaLimitations = arrayOfLaunchLimitations(
+    record.acceptedBetaLimitations,
+  );
+  const informationalLimitations = arrayOfLaunchLimitations(
+    record.informationalLimitations,
+  );
+  if (
+    record.passed === false &&
+    blockingLimitations.length === 0 &&
+    acceptedBetaLimitations.length === 0
+  ) {
+    blockingLimitations.push({
+      limitationId: "launch-check-failed",
+      description: "Launch check failed without structured limitation details.",
+      blocking: true,
+      category: "external",
+      evidencePath: ".sovryn/launch/launch-check.json",
+      fixAction:
+        "Inspect launch-check.json, fix failed launch gates, and rerun launch check.",
+      acceptedForBeta: false,
+      requiresHumanReview: true,
+    });
+  }
+  return {
+    blockingLimitations,
+    acceptedBetaLimitations,
+    informationalLimitations,
+  };
 }
 
 export async function scanE2EPublicArtifacts(
@@ -2025,9 +2432,28 @@ async function replayRate(root: string): Promise<number> {
   const replay = await readJson<Record<string, any>>(
     join(root, ".sovryn", "audits", "replay-all-report.json"),
   ).catch(() => null);
+  if (typeof replay?.replayPassRate === "number") return replay.replayPassRate;
   if (!replay || typeof replay.factoryRunCount !== "number") return 0;
   if (replay.factoryRunCount === 0) return 100;
   return Math.round(((replay.passedCount ?? 0) / replay.factoryRunCount) * 100);
+}
+
+async function replayTotalRate(root: string): Promise<number> {
+  const replay = await readJson<Record<string, any>>(
+    join(root, ".sovryn", "audits", "replay-all-report.json"),
+  ).catch(() => null);
+  if (typeof replay?.replayPassRate === "number") return replay.replayPassRate;
+  return replayRate(root);
+}
+
+async function replayCriticalRate(root: string): Promise<number> {
+  const replay = await readJson<Record<string, any>>(
+    join(root, ".sovryn", "audits", "replay-all-report.json"),
+  ).catch(() => null);
+  if (typeof replay?.replayCriticalPassRate === "number") {
+    return replay.replayCriticalPassRate;
+  }
+  return replayRate(root);
 }
 
 async function qualityLabels(root: string): Promise<Record<string, number>> {
@@ -2155,10 +2581,95 @@ function isRecord(value: unknown): value is Record<string, any> {
   return typeof value === "object" && value !== null;
 }
 
+function arrayOfLaunchLimitations(value: unknown): E2ELaunchLimitation[] {
+  if (!Array.isArray(value)) return [];
+  return value.flatMap((item): E2ELaunchLimitation[] => {
+    if (!isRecord(item)) return [];
+    const limitationId =
+      typeof item.limitationId === "string"
+        ? item.limitationId
+        : "launch-limitation";
+    const description =
+      typeof item.description === "string"
+        ? item.description
+        : "Launch limitation requires review.";
+    const category = launchCategory(item.category);
+    return [
+      {
+        limitationId,
+        description,
+        blocking: item.blocking === true,
+        category,
+        evidencePath:
+          typeof item.evidencePath === "string"
+            ? item.evidencePath
+            : ".sovryn/launch/launch-check.json",
+        fixAction:
+          typeof item.fixAction === "string"
+            ? item.fixAction
+            : "Review launch evidence and rerun launch check.",
+        acceptedForBeta: item.acceptedForBeta === true,
+        requiresHumanReview: item.requiresHumanReview !== false,
+      },
+    ];
+  });
+}
+
+function launchCategory(value: unknown): E2ELaunchLimitation["category"] {
+  const allowed = new Set([
+    "docs",
+    "demo",
+    "quality",
+    "security",
+    "reliability",
+    "publication",
+    "corpus",
+    "worker",
+    "external",
+  ]);
+  return typeof value === "string" && allowed.has(value)
+    ? (value as E2ELaunchLimitation["category"])
+    : "external";
+}
+
+function diagnosisForReplayFailure(
+  failedGates: string[],
+  expectedHash: string | null,
+  actualHash: string | null,
+): E2EReplayArtifactDiagnostic["diagnosis"] {
+  if (failedGates.length === 0 && expectedHash === actualHash) return "none";
+  if (failedGates.some((gate) => /HASH|FRESH|BOUND/.test(gate))) {
+    return "missing_binding";
+  }
+  if (expectedHash && actualHash && expectedHash !== actualHash) {
+    return "missing_binding";
+  }
+  if (failedGates.some((gate) => /VOLATILE|DOCTOR|RUNTIME/.test(gate))) {
+    return "expected_non_determinism";
+  }
+  return failedGates.length > 0 ? "real_bug" : "none";
+}
+
+function recommendedReplayFix(failedGates: string[]): string {
+  if (failedGates.some((gate) => /IMPROVEMENT_CYCLES_RECORDED/.test(gate))) {
+    return "Run `sovryn factory improve <factory-id> --max-cycles 1 --json`, then rerun replay-all.";
+  }
+  if (failedGates.some((gate) => /HASH|FRESH|BOUND/.test(gate))) {
+    return "Regenerate stale hash-bound evidence and rerun replay-all.";
+  }
+  if (failedGates.length > 0) {
+    return "Inspect failed replay gates, regenerate missing evidence, and rerun replay-all.";
+  }
+  return "No replay fix required.";
+}
+
 function renderE2EReport(
   run: E2ERunResult,
   commands: E2ECommandResult[],
   findings: E2EPublicFinding[],
+  replayDiagnostics: E2EReplayDiagnostics,
+  launchLimitations: E2ELaunchLimitations,
+  replayContract: Record<string, unknown>,
 ): string {
   const phaseLines = run.phases.map(
     (phase) =>
@@ -2201,6 +2712,23 @@ ${run.scorecard.blockingReasons.length ? run.scorecard.blockingReasons.map((item
 
 ${run.scorecard.degradedReasons.length ? run.scorecard.degradedReasons.map((item) => `- ${item}`).join("\n") : "- none recorded"}
 
+## Replay Diagnostics
+
+- Total replay pass rate: ${run.scorecard.replayTotalPassRate}
+- Replay-critical pass rate: ${run.scorecard.replayCriticalPassRate}
+- Diagnostic artifacts: ${replayDiagnostics.artifacts.length}
+- Replay contract: ${String(replayContract.kind ?? "e2e_replay_contract")}
+
+${replayDiagnostics.artifacts.length === 0 ? "- no replay artifacts discovered" : replayDiagnostics.artifacts.map((item) => `- ${item.status.toUpperCase()} ${item.artifactId}: ${item.artifactPath}${item.staleReason ? ` (${item.staleReason})` : ""}`).join("\n")}
+
+## Launch Limitations
+
+- Blocking: ${launchLimitations.blockingLimitations.length}
+- Accepted beta: ${launchLimitations.acceptedBetaLimitations.length}
+- Informational: ${launchLimitations.informationalLimitations.length}
+
+${launchLimitations.blockingLimitations.length === 0 ? "- no blocking launch limitations" : launchLimitations.blockingLimitations.map((item) => `- ${item.limitationId}: ${item.fixAction}`).join("\n")}
+
 ## Public Artifact Scan
 
 - Findings: ${findings.length}
@@ -2230,6 +2758,44 @@ function renderArtifactTree(artifacts: Record<string, any>): string {
   return `# E2E Artifact Tree
 
 ${roots.map((root) => `- ${root.root}: ${root.fileCount} files`).join("\n")}
+`;
+}
+
+function renderReplayDiagnostics(diagnostics: E2EReplayDiagnostics): string {
+  return `# Replay Diagnostics
+
+Replay diagnostics are evidence-backed. They distinguish replay-critical
+artifacts from volatile observations instead of hiding failures.
+
+## Summary
+
+- Total replay pass rate: ${diagnostics.replayPassRate}
+- Replay-critical pass rate: ${diagnostics.replayCriticalPassRate}
+- Artifacts inspected: ${diagnostics.artifacts.length}
+
+## Artifacts
+
+${diagnostics.artifacts.length === 0 ? "- none" : diagnostics.artifacts.map((item) => `- ${item.status.toUpperCase()} ${item.artifactId}: ${item.artifactPath}\n  - class: ${item.classification}\n  - expected hash: ${item.expectedHash ?? "n/a"}\n  - actual hash: ${item.actualHash ?? "n/a"}\n  - stale reason: ${item.staleReason ?? "none"}\n  - missing dependency: ${item.missingDependency ?? "none"}\n  - diagnosis: ${item.diagnosis}\n  - fix: ${item.recommendedFix}`).join("\n")}
+`;
+}
+
+function renderLaunchLimitations(limitations: E2ELaunchLimitations): string {
+  return `# Launch Limitations
+
+Launch check separates blocking launch limitations from accepted beta and
+informational limitations.
+
+## Blocking
+
+${limitations.blockingLimitations.length === 0 ? "- none" : limitations.blockingLimitations.map((item) => `- ${item.limitationId}: ${item.description}\n  - fix: ${item.fixAction}`).join("\n")}
+
+## Accepted Beta
+
+${limitations.acceptedBetaLimitations.length === 0 ? "- none" : limitations.acceptedBetaLimitations.map((item) => `- ${item.limitationId}: ${item.description}`).join("\n")}
+
+## Informational
+
+${limitations.informationalLimitations.length === 0 ? "- none" : limitations.informationalLimitations.map((item) => `- ${item.limitationId}: ${item.description}`).join("\n")}
 `;
 }
 

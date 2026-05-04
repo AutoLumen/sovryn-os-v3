@@ -555,37 +555,105 @@ export class AuditService {
     for (const item of factoryIndex.factoryRuns) {
       try {
         const replay = await factory.replay(item.id);
+        const failedGates = replay.review.checks
+          .filter((gate) => !gate.passed)
+          .map((gate) => gate.code);
         results.push({
           factoryId: item.id,
           factorySlug: item.slug,
+          artifactPath: join(
+            ".sovryn",
+            "factory",
+            item.slug,
+            "replay-report.json",
+          ),
+          classification: "replay-critical" as const,
           passed: replay.review.allowed,
-          failedGates: replay.review.checks
-            .filter((gate) => !gate.passed)
-            .map((gate) => gate.code),
+          failedGates,
           staleEvidence: replay.replay.staleEvidence,
+          blocking: !replay.review.allowed,
+          recommendedFixes: replayRecommendations(failedGates),
           error: null,
         });
       } catch (error) {
         results.push({
           factoryId: item.id,
           factorySlug: item.slug,
+          artifactPath: join(
+            ".sovryn",
+            "factory",
+            item.slug,
+            "replay-report.json",
+          ),
+          classification: "replay-critical" as const,
           passed: false,
           failedGates: ["REPLAY_ERROR"],
           staleEvidence: [],
+          blocking: true,
+          recommendedFixes: [
+            "Inspect the factory run evidence and rerun `sovryn factory replay <factory-id> --json`.",
+          ],
           error: error instanceof Error ? error.message : String(error),
         });
       }
     }
     const releaseCandidateReview = await this.reviewReleaseCandidates();
+    const releaseCandidateResult = {
+      ...releaseCandidateReview,
+      classification: "replay-critical" as const,
+      blocking: !releaseCandidateReview.passed,
+      recommendedFixes: replayRecommendations(
+        releaseCandidateReview.failedGates,
+      ),
+    };
+    const totalArtifacts =
+      results.length + (releaseCandidateReview.checked ? 1 : 0);
+    const replayCriticalArtifacts =
+      results.length + (releaseCandidateReview.checked ? 1 : 0);
+    const passedArtifacts =
+      results.filter((result) => result.passed).length +
+      (releaseCandidateReview.checked && releaseCandidateReview.passed ? 1 : 0);
+    const failedArtifacts =
+      results.filter((result) => !result.passed).length +
+      (releaseCandidateReview.checked && !releaseCandidateReview.passed
+        ? 1
+        : 0);
+    const blockingReplayFailures = [
+      ...results
+        .filter((result) => result.blocking)
+        .map(
+          (result) =>
+            `${result.factoryId}: ${result.failedGates.join(", ") || result.error || "replay failed"}`,
+        ),
+      ...(releaseCandidateResult.blocking
+        ? [
+            `release-candidate-review: ${releaseCandidateReview.failedGates.join(", ") || releaseCandidateReview.error || "review failed"}`,
+          ]
+        : []),
+    ];
+    const recommendedFixes = uniqueStrings([
+      ...results.flatMap((result) => result.recommendedFixes),
+      ...releaseCandidateResult.recommendedFixes,
+    ]);
+    const replayPassRate =
+      totalArtifacts === 0
+        ? 100
+        : Math.round((passedArtifacts / totalArtifacts) * 100);
+    const replayCriticalPassRate =
+      replayCriticalArtifacts === 0
+        ? 100
+        : Math.round(
+            (passedArtifacts / Math.max(1, replayCriticalArtifacts)) * 100,
+          );
     const checksWithoutOverall = [
       gate(
         "REPLAY_ALL_PASSED",
-        results.every((result) => result.passed) &&
-          releaseCandidateReview.passed,
+        blockingReplayFailures.length === 0,
         "All factory runs and release candidates should replay or review cleanly.",
         {
           failedFactoryRuns: results.filter((result) => !result.passed).length,
-          releaseCandidateReview,
+          releaseCandidateReview: releaseCandidateResult,
+          replayCriticalPassRate,
         },
       ),
     ];
@@ -596,8 +664,17 @@ export class AuditService {
       factoryRunCount: results.length,
       passedCount: results.filter((result) => result.passed).length,
       failedCount: results.filter((result) => !result.passed).length,
+      totalArtifacts,
+      replayCriticalArtifacts,
+      degradedCount: 0,
+      skippedNonCritical: 0,
+      replayPassRate,
+      replayCriticalPassRate,
+      blockingReplayFailures,
+      nonBlockingReplayLimitations: [],
+      recommendedFixes,
       results,
-      releaseCandidateReview,
+      releaseCandidateReview: releaseCandidateResult,
       checks: checksWithoutOverall,
       passed,
       evidenceHash: "",
@@ -1053,6 +1130,36 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
+function replayRecommendations(failedGates: string[]): string[] {
+  if (failedGates.length === 0) return [];
+  const recommendations = [];
+  if (failedGates.some((gate) => /IMPROVEMENT_CYCLES_RECORDED/.test(gate))) {
+    recommendations.push(
+      "Run `sovryn factory improve <factory-id> --max-cycles 1 --json` and rerun replay before launch.",
+    );
+  }
+  if (failedGates.some((gate) => /HASH|FRESH|BOUND/.test(gate))) {
+    recommendations.push(
+      "Regenerate the stale evidence artifact so the stored evidence hash matches current content.",
+    );
+  }
+  if (failedGates.some((gate) => /PUBLIC_RELEASE|RAW|PATH|SECRET/.test(gate))) {
+    recommendations.push(
+      "Rebuild the curated public package and remove raw logs, local paths, secrets, or non-curated files.",
+    );
+  }
+  if (recommendations.length === 0) {
+    recommendations.push(
+      "Review failed replay gates and regenerate the missing evidence before launch.",
+    );
+  }
+  return recommendations;
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return [...new Set(values.filter((value) => value.length > 0))].sort();
+}
+
 function renderSecurityAudit(audit: SecurityAudit): string {
   return `# Security Audit
 
@@ -1084,6 +1191,7 @@ Sovryn replays existing factory evidence and rebuilds corpus/release registry vi
 - Passed: ${audit.passed}
 - Factory runs replayed: ${audit.replayAll.factoryRunCount}
 - Failed replays: ${audit.replayAll.failedCount}
+- Replay critical pass rate: ${audit.replayAll.replayCriticalPassRate}
 
 ## Gates
 
@@ -1102,10 +1210,23 @@ Replay recomputes factory review/scoring from existing evidence and does not per
 - Factory runs: ${report.factoryRunCount}
 - Passed replays: ${report.passedCount}
 - Failed replays: ${report.failedCount}
+- Total artifacts: ${report.totalArtifacts}
+- Replay-critical artifacts: ${report.replayCriticalArtifacts}
+- Total pass rate: ${report.replayPassRate}
+- Replay-critical pass rate: ${report.replayCriticalPassRate}
+- Skipped non-critical artifacts: ${report.skippedNonCritical}
 
 ## Factory Results
 
-${report.results.length === 0 ? "No factory runs found." : report.results.map((item) => `- ${item.factoryId}: ${item.passed ? "passed" : "failed"} (${item.failedGates.join(", ") || "no failed gates"})`).join("\n")}
+${report.results.length === 0 ? "No factory runs found." : report.results.map((item) => `- ${item.factoryId}: ${item.passed ? "passed" : "failed"} [${item.classification}] (${item.failedGates.join(", ") || "no failed gates"})`).join("\n")}
+
+## Blocking Replay Failures
+
+${report.blockingReplayFailures.length === 0 ? "- none" : report.blockingReplayFailures.map((item) => `- ${item}`).join("\n")}
+
+## Recommended Fixes
+
+${report.recommendedFixes.length === 0 ? "- none" : report.recommendedFixes.map((item) => `- ${item}`).join("\n")}
 `;
 }
 

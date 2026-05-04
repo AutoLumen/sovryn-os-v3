@@ -1,6 +1,6 @@
 # Launch Readiness
 
-Sovryn OS v3 `3.0.0-beta.7` includes launch-readiness commands for local
+Sovryn OS v3 `3.0.0-beta.8` includes launch-readiness commands for local
 public beta or v1.0-RC review:
 
 ```bash
@@ -15,6 +15,15 @@ Launch readiness is not a publication command. It aggregates beta evidence,
 security audit evidence, reliability replay evidence, public corpus export
 evidence, and pilot results. Real GitHub publication remains governed by Sovryn
 publication gates and human approval.
+
+Beta.8 launch checks separate:
+
+- blocking limitations, which fail launch readiness;
+- accepted beta limitations, which are documented for human review;
+- informational limitations, which do not affect launch readiness.
+
+The E2E scorecard fails on blocking launch limitations and uses
+replay-critical pass rate for readiness decisions.
 
 ## v1.0 Gate Set
 

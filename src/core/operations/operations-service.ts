@@ -37,6 +37,26 @@ type Gate = {
   details: Record<string, unknown>;
 };
 
+type LaunchLimitation = {
+  limitationId: string;
+  description: string;
+  blocking: boolean;
+  category:
+    | "docs"
+    | "demo"
+    | "quality"
+    | "security"
+    | "reliability"
+    | "publication"
+    | "corpus"
+    | "worker"
+    | "external";
+  evidencePath: string;
+  fixAction: string;
+  acceptedForBeta: boolean;
+  requiresHumanReview: boolean;
+};
+
 type CampaignPlan = {
   kind: "autonomy_campaign_plan";
   campaignId: string;
@@ -255,6 +275,8 @@ export class AutonomyCampaignService {
       .filter((id): id is string => typeof id === "string");
     const factory = new FactoryService(this.root);
     for (const factoryId of executedFactoryIds) {
+      await factory.improve(factoryId, { maxCycles: 1 }).catch(() => null);
+      await factory.replay(factoryId).catch(() => null);
       await factory.package(factoryId).catch(() => null);
     }
     const release = await new ReleaseCandidateService(this.root).build({
@@ -1376,12 +1398,23 @@ export class LaunchService {
         {},
       ),
     ];
+    const limitations = launchLimitations(gates);
+    const blockingLimitations = limitations.filter((item) => item.blocking);
+    const acceptedBetaLimitations = limitations.filter(
+      (item) => !item.blocking && item.acceptedForBeta,
+    );
+    const informationalLimitations = limitations.filter(
+      (item) => !item.blocking && !item.acceptedForBeta,
+    );
     const check = withHash({
       kind: "launch_check" as const,
       checkedAt: nowIso(),
-      targetVersion: "3.0.0-beta.7",
-      passed: gates.every((item) => item.passed),
+      targetVersion: "3.0.0-beta.8",
+      passed: blockingLimitations.length === 0,
       gates,
+      blockingLimitations,
+      acceptedBetaLimitations,
+      informationalLimitations,
       evidenceHash: "",
     });
     await mkdir(this.launchRoot(), { recursive: true });
@@ -1458,6 +1491,11 @@ export class LaunchService {
       maxCycles: 3,
       fixtureEvidence: true,
     });
+    await new FactoryService(this.root).improve(factory.run.id, {
+      maxCycles: 1,
+    });
+    await new FactoryService(this.root).replay(factory.run.id);
+    await new FactoryService(this.root).package(factory.run.id);
     await new QualityEvaluator(this.root).evaluateFactory(factory.run.id);
     await new CorpusService(this.root).index();
     const pilot = withHash({
@@ -1678,13 +1716,83 @@ are not legal patent filings.
 }
 
 function renderLaunchReadiness(check: Record<string, unknown>): string {
+  const gates = Array.isArray(check.gates) ? (check.gates as Gate[]) : [];
+  const blocking = Array.isArray(check.blockingLimitations)
+    ? (check.blockingLimitations as LaunchLimitation[])
+    : [];
+  const accepted = Array.isArray(check.acceptedBetaLimitations)
+    ? (check.acceptedBetaLimitations as LaunchLimitation[])
+    : [];
+  const informational = Array.isArray(check.informationalLimitations)
+    ? (check.informationalLimitations as LaunchLimitation[])
+    : [];
   return `# Launch Readiness
 
 Passed: ${check.passed}
+Target version: ${String(check.targetVersion ?? "unknown")}
+Blocking limitations: ${blocking.length}
+Accepted beta limitations: ${accepted.length}
+Informational limitations: ${informational.length}
 
 Sovryn OS v3 is evaluated as an autonomous open-source research factory. Real
 publication remains governed by Sovryn policy gates and human approval.
+
+## Gates
+
+${gates.map((item) => `- ${item.passed ? "PASS" : "FAIL"} ${item.code}: ${item.message}`).join("\n")}
+
+## Blocking Limitations
+
+${blocking.length === 0 ? "- none" : blocking.map((item) => `- ${item.limitationId}: ${item.fixAction}`).join("\n")}
+
+## Accepted Beta Limitations
+
+${accepted.length === 0 ? "- none" : accepted.map((item) => `- ${item.limitationId}: ${item.description}`).join("\n")}
 `;
+}
+
+function launchLimitations(gates: Gate[]): LaunchLimitation[] {
+  return gates
+    .filter((item) => !item.passed)
+    .map((item) => ({
+      limitationId: `launch-${item.code.toLowerCase().replace(/_/g, "-")}`,
+      description: item.message,
+      blocking: true,
+      category: launchGateCategory(item.code),
+      evidencePath: ".sovryn/launch/launch-check.json",
+      fixAction: launchGateFixAction(item.code),
+      acceptedForBeta: false,
+      requiresHumanReview: /PUBLICATION|LEGAL|CI|DOCS/.test(item.code),
+    }));
+}
+
+function launchGateCategory(code: string): LaunchLimitation["category"] {
+  if (/DOCS/.test(code)) return "docs";
+  if (/DEMO|INSTALL/.test(code)) return "demo";
+  if (/SECURITY|LEAK|LEGAL/.test(code)) return "security";
+  if (/RELIABILITY|REPLAY/.test(code)) return "reliability";
+  if (/CORPUS/.test(code)) return "corpus";
+  if (/PUBLICATION/.test(code)) return "publication";
+  return "external";
+}
+
+function launchGateFixAction(code: string): string {
+  if (/RELIABILITY|REPLAY/.test(code)) {
+    return "Run reliability replay-all, inspect blocking replay failures, regenerate stale evidence, and rerun launch check.";
+  }
+  if (/SECURITY|LEAK|LEGAL/.test(code)) {
+    return "Run security audit, remove leaks or unsafe legal/sandbox language, and rebuild public packages.";
+  }
+  if (/BETA_DEMO|DEMO/.test(code)) {
+    return "Run beta demo/package again and verify curated demo artifacts exist.";
+  }
+  if (/CORPUS/.test(code)) {
+    return "Regenerate the public corpus API export and rerun launch check.";
+  }
+  if (/DOCS/.test(code)) {
+    return "Update launch and beta documentation before launch.";
+  }
+  return "Inspect the failed launch gate and regenerate the required evidence.";
 }
 
 function renderPilotReport(pilot: Record<string, unknown>): string {

@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.0.0-beta.8
+
+- Stabilized the Beta E2E replay path by running Factory improvement cycles for
+  autonomy campaign Factory runs before packaging and replay.
+- Added replay-critical versus total replay reporting to
+  `sovryn reliability replay-all --json`, including blocking replay failures,
+  non-blocking limitations, skipped non-critical counts, and recommended fixes.
+- Added E2E replay diagnostics, launch limitation evidence, and a documented
+  replay contract under `.sovryn/e2e/`.
+- Updated launch checks to distinguish blocking limitations, accepted beta
+  limitations, and informational limitations.
+- Updated the E2E scorecard to use replay-critical pass rate for launch
+  readiness while still reporting total replay pass rate.
+
 ## 3.0.0-beta.7
 
 - Added the Beta.7 end-to-end validation harness with `sovryn e2e doctor`,

@@ -199,7 +199,9 @@ claims, and fake patentability or freedom-to-operate claims.
 Reliability audit runs `reliability replay-all`, rebuilds corpus/public-corpus
 views, and updates the release registry from current evidence. It fails when a
 factory replay fails, release-candidate review errors, public corpus gates fail,
-or registry reconstruction fails.
+or registry reconstruction fails. Beta.8 reports both total replay pass rate
+and replay-critical pass rate so volatile observations remain visible without
+weakening launch-blocking replay gates.
 
 Safety scans are conservative text checks. They are not semantic guarantees,
 but they prevent obvious abusive goals and unsafe public-release text from
@@ -228,4 +230,5 @@ set. Review gates fail if these checks fail.
 Factory replay is part of the safety model. Replay recomputes score and gates
 from existing evidence without source discovery or network calls, detects stale
 hashes, and blocks public evidence packages that contain raw logs or absolute
-local paths. Replay does not replace human review.
+local paths. Replay-critical artifacts must be stable and hash-bound according
+to `docs/REPLAY_CONTRACT.md`. Replay does not replace human review.

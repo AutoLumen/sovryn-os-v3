@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `3.0.0-beta.7`
+Current version: `3.0.0-beta.8`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -47,7 +47,7 @@ Alpha.26 was the first integrated beta-candidate path: release candidates,
 quality evaluation, security audit, reliability audit, public corpus export, and
 curated beta packaging are all connected.
 
-The current Beta.1-Beta.7 operationalization line builds on Alpha.26:
+The current Beta.1-Beta.8 operationalization line builds on Alpha.26:
 
 | Version        | Focus                         | Result                                                                                                                                      |
 | -------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -58,12 +58,16 @@ The current Beta.1-Beta.7 operationalization line builds on Alpha.26:
 | `3.0.0-beta.5` | Public Corpus Discovery/API   | Exports a public corpus site/API with inventions, sources, quality labels, duplicate clusters, release readiness, and explanation reports.  |
 | `3.0.0-beta.6` | Launch Readiness              | Adds launch check/demo/package and pilot run/report flows for public beta or v1.0-RC readiness decisions.                                   |
 | `3.0.0-beta.7` | E2E Validation Harness        | Runs a fresh-repo fixture proof from init through beta, autonomy, Factory, worker, publication dry-run, audits, corpus, launch, and report. |
+| `3.0.0-beta.8` | Replay/Launch Stabilization   | Stabilizes replay-critical evidence, separates launch limitations, writes diagnostics, and raises fixture E2E readiness out of degraded.    |
 
-At `3.0.0-beta.7`, Sovryn can run local autonomy campaigns, build release
+At `3.0.0-beta.8`, Sovryn can run local autonomy campaigns, build release
 candidates, govern publication queues, execute worker jobs, benchmark research
 quality, export a public corpus API/site shell, and produce launch/pilot
 evidence, then validate the full path through a deterministic fresh-repo E2E
-harness. It still deliberately avoids real autonomous publication by default.
+harness. Beta.8 adds a replay contract and launch-limitation model so the E2E
+scorecard distinguishes replay-critical evidence from volatile observations
+without weakening gates. It still deliberately avoids real autonomous
+publication by default.
 
 The beta operations line preserves the same operating rules:
 
@@ -79,13 +83,14 @@ The beta operations line preserves the same operating rules:
 - write evidence for every autonomous workflow;
 - keep tests, docs, smoke flows, and reports attached to each milestone.
 
-### What Beta.7 Is And Is Not
+### What Beta.8 Is And Is Not
 
-Beta.7 is a local, reproducible operating proof for the Sovryn research factory.
+Beta.8 is a local, reproducible operating proof for the Sovryn research factory.
 It is meant to show that the factory can coordinate bounded research runs,
-evaluate quality, audit outputs, and prepare public review packages.
+evaluate quality, audit outputs, replay critical evidence, resolve launch
+blockers, and prepare public review packages.
 
-Beta.7 is not an autonomous legal-patent system, not a guarantee of novelty, not
+Beta.8 is not an autonomous legal-patent system, not a guarantee of novelty, not
 a freedom-to-operate opinion, and not a permissionless autopublisher. Real
 GitHub publication remains disabled unless explicit strict policy, approval
 evidence, and existing Sovryn publication gates allow it.
@@ -554,7 +559,7 @@ novelty, patentability, or freedom-to-operate opinions.
 
 ## Beta Operations
 
-Beta.1 through Beta.7 add operational proof workflows around the Alpha factory.
+Beta.1 through Beta.8 add operational proof workflows around the Alpha factory.
 They are local Evidence workflows: they measure autonomy, govern publication
 queues, coordinate worker jobs, benchmark research quality, export a public
 corpus API, package launch/pilot evidence, and validate the whole path with a
@@ -634,7 +639,7 @@ corpus entry, and public demo bundle.
 
 ## End-to-End Validation
 
-Beta.7 adds a deterministic fixture-backed validation harness:
+Beta.8 stabilizes the deterministic fixture-backed validation harness:
 
 ```bash
 sovryn e2e doctor --json
@@ -670,16 +675,22 @@ E2E artifacts are written under `.sovryn/e2e/`:
   e2e-artifacts.json
   e2e-scorecard.json
   e2e-failures.json
+  replay-contract.json
+  replay-diagnostics.json
+  launch-limitations.json
   E2E_REPORT.md
+  REPLAY_DIAGNOSTICS.md
+  LAUNCH_LIMITATIONS.md
   E2E_ARTIFACT_TREE.md
   E2E_RISK_REGISTER.md
 ```
 
 The harness blocks or degrades the scorecard for critical public leaks,
 unexpected real publication, silent container-to-host fallback, missing Factory
-runs, missing release candidates, unavailable worker profiles, stale replay
-evidence, and unsafe safety-scan results. It does not require public network
-access in `beta-fixture` mode and does not perform real GitHub publication.
+runs, missing release candidates, unavailable worker profiles, stale
+replay-critical evidence, blocking launch limitations, and unsafe safety-scan
+results. It does not require public network access in `beta-fixture` mode and
+does not perform real GitHub publication.
 
 ## Release Candidates
 

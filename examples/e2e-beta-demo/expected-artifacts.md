@@ -21,7 +21,12 @@ The harness writes local evidence under:
   e2e-artifacts.json
   e2e-scorecard.json
   e2e-failures.json
+  replay-contract.json
+  replay-diagnostics.json
+  launch-limitations.json
   E2E_REPORT.md
+  REPLAY_DIAGNOSTICS.md
+  LAUNCH_LIMITATIONS.md
   E2E_ARTIFACT_TREE.md
   E2E_RISK_REGISTER.md
 ```

@@ -45,9 +45,9 @@ test("CLI help lists Beta operationalization commands", async () => {
   }
 });
 
-test("package version is beta.7", async () => {
+test("package version is beta.8", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  assert.equal(pkg.version, "3.0.0-beta.7");
+  assert.equal(pkg.version, "3.0.0-beta.8");
 });
 
 test("init ignores new operational evidence directories", async () => {
@@ -275,6 +275,27 @@ test("launch check writes v1 gate report", async () => {
   assert.equal(hasGate(launchCheck.check.gates, "NO_FAKE_LEGAL_CLAIMS"), true);
   assert.equal(
     hasGate(launchCheck.check.gates, "PUBLIC_CORPUS_EXPORT_GREEN"),
+    true,
+  );
+});
+
+test("launch check separates blocking and accepted limitations", async () => {
+  const { launchCheck } = await operationsFixture();
+  assert.equal(Array.isArray(launchCheck.check.blockingLimitations), true);
+  assert.equal(Array.isArray(launchCheck.check.acceptedBetaLimitations), true);
+  assert.equal(launchCheck.check.blockingLimitations.length, 0);
+});
+
+test("autonomy campaign factory runs include improvement cycles", async () => {
+  const { root, autonomyRun } = await operationsFixture();
+  const factoryId = autonomyRun.run.executedFactoryIds[0];
+  assert.equal(typeof factoryId, "string");
+  const response = await executeCli(
+    ["reliability", "replay-all", "--json"],
+    root,
+  );
+  assert.equal(
+    (response.data as any).report.replayCriticalPassRate >= 90,
     true,
   );
 });

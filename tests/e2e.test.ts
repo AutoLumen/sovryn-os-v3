@@ -1,10 +1,13 @@
 import assert from "node:assert/strict";
-import { mkdir, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
 import { executeCli } from "../src/cli/index.js";
 import {
   buildE2EScorecard,
+  buildLaunchLimitations,
+  buildReplayContract,
+  buildReplayDiagnostics,
   parseCandidateIds,
   parseFactoryIds,
   parseMissionIds,
@@ -36,7 +39,7 @@ test("E2E doctor checks dist CLI and command groups", async () => {
   const response = await executeCli(["e2e", "doctor", "--json"], repo.root);
   assert.equal(response.ok, true, JSON.stringify(response.errors, null, 2));
   const doctor = (response.data as any).doctor;
-  assert.equal(doctor.targetVersion, "3.0.0-beta.7");
+  assert.equal(doctor.targetVersion, "3.0.0-beta.8");
   assert.equal(doctor.ready, true);
 });
 
@@ -66,6 +69,8 @@ test("E2E report includes all required sections", async () => {
     "## IDs Discovered",
     "## Critical Failures",
     "## Known Limitations",
+    "## Replay Diagnostics",
+    "## Launch Limitations",
     "## Public Artifact Scan",
     "## Worker Isolation",
     "## Final Recommendation",
@@ -163,7 +168,7 @@ test("E2E scorecard passes deterministic fixture happy path", () => {
   assert.equal(scorecard.readinessLabel, "strong-pass");
 });
 
-test("E2E scorecard degrades on low replay rate", () => {
+test("E2E scorecard fails on low replay-critical rate", () => {
   const scorecard = buildE2EScorecard({
     phases: happyPhases(),
     publicLeakCount: 0,
@@ -171,12 +176,137 @@ test("E2E scorecard degrades on low replay rate", () => {
     factoryRunCount: 1,
     workerExecutionCount: 1,
     replayPassRate: 50,
+    replayCriticalPassRate: 50,
+    qualityLabelDistribution: { good: 1 },
+    unexpectedRealPublish: false,
+    silentHostFallback: false,
+  });
+  assert.equal(scorecard.readinessLabel, "failed");
+  assert.match(scorecard.blockingReasons.join("\n"), /Replay-critical/);
+});
+
+test("E2E scorecard degrades on non-critical volatile replay observations", () => {
+  const scorecard = buildE2EScorecard({
+    phases: happyPhases(),
+    publicLeakCount: 0,
+    releaseCandidateCount: 1,
+    factoryRunCount: 1,
+    workerExecutionCount: 1,
+    replayPassRate: 80,
+    replayTotalPassRate: 80,
+    replayCriticalPassRate: 100,
+    qualityLabelDistribution: { good: 1 },
+    unexpectedRealPublish: false,
+    silentHostFallback: false,
+  });
+  assert.equal(scorecard.reliabilityReplayPassed, true);
+  assert.equal(scorecard.readinessLabel, "degraded");
+  assert.match(scorecard.degradedReasons.join("\n"), /non-critical volatile/);
+});
+
+test("E2E scorecard passes when replay-critical rate is above minimum", () => {
+  const scorecard = buildE2EScorecard({
+    phases: happyPhases(),
+    publicLeakCount: 0,
+    releaseCandidateCount: 1,
+    factoryRunCount: 1,
+    workerExecutionCount: 1,
+    replayPassRate: 90,
+    replayCriticalPassRate: 90,
+    qualityLabelDistribution: { good: 1 },
+    unexpectedRealPublish: false,
+    silentHostFallback: false,
+  });
+  assert.equal(scorecard.readinessLabel, "pass");
+});
+
+test("E2E scorecard strong-passes above strong replay threshold with two candidates", () => {
+  const scorecard = buildE2EScorecard({
+    phases: happyPhases(),
+    publicLeakCount: 0,
+    releaseCandidateCount: 2,
+    factoryRunCount: 2,
+    workerExecutionCount: 1,
+    replayPassRate: 95,
+    replayCriticalPassRate: 95,
+    qualityLabelDistribution: { excellent: 2 },
+    unexpectedRealPublish: false,
+    silentHostFallback: false,
+  });
+  assert.equal(scorecard.readinessLabel, "strong-pass");
+});
+
+test("E2E scorecard fails on blocking launch limitation", () => {
+  const scorecard = buildE2EScorecard({
+    phases: happyPhases(),
+    publicLeakCount: 0,
+    releaseCandidateCount: 1,
+    factoryRunCount: 1,
+    workerExecutionCount: 1,
+    replayPassRate: 100,
+    replayCriticalPassRate: 100,
+    blockingLaunchLimitations: [launchLimitation("reliability", true)],
+    qualityLabelDistribution: { good: 1 },
+    unexpectedRealPublish: false,
+    silentHostFallback: false,
+  });
+  assert.equal(scorecard.readinessLabel, "failed");
+  assert.equal(scorecard.launchBlockingPassed, false);
+});
+
+test("E2E scorecard degrades on accepted beta limitation", () => {
+  const scorecard = buildE2EScorecard({
+    phases: happyPhases(),
+    publicLeakCount: 0,
+    releaseCandidateCount: 1,
+    factoryRunCount: 1,
+    workerExecutionCount: 1,
+    replayPassRate: 100,
+    replayCriticalPassRate: 100,
+    acceptedBetaLimitations: [launchLimitation("external", false)],
     qualityLabelDistribution: { good: 1 },
     unexpectedRealPublish: false,
     silentHostFallback: false,
   });
   assert.equal(scorecard.readinessLabel, "degraded");
-  assert.match(scorecard.degradedReasons.join("\n"), /replay/i);
+  assert.match(scorecard.degradedReasons.join("\n"), /accepted beta/);
+});
+
+test("E2E scorecard blocks missing publication dry-run", () => {
+  const phases = happyPhases().map((item) =>
+    item.phase === "publication_flow" ? { ...item, passed: false } : item,
+  );
+  const scorecard = buildE2EScorecard({
+    phases,
+    publicLeakCount: 0,
+    releaseCandidateCount: 1,
+    factoryRunCount: 1,
+    workerExecutionCount: 1,
+    replayPassRate: 100,
+    replayCriticalPassRate: 100,
+    qualityLabelDistribution: { good: 1 },
+    unexpectedRealPublish: false,
+    silentHostFallback: false,
+  });
+  assert.equal(scorecard.readinessLabel, "failed");
+  assert.match(scorecard.blockingReasons.join("\n"), /Publication governance/);
+});
+
+test("E2E scorecard blocks missing release candidate", () => {
+  const scorecard = buildE2EScorecard({
+    phases: happyPhases(),
+    publicLeakCount: 0,
+    releaseCandidateCount: 0,
+    factoryRunCount: 1,
+    workerExecutionCount: 1,
+    replayPassRate: 100,
+    replayCriticalPassRate: 100,
+    qualityLabelDistribution: { good: 1 },
+    unexpectedRealPublish: false,
+    silentHostFallback: false,
+  });
+  assert.equal(scorecard.readinessLabel, "failed");
+  assert.match(scorecard.blockingReasons.join("\n"), /No release candidate/);
 });
 
 test("E2E public artifact scan detects raw logs", async () => {
@@ -217,6 +347,235 @@ test("E2E public artifact scan detects secret-like strings", async () => {
     scan.findings.some((item) => item.kind === "secret"),
     true,
   );
+});
+
+test("replay contract classifies replay-critical artifacts", () => {
+  const contract = buildReplayContract() as any;
+  const critical = contract.classes.find(
+    (item: any) => item.classification === "replay-critical",
+  );
+  assert.equal(critical.blocksReadiness, true);
+  assert.match(contract.readinessRule, /Replay-critical artifacts/);
+});
+
+test("replay diagnostics list failing artifacts", async () => {
+  const repo = await replayDiagnosticRepo({
+    failedGates: ["IMPROVEMENT_CYCLES_RECORDED"],
+  });
+  const diagnostics = await buildReplayDiagnostics(repo.root);
+  assert.equal(diagnostics.artifacts.length, 1);
+  assert.equal(diagnostics.artifacts[0].status, "failed");
+  assert.match(
+    diagnostics.artifacts[0].staleReason ?? "",
+    /IMPROVEMENT_CYCLES_RECORDED/,
+  );
+});
+
+test("stale source-card hash is detected", async () => {
+  const repo = await replayDiagnosticRepo({
+    failedGates: ["SOURCE_CARD_INDEX_HASH_VALID"],
+    staleEvidence: ["SOURCE_CARD_INDEX_HASH_VALID"],
+  });
+  const diagnostics = await buildReplayDiagnostics(repo.root);
+  assert.equal(diagnostics.artifacts[0].diagnosis, "missing_binding");
+  assert.match(diagnostics.artifacts[0].staleReason ?? "", /SOURCE_CARD/);
+});
+
+test("stale worker execution hash is detected", async () => {
+  const repo = await replayDiagnosticRepo({
+    failedGates: ["EXECUTION_HASH_BOUND"],
+    staleEvidence: ["EXECUTION_HASH_BOUND"],
+  });
+  const diagnostics = await buildReplayDiagnostics(repo.root);
+  assert.equal(diagnostics.artifacts[0].diagnosis, "missing_binding");
+  assert.match(diagnostics.artifacts[0].recommendedFix, /Regenerate stale/);
+});
+
+test("stale publication intent hash is detected", async () => {
+  const repo = await replayDiagnosticRepo({
+    failedGates: ["FACTORY_PUBLICATION_INTENT_HASH_BOUND"],
+    staleEvidence: ["FACTORY_PUBLICATION_INTENT_HASH_BOUND"],
+  });
+  const diagnostics = await buildReplayDiagnostics(repo.root);
+  assert.equal(diagnostics.artifacts[0].classification, "replay-critical");
+  assert.match(diagnostics.artifacts[0].staleReason ?? "", /PUBLICATION/);
+});
+
+test("replay diagnostics include expected and actual hashes", async () => {
+  const repo = await replayDiagnosticRepo({
+    expectedHash: "expected-hash",
+    actualHash: "actual-hash",
+  });
+  const diagnostics = await buildReplayDiagnostics(repo.root);
+  assert.equal(diagnostics.artifacts[0].expectedHash, "expected-hash");
+  assert.equal(diagnostics.artifacts[0].actualHash, "actual-hash");
+  assert.equal(diagnostics.artifacts[0].diagnosis, "missing_binding");
+});
+
+test("stable fixture replay reaches strong critical rate", async () => {
+  const { scorecard } = await e2eFixture();
+  assert.equal(scorecard.replayCriticalPassRate >= 90, true);
+  assert.equal(scorecard.readinessLabel, "pass");
+});
+
+test("E2E replay diagnostics artifact is written", async () => {
+  const { root } = await e2eFixture();
+  const diagnostics = JSON.parse(
+    await readFile(
+      join(root, ".sovryn", "e2e", "replay-diagnostics.json"),
+      "utf8",
+    ),
+  );
+  assert.equal(diagnostics.replayCriticalPassRate >= 90, true);
+});
+
+test("E2E replay contract artifact is written", async () => {
+  const { root } = await e2eFixture();
+  await access(join(root, ".sovryn", "e2e", "replay-contract.json"));
+});
+
+test("E2E launch limitations artifact is written", async () => {
+  const { root } = await e2eFixture();
+  const limitations = JSON.parse(
+    await readFile(
+      join(root, ".sovryn", "e2e", "launch-limitations.json"),
+      "utf8",
+    ),
+  );
+  assert.equal(limitations.blockingLimitations.length, 0);
+});
+
+test("launch limitations classify blocking launch check failures", async () => {
+  const repo = await makeTempRepo();
+  await mkdir(join(repo.root, ".sovryn", "launch"), { recursive: true });
+  await writeFile(
+    join(repo.root, ".sovryn", "launch", "launch-check.json"),
+    JSON.stringify({
+      passed: false,
+      blockingLimitations: [launchLimitation("reliability", true)],
+    }),
+  );
+  const limitations = await buildLaunchLimitations(repo.root);
+  assert.equal(limitations.blockingLimitations.length, 1);
+  assert.equal(limitations.blockingLimitations[0].category, "reliability");
+});
+
+test("launch limitations preserve accepted beta limitations", async () => {
+  const repo = await makeTempRepo();
+  await mkdir(join(repo.root, ".sovryn", "launch"), { recursive: true });
+  await writeFile(
+    join(repo.root, ".sovryn", "launch", "launch-check.json"),
+    JSON.stringify({
+      passed: true,
+      acceptedBetaLimitations: [launchLimitation("external", false)],
+    }),
+  );
+  const limitations = await buildLaunchLimitations(repo.root);
+  assert.equal(limitations.acceptedBetaLimitations.length, 1);
+  assert.equal(limitations.blockingLimitations.length, 0);
+});
+
+test("launch check failure without structured limitations becomes blocking", async () => {
+  const repo = await makeTempRepo();
+  await mkdir(join(repo.root, ".sovryn", "launch"), { recursive: true });
+  await writeFile(
+    join(repo.root, ".sovryn", "launch", "launch-check.json"),
+    '{"passed":false}\n',
+  );
+  const limitations = await buildLaunchLimitations(repo.root);
+  assert.equal(limitations.blockingLimitations.length, 1);
+  assert.equal(limitations.blockingLimitations[0].blocking, true);
+});
+
+test("public package excludes replay diagnostics if not curated", async () => {
+  const { root } = await e2eFixture();
+  await assertMissing(
+    join(root, ".sovryn", "beta", "package", "replay-diagnostics.json"),
+  );
+  await assertMissing(
+    join(root, ".sovryn", "launch", "package", "replay-diagnostics.json"),
+  );
+});
+
+test("launch package excludes raw logs", async () => {
+  const { root } = await e2eFixture();
+  const scan = await scanE2EPublicArtifacts(root, [
+    join(root, ".sovryn", "launch", "package"),
+  ]);
+  assert.equal(
+    scan.findings.some((item) => item.kind === "raw_log"),
+    false,
+  );
+});
+
+test("corpus export after replay does not stale replay-critical artifacts", async () => {
+  const { scorecard } = await e2eFixture();
+  assert.equal(scorecard.corpusExportPassed, true);
+  assert.equal(scorecard.replayCriticalPassRate, 100);
+});
+
+test("beta package after replay does not stale replay-critical artifacts", async () => {
+  const { scorecard } = await e2eFixture();
+  assert.equal(scorecard.betaFlowPassed, true);
+  assert.equal(scorecard.replayCriticalPassRate, 100);
+});
+
+test("publication dry-run intent is replay compatible", async () => {
+  const { scorecard } = await e2eFixture();
+  assert.equal(scorecard.publicationDryRunPassed, true);
+  assert.equal(scorecard.replayCriticalPassRate, 100);
+});
+
+test("E2E report includes replay diagnostics summary", async () => {
+  const { root } = await e2eFixture();
+  const report = await readFile(
+    join(root, ".sovryn", "e2e", "E2E_REPORT.md"),
+    "utf8",
+  );
+  assert.match(report, /Replay-critical pass rate/);
+});
+
+test("E2E report includes launch limitations summary", async () => {
+  const { root } = await e2eFixture();
+  const report = await readFile(
+    join(root, ".sovryn", "e2e", "E2E_REPORT.md"),
+    "utf8",
+  );
+  assert.match(report, /## Launch Limitations/);
+});
+
+test("E2E readiness no longer hides launch blockers", () => {
+  const scorecard = buildE2EScorecard({
+    phases: happyPhases(),
+    publicLeakCount: 0,
+    releaseCandidateCount: 1,
+    factoryRunCount: 1,
+    workerExecutionCount: 1,
+    replayPassRate: 100,
+    replayCriticalPassRate: 100,
+    blockingLaunchLimitations: [launchLimitation("security", true)],
+    qualityLabelDistribution: { good: 1 },
+    unexpectedRealPublish: false,
+    silentHostFallback: false,
+  });
+  assert.equal(scorecard.readinessLabel, "failed");
+  assert.equal(scorecard.blockingLaunchLimitations.length, 1);
+});
+
+test("no test reduces replay safety threshold below ninety", () => {
+  const scorecard = buildE2EScorecard({
+    phases: happyPhases(),
+    publicLeakCount: 0,
+    releaseCandidateCount: 1,
+    factoryRunCount: 1,
+    workerExecutionCount: 1,
+    replayPassRate: 89,
+    replayCriticalPassRate: 89,
+    qualityLabelDistribution: { good: 1 },
+    unexpectedRealPublish: false,
+    silentHostFallback: false,
+  });
+  assert.equal(scorecard.readinessLabel, "failed");
 });
 
 test("E2E runner parses factory IDs from JSON", () => {
@@ -356,6 +715,69 @@ function phase(run: any, name: string): any {
   const found = run.phases.find((item: any) => item.phase === name);
   assert.ok(found, `missing phase ${name}`);
   return found;
+}
+
+function launchLimitation(category: string, blocking: boolean): any {
+  return {
+    limitationId: `limit-${category}`,
+    description: `${category} limitation`,
+    blocking,
+    category,
+    evidencePath: ".sovryn/launch/launch-check.json",
+    fixAction: `fix ${category}`,
+    acceptedForBeta: !blocking,
+    requiresHumanReview: true,
+  };
+}
+
+async function replayDiagnosticRepo(input: {
+  failedGates?: string[];
+  staleEvidence?: string[];
+  expectedHash?: string;
+  actualHash?: string;
+}): Promise<{ root: string }> {
+  const repo = await makeTempRepo();
+  const slug = "diagnostic-factory";
+  const factoryRoot = join(repo.root, ".sovryn", "factory", slug);
+  await mkdir(factoryRoot, { recursive: true });
+  await mkdir(join(repo.root, ".sovryn", "audits"), { recursive: true });
+  await writeFile(
+    join(factoryRoot, "factory-run.json"),
+    JSON.stringify({
+      id: "fac_diagnostic",
+      slug,
+      evidenceHashes: {
+        replay_report: input.expectedHash ?? input.actualHash ?? "hash-ok",
+      },
+    }),
+  );
+  await writeFile(
+    join(factoryRoot, "replay-report.json"),
+    JSON.stringify({ evidenceHash: input.actualHash ?? "hash-ok" }),
+  );
+  await writeFile(
+    join(repo.root, ".sovryn", "audits", "replay-all-report.json"),
+    JSON.stringify({
+      replayPassRate: input.failedGates?.length ? 0 : 100,
+      replayCriticalPassRate: input.failedGates?.length ? 0 : 100,
+      results: [
+        {
+          factoryId: "fac_diagnostic",
+          factorySlug: slug,
+          passed: !input.failedGates?.length,
+          failedGates: input.failedGates ?? [],
+          staleEvidence: input.staleEvidence ?? [],
+          recommendedFixes: [],
+        },
+      ],
+      releaseCandidateReview: { checked: false, passed: true },
+    }),
+  );
+  return repo;
+}
+
+async function assertMissing(path: string): Promise<void> {
+  await assert.rejects(access(path));
 }
 
 function escapeRegExp(value: string): string {

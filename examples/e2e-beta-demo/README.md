@@ -1,6 +1,6 @@
-# Beta.7 E2E Demo
+# Beta.8 E2E Demo
 
-This demo shows the deterministic Beta.7 end-to-end validation harness.
+This demo shows the deterministic Beta.8 end-to-end validation harness.
 
 ```bash
 npm install

@@ -29,6 +29,9 @@ const REQUIRED_EVIDENCE = [
   "feature-matrix.json",
   "claim-feature-matrix.json",
   "counter-evidence.json",
+  "paper-readings.json",
+  "patent-claim-readings.json",
+  "claim-element-map.json",
   "novelty-gap-map.json",
   "experiment-plan.json",
   "benchmark-plan.json",
@@ -39,6 +42,8 @@ const REQUIRED_EVIDENCE = [
   "LIMITATIONS.md",
   "CLAIM_FEATURE_MATRIX.md",
   "COUNTER_EVIDENCE.md",
+  "SOURCE_TO_CLAIM_MAP.md",
+  "PATENT_RISK_NOTES.md",
   "EXPERIMENT_PLAN.md",
   "BENCHMARK_PLAN.md",
   "NOVELTY_GAP_REPORT.md",
@@ -54,6 +59,9 @@ const HASHED_EVIDENCE = [
   "feature-matrix.json",
   "claim-feature-matrix.json",
   "counter-evidence.json",
+  "paper-readings.json",
+  "patent-claim-readings.json",
+  "claim-element-map.json",
   "novelty-gap-map.json",
   "experiment-plan.json",
   "benchmark-plan.json",
@@ -140,6 +148,15 @@ export async function evaluateFactoryGates(input: {
   );
   const counterEvidence = await readRecord(
     join(input.factoryDir, "counter-evidence.json"),
+  );
+  const paperReadings = await readRecord(
+    join(input.factoryDir, "paper-readings.json"),
+  );
+  const patentClaimReadings = await readRecord(
+    join(input.factoryDir, "patent-claim-readings.json"),
+  );
+  const claimElementMap = await readRecord(
+    join(input.factoryDir, "claim-element-map.json"),
   );
   const gapMap = await readRecord(
     join(input.factoryDir, "novelty-gap-map.json"),
@@ -372,6 +389,72 @@ export async function evaluateFactoryGates(input: {
         runCounterEvidenceHash:
           input.run.evidenceHashes.counter_evidence ?? null,
         counterEvidenceHash: counterEvidence.evidenceHash ?? null,
+      },
+    ),
+  );
+  checks.push(
+    check(
+      "PAPER_READINGS_PRESENT",
+      !missingEvidence.includes("paper-readings.json") &&
+        Array.isArray(paperReadings.papers),
+      "Paper reading summary evidence must exist, even when fulltext is unavailable.",
+      {
+        paperCount: paperReadings.paperCount ?? null,
+        fulltextLikeCount: paperReadings.fulltextLikeCount ?? null,
+      },
+    ),
+  );
+  checks.push(
+    check(
+      "PATENT_CLAIM_READINGS_PRESENT",
+      !missingEvidence.includes("patent-claim-readings.json") &&
+        Array.isArray(patentClaimReadings.patents),
+      "Patent claim reading evidence must exist and state limitations.",
+      {
+        patentCount: patentClaimReadings.patentCount ?? null,
+        claimElementCount: patentClaimReadings.claimElementCount ?? null,
+      },
+    ),
+  );
+  checks.push(
+    check(
+      "CLAIM_ELEMENT_MAP_PRESENT",
+      !missingEvidence.includes("claim-element-map.json") &&
+        Array.isArray(claimElementMap.mappings) &&
+        (await nonEmpty(join(input.factoryDir, "SOURCE_TO_CLAIM_MAP.md"))) &&
+        (await nonEmpty(join(input.factoryDir, "PATENT_RISK_NOTES.md"))),
+      "Source-to-claim map and patent risk notes must exist.",
+      {
+        mappingCount: Array.isArray(claimElementMap.mappings)
+          ? claimElementMap.mappings.length
+          : 0,
+        highRiskMappings: claimElementMap.highRiskMappings ?? null,
+      },
+    ),
+  );
+  checks.push(
+    check(
+      "CLAIM_ELEMENT_MAP_HASH_BOUND",
+      evidenceHashValid(paperReadings) &&
+        evidenceHashValid(patentClaimReadings) &&
+        evidenceHashValid(claimElementMap) &&
+        input.run.evidenceHashes.paper_readings ===
+          stringValue(paperReadings.evidenceHash) &&
+        input.run.evidenceHashes.patent_claim_readings ===
+          stringValue(patentClaimReadings.evidenceHash) &&
+        input.run.evidenceHashes.claim_element_map ===
+          stringValue(claimElementMap.evidenceHash) &&
+        stringValue(claimElementMap.claimFeatureMatrixEvidenceHash) ===
+          stringValue(featureMatrix.evidenceHash) &&
+        stringValue(claimElementMap.paperReadingsEvidenceHash) ===
+          stringValue(paperReadings.evidenceHash) &&
+        stringValue(claimElementMap.patentClaimReadingsEvidenceHash) ===
+          stringValue(patentClaimReadings.evidenceHash),
+      "Paper, patent, and source-to-claim map evidence must be hash-bound to the factory run.",
+      {
+        paperReadingsHash: paperReadings.evidenceHash ?? null,
+        patentClaimReadingsHash: patentClaimReadings.evidenceHash ?? null,
+        claimElementMapHash: claimElementMap.evidenceHash ?? null,
       },
     ),
   );
@@ -897,6 +980,8 @@ async function nonCuratedPublicFiles(publicDir: string): Promise<string[]> {
     "LIMITATIONS.md",
     "CLAIM_FEATURE_MATRIX.md",
     "COUNTER_EVIDENCE.md",
+    "SOURCE_TO_CLAIM_MAP.md",
+    "PATENT_RISK_NOTES.md",
     "EXPERIMENT_PLAN.md",
     "BENCHMARK_PLAN.md",
     "NOVELTY_GAP_REPORT.md",
@@ -911,6 +996,9 @@ async function nonCuratedPublicFiles(publicDir: string): Promise<string[]> {
     "feature-matrix.summary.json",
     "claim-feature-matrix.summary.json",
     "counter-evidence.summary.json",
+    "paper-readings.summary.json",
+    "patent-claim-readings.summary.json",
+    "claim-element-map.summary.json",
     "novelty-gap-map.summary.json",
     "experiment-plan.summary.json",
     "benchmark-plan.summary.json",

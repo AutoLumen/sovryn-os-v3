@@ -20,11 +20,15 @@ import type {
   FactorySourceReadings,
   FeatureMatrix,
   FeatureMatrixRow,
+  ClaimElementMap,
   NoveltyGap,
   NoveltyGapMap,
+  PaperReadings,
+  PatentClaimReadings,
   PrototypeExecutionEvidence,
   ReadingDepth,
   ResearchPlan,
+  RiskV2,
   SelectedCandidates,
   SourceCard,
   SourceCardIndex,
@@ -580,6 +584,213 @@ export function buildCounterEvidence(input: {
       ...(items.length === 0
         ? ["No source-card-supported overlap was available to analyze."]
         : []),
+    ],
+    evidenceHash: "",
+  };
+  value.evidenceHash = hashEvidence(value);
+  return value;
+}
+
+export function buildPaperReadings(input: {
+  sourceReadings: FactorySourceReadings;
+}): PaperReadings {
+  const papers = input.sourceReadings.readings
+    .filter(
+      (reading) =>
+        reading.kind === "concrete_source" && reading.sourceType === "paper",
+    )
+    .map((reading, index) => {
+      const metadata = readingMetadata(reading);
+      const paper = {
+        paperId: `paper-${index + 1}`,
+        sourceId: reading.sourceId,
+        title: reading.title,
+        url: reading.url,
+        citation: reading.citation,
+        readingDepth: reading.readingDepth,
+        authors: stringArray(metadata.authors),
+        year: numberOrNull(metadata.year ?? metadata.publishedYear),
+        sectionsDetected: paperSectionsFor(reading),
+        methodClaims: nonEmptyList(
+          reading.extractedMethods,
+          reading.extractedTechnicalClaims,
+        ),
+        evaluationClaims: reading.extractedEvaluationClaims,
+        limitations: [
+          ...reading.extractedLimitations,
+          ...reading.readingLimitations,
+        ],
+        boundedFulltextAvailable:
+          reading.readingDepth === "paper_fulltext_level",
+        evidenceRefs: [reading.sourceId, reading.evidenceHash],
+      };
+      return paper;
+    });
+  const value: PaperReadings = {
+    kind: "factory_paper_readings",
+    sourceReadingsEvidenceHash: input.sourceReadings.evidenceHash,
+    paperCount: papers.length,
+    fulltextLikeCount: papers.filter((paper) => paper.boundedFulltextAvailable)
+      .length,
+    metadataOnlyCount: papers.filter(
+      (paper) =>
+        paper.readingDepth === "metadata_only" ||
+        paper.readingDepth === "abstract_level",
+    ).length,
+    papers,
+    limitations: [
+      "Paper readings are bounded summaries and are not legal novelty conclusions.",
+      ...(papers.some((paper) => !paper.boundedFulltextAvailable)
+        ? [
+            "At least one paper remains metadata/abstract level; fulltext comparison is incomplete.",
+          ]
+        : []),
+    ],
+    evidenceHash: "",
+  };
+  value.evidenceHash = hashEvidence(value);
+  return value;
+}
+
+export function buildPatentClaimReadings(input: {
+  sourceReadings: FactorySourceReadings;
+  matrix: FeatureMatrix;
+}): PatentClaimReadings {
+  const patents = input.sourceReadings.readings
+    .filter(
+      (reading) =>
+        reading.kind === "concrete_source" && reading.sourceType === "patent",
+    )
+    .map((reading, index) => {
+      const metadata = readingMetadata(reading);
+      const claimTexts = nonEmptyList(
+        reading.extractedTechnicalClaims,
+        reading.extractedMethods,
+      );
+      const claimElements = claimTexts.map((text, elementIndex) => {
+        const mappedFeatureIds = mappedFeatureIdsFor(text, input.matrix);
+        const overlapRisk: RiskV2 =
+          mappedFeatureIds.length > 0
+            ? reading.noveltyRiskHints.some((hint) =>
+                /high|critical/i.test(hint),
+              )
+              ? "high"
+              : "medium"
+            : "unknown";
+        return {
+          elementId: `patent-${index + 1}-element-${elementIndex + 1}`,
+          text,
+          mappedFeatureIds,
+          overlapRisk,
+          requiresLegalReview: true,
+        };
+      });
+      return {
+        patentId: `patent-${index + 1}`,
+        sourceId: reading.sourceId,
+        publicationNumber:
+          stringOrNull(metadata.publicationNumber) ??
+          publicationNumberFrom(reading.title, reading.url),
+        title: reading.title,
+        assignee: stringOrNull(metadata.assignee),
+        priorityDate: stringOrNull(metadata.priorityDate),
+        url: reading.url,
+        abstract: reading.extractedSummary,
+        independentClaimSnippets: claimTexts.slice(0, 3),
+        claimElements,
+        classifications: stringArray(metadata.classifications),
+        readingDepth: reading.readingDepth,
+        limitations: [
+          ...reading.extractedLimitations,
+          "Patent claim elements are research cues only and require human/legal review.",
+        ],
+      };
+    });
+  const value: PatentClaimReadings = {
+    kind: "factory_patent_claim_readings",
+    sourceReadingsEvidenceHash: input.sourceReadings.evidenceHash,
+    patentCount: patents.length,
+    claimElementCount: patents.reduce(
+      (sum, patent) => sum + patent.claimElements.length,
+      0,
+    ),
+    patents,
+    limitations: [
+      "Sovryn does not perform legal claim construction, patentability analysis, or freedom-to-operate analysis.",
+      ...(patents.length === 0
+        ? [
+            "No concrete patent source was read; patent search links remain unreviewed leads.",
+          ]
+        : []),
+    ],
+    evidenceHash: "",
+  };
+  value.evidenceHash = hashEvidence(value);
+  return value;
+}
+
+export function buildClaimElementMap(input: {
+  matrix: FeatureMatrix;
+  sourceCards: SourceCardIndex;
+  paperReadings: PaperReadings;
+  patentClaimReadings: PatentClaimReadings;
+}): ClaimElementMap {
+  const rows = input.matrix.features.map((feature, index) => {
+    const paperIds = input.paperReadings.papers
+      .filter((paper) =>
+        paper.evidenceRefs.some((ref) => feature.evidenceRefs.includes(ref)),
+      )
+      .map((paper) => paper.paperId);
+    const patentElementIds = input.patentClaimReadings.patents.flatMap(
+      (patent) =>
+        patent.claimElements
+          .filter((element) =>
+            element.mappedFeatureIds.includes(feature.claimFeatureId),
+          )
+          .map((element) => element.elementId),
+    );
+    const sourceCardIds = feature.supportedBySourceCards.filter((cardId) =>
+      input.sourceCards.cards.some((card) => card.sourceId === cardId),
+    );
+    const riskLevel: RiskV2 =
+      patentElementIds.length > 0 || feature.noveltyRisk === "high"
+        ? "high"
+        : sourceCardIds.length > 0
+          ? "medium"
+          : "unknown";
+    return {
+      mappingId: `claim-map-${index + 1}`,
+      claimFeatureId: feature.claimFeatureId,
+      featureText: feature.featureText,
+      sourceCardIds,
+      patentElementIds,
+      paperReadingIds: paperIds,
+      knownOverlap: feature.knownOverlap,
+      possibleDifference: feature.possibleDifferentiator,
+      riskLevel,
+      requiredFollowUp:
+        "Review cited source cards, paper readings, and patent-like claim elements before public claims. This is not a legal novelty conclusion.",
+      evidenceRefs: [
+        ...feature.evidenceRefs,
+        ...sourceCardIds,
+        ...paperIds,
+        ...patentElementIds,
+      ],
+    };
+  });
+  const value: ClaimElementMap = {
+    kind: "factory_claim_element_map",
+    claimFeatureMatrixEvidenceHash: input.matrix.evidenceHash,
+    sourceCardsEvidenceHash: input.sourceCards.evidenceHash,
+    paperReadingsEvidenceHash: input.paperReadings.evidenceHash,
+    patentClaimReadingsEvidenceHash: input.patentClaimReadings.evidenceHash,
+    mappings: rows,
+    highRiskMappings: rows.filter((row) => row.riskLevel === "high").length,
+    legalNotice:
+      "This source-to-claim map is a research artifact. It is not a patentability, legal novelty, claim construction, or freedom-to-operate opinion.",
+    limitations: [
+      "Mappings are conservative and based on bounded source readings.",
+      "Query links and adapter failures are excluded from reviewed claim support.",
     ],
     evidenceHash: "",
   };
@@ -1168,6 +1379,7 @@ function factoryReading(
       `novelty risk: ${reading.noveltyRisk}`,
       `prototype relevance: ${reading.prototypeRelevance}`,
     ],
+    metadata: reading.metadata,
     evidenceHash: "",
   };
   value.evidenceHash = hashEvidence(value);
@@ -1383,6 +1595,84 @@ function missingEvidence(
       ? ["replace mock placeholders with concrete sources"]
       : []),
   ].sort();
+}
+
+function readingMetadata(
+  reading: FactorySourceReading,
+): Record<string, unknown> {
+  return {
+    ...reading.metadata,
+    ...Object.fromEntries(
+      reading.sourceReliabilitySignals.map((signal, index) => [
+        `signal_${index + 1}`,
+        signal,
+      ]),
+    ),
+  };
+}
+
+function paperSectionsFor(reading: FactorySourceReading): string[] {
+  return [
+    "abstract",
+    ...(reading.extractedMethods.length > 0 ? ["method"] : []),
+    ...(reading.extractedEvaluationClaims.length > 0 ? ["evaluation"] : []),
+    ...(reading.extractedLimitations.length > 0 ? ["limitations"] : []),
+  ];
+}
+
+function nonEmptyList(...lists: string[][]): string[] {
+  const values = lists.flat().filter((item) => item.trim().length > 0);
+  return values.length > 0
+    ? values
+    : ["No bounded claim text was available from this source."];
+}
+
+function mappedFeatureIdsFor(text: string, matrix: FeatureMatrix): string[] {
+  const lower = text.toLowerCase();
+  return matrix.features
+    .filter((feature) => {
+      const featureText =
+        `${feature.featureText} ${feature.knownOverlap} ${feature.possibleDifferentiator}`.toLowerCase();
+      return sharedTerms(lower, featureText) >= 2;
+    })
+    .map((feature) => feature.claimFeatureId)
+    .slice(0, 5);
+}
+
+function sharedTerms(left: string, right: string): number {
+  const leftTerms = new Set(
+    left
+      .split(/[^a-z0-9]+/i)
+      .filter((term) => term.length > 5)
+      .slice(0, 40),
+  );
+  return right
+    .split(/[^a-z0-9]+/i)
+    .filter((term) => term.length > 5 && leftTerms.has(term)).length;
+}
+
+function publicationNumberFrom(
+  title: string,
+  url: string | null,
+): string | null {
+  const fromUrl = url?.match(/(?:patent|publication)\/?([A-Z]{2}[0-9A-Z]+)/i);
+  if (fromUrl) return fromUrl[1];
+  const fromTitle = title.match(/\b([A-Z]{2}[0-9][0-9A-Z.-]+)\b/);
+  return fromTitle ? fromTitle[1] : null;
+}
+
+function stringArray(value: unknown): string[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is string => typeof item === "string")
+    : [];
+}
+
+function stringOrNull(value: unknown): string | null {
+  return typeof value === "string" && value.trim().length > 0 ? value : null;
+}
+
+function numberOrNull(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
 function stablePriorArtResults(

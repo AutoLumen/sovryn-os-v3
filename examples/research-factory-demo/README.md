@@ -37,6 +37,8 @@ release/public/
   LIMITATIONS.md
   CLAIM_FEATURE_MATRIX.md
   COUNTER_EVIDENCE.md
+  SOURCE_TO_CLAIM_MAP.md
+  PATENT_RISK_NOTES.md
   EXPERIMENT_PLAN.md
   BENCHMARK_PLAN.md
   NOVELTY_GAP_REPORT.md
@@ -49,6 +51,9 @@ release/public/
   source-cards.index.summary.json
   claim-feature-matrix.summary.json
   counter-evidence.summary.json
+  paper-readings.summary.json
+  patent-claim-readings.summary.json
+  claim-element-map.summary.json
   novelty-gap-map.summary.json
   experiment-plan.summary.json
   benchmark-plan.summary.json
@@ -78,6 +83,12 @@ and rate-limit artifacts under `.sovryn/research-cache/` and
 `.sovryn/adapters/`. `--real-sources` enables public-source search for one
 Factory run; cached or replayed query links are still research leads, not
 reviewed concrete prior art.
+
+Alpha.18 adds bounded paper/patent/claim intelligence to the same fixture demo.
+The generated public release includes source-to-claim and patent-risk reports
+with careful non-legal language. They are useful research artifacts, not
+patentability, legal novelty, claim construction, or freedom-to-operate
+opinions.
 
 See `generated-public/` for abbreviated example public artifacts. The report
 states that this is an open-source research artifact and defensive-publication

@@ -147,6 +147,14 @@ hints; arXiv and OpenAlex readers remain bounded to abstract/metadata unless a
 future fulltext provider is configured; patent sources have a structured
 claim-like model but no legal claim construction.
 
+Alpha.18 adds factory-level paper reading, patent claim-like reading, and
+source-to-claim mapping artifacts. `paper-readings.json`,
+`patent-claim-readings.json`, and `claim-element-map.json` are hash-bound to the
+Factory run and can be packaged as curated public summaries. The corresponding
+`SOURCE_TO_CLAIM_MAP.md` and `PATENT_RISK_NOTES.md` reports are research aids
+only. They do not assert patentability, legal novelty, claim construction, or
+freedom-to-operate.
+
 `sovryn factory improve <factory-id>` runs deterministic improvement cycles
 from existing evidence. `sovryn factory replay <factory-id>` recomputes score
 and gates without network calls, verifies hashes, and writes replay evidence.

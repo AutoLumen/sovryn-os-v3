@@ -158,6 +158,7 @@ export type FactorySourceReading = {
   readingLimitations: string[];
   relevanceScore: number;
   noveltyRiskHints: string[];
+  metadata: Record<string, unknown>;
   evidenceHash: string;
 };
 
@@ -246,6 +247,95 @@ export type CounterEvidence = {
   sourceCardsEvidenceHash: string;
   items: CounterEvidenceItem[];
   unresolvedPriorArtRisk: RiskV2;
+  limitations: string[];
+  evidenceHash: string;
+};
+
+export type PaperReading = {
+  paperId: string;
+  sourceId: string;
+  title: string;
+  url: string | null;
+  citation: string | null;
+  readingDepth: ReadingDepth;
+  authors: string[];
+  year: number | null;
+  sectionsDetected: string[];
+  methodClaims: string[];
+  evaluationClaims: string[];
+  limitations: string[];
+  boundedFulltextAvailable: boolean;
+  evidenceRefs: string[];
+};
+
+export type PaperReadings = {
+  kind: "factory_paper_readings";
+  sourceReadingsEvidenceHash: string;
+  paperCount: number;
+  fulltextLikeCount: number;
+  metadataOnlyCount: number;
+  papers: PaperReading[];
+  limitations: string[];
+  evidenceHash: string;
+};
+
+export type PatentClaimElement = {
+  elementId: string;
+  text: string;
+  mappedFeatureIds: string[];
+  overlapRisk: RiskV2;
+  requiresLegalReview: boolean;
+};
+
+export type PatentClaimReading = {
+  patentId: string;
+  sourceId: string;
+  publicationNumber: string | null;
+  title: string;
+  assignee: string | null;
+  priorityDate: string | null;
+  url: string | null;
+  abstract: string;
+  independentClaimSnippets: string[];
+  claimElements: PatentClaimElement[];
+  classifications: string[];
+  readingDepth: ReadingDepth;
+  limitations: string[];
+};
+
+export type PatentClaimReadings = {
+  kind: "factory_patent_claim_readings";
+  sourceReadingsEvidenceHash: string;
+  patentCount: number;
+  claimElementCount: number;
+  patents: PatentClaimReading[];
+  limitations: string[];
+  evidenceHash: string;
+};
+
+export type ClaimElementMapRow = {
+  mappingId: string;
+  claimFeatureId: string;
+  featureText: string;
+  sourceCardIds: string[];
+  patentElementIds: string[];
+  paperReadingIds: string[];
+  knownOverlap: string;
+  possibleDifference: string;
+  riskLevel: RiskV2;
+  requiredFollowUp: string;
+  evidenceRefs: string[];
+};
+
+export type ClaimElementMap = {
+  kind: "factory_claim_element_map";
+  claimFeatureMatrixEvidenceHash: string;
+  sourceCardsEvidenceHash: string;
+  paperReadingsEvidenceHash: string;
+  patentClaimReadingsEvidenceHash: string;
+  mappings: ClaimElementMapRow[];
+  highRiskMappings: number;
+  legalNotice: string;
   limitations: string[];
   evidenceHash: string;
 };

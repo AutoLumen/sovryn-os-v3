@@ -41,7 +41,10 @@ import {
   buildFactoryScore,
   buildFactorySourceReadings,
   buildFeatureMatrix,
+  buildClaimElementMap,
   buildNoveltyGapMap,
+  buildPaperReadings,
+  buildPatentClaimReadings,
   buildQuestionMap,
   buildSourceCards,
   buildSourceDiscovery,
@@ -64,6 +67,7 @@ import type {
   FactoryConfig,
   FactoryCycle,
   FactoryCyclePhase,
+  ClaimElementMap,
   FactoryReplayReport,
   FactoryRunStatus,
   FactoryScore,
@@ -71,6 +75,8 @@ import type {
   FactorySourceReadings,
   FeatureMatrix,
   NoveltyGapMap,
+  PaperReadings,
+  PatentClaimReadings,
   PrototypeExecutionEvidence,
   ResearchFactoryRun,
   ResearchPlan,
@@ -233,6 +239,17 @@ export class FactoryService {
       sourceCards,
     });
     const counterEvidence = buildCounterEvidence({ matrix, sourceCards });
+    const paperReadings = buildPaperReadings({ sourceReadings });
+    const patentClaimReadings = buildPatentClaimReadings({
+      sourceReadings,
+      matrix,
+    });
+    const claimElementMap = buildClaimElementMap({
+      matrix,
+      sourceCards,
+      paperReadings,
+      patentClaimReadings,
+    });
     const gapMap = buildNoveltyGapMap(matrix);
     const experimentPlan = buildExperimentPlan({ matrix });
     const benchmarkPlan = buildBenchmarkPlan({ matrix });
@@ -252,6 +269,9 @@ export class FactoryService {
       sourceCards,
       matrix,
       counterEvidence,
+      paperReadings,
+      patentClaimReadings,
+      claimElementMap,
       gapMap,
       experimentPlan,
       benchmarkPlan,
@@ -273,6 +293,16 @@ export class FactoryService {
     await writeFile(
       join(factoryDir, "COUNTER_EVIDENCE.md"),
       renderCounterEvidence(counterEvidence),
+      "utf8",
+    );
+    await writeFile(
+      join(factoryDir, "SOURCE_TO_CLAIM_MAP.md"),
+      renderSourceToClaimMap(claimElementMap),
+      "utf8",
+    );
+    await writeFile(
+      join(factoryDir, "PATENT_RISK_NOTES.md"),
+      renderPatentRiskNotes(patentClaimReadings, claimElementMap),
       "utf8",
     );
     await writeFile(
@@ -300,6 +330,9 @@ export class FactoryService {
         sourceReadings,
         matrix,
         counterEvidence,
+        paperReadings,
+        patentClaimReadings,
+        claimElementMap,
         gapMap,
         experimentPlan,
         benchmarkPlan,
@@ -362,6 +395,9 @@ export class FactoryService {
         selected,
         score,
         counterEvidence,
+        paperReadings,
+        patentClaimReadings,
+        claimElementMap,
         experimentPlan,
         benchmarkPlan,
       }),
@@ -394,6 +430,9 @@ export class FactoryService {
       selected_candidates: selected.evidenceHash,
       source_cards: sourceCards.evidenceHash,
       counter_evidence: counterEvidence.evidenceHash,
+      paper_readings: paperReadings.evidenceHash,
+      patent_claim_readings: patentClaimReadings.evidenceHash,
+      claim_element_map: claimElementMap.evidenceHash,
       experiment_plan: experimentPlan.evidenceHash,
       benchmark_plan: benchmarkPlan.evidenceHash,
       factory_score: score.evidenceHash,
@@ -853,6 +892,9 @@ export class FactoryService {
       sourceCards: SourceCardIndex;
       matrix: FeatureMatrix;
       counterEvidence: CounterEvidence;
+      paperReadings: PaperReadings;
+      patentClaimReadings: PatentClaimReadings;
+      claimElementMap: ClaimElementMap;
       gapMap: NoveltyGapMap;
       experimentPlan: ExperimentPlan;
       benchmarkPlan: BenchmarkPlan;
@@ -885,6 +927,18 @@ export class FactoryService {
     await writeJson(
       join(factoryDir, "counter-evidence.json"),
       evidence.counterEvidence,
+    );
+    await writeJson(
+      join(factoryDir, "paper-readings.json"),
+      evidence.paperReadings,
+    );
+    await writeJson(
+      join(factoryDir, "patent-claim-readings.json"),
+      evidence.patentClaimReadings,
+    );
+    await writeJson(
+      join(factoryDir, "claim-element-map.json"),
+      evidence.claimElementMap,
     );
     await writeJson(join(factoryDir, "novelty-gap-map.json"), evidence.gapMap);
     await writeJson(
@@ -1079,6 +1133,9 @@ export class FactoryService {
     sourceReadings: FactorySourceReadings;
     matrix: FeatureMatrix;
     counterEvidence: CounterEvidence;
+    paperReadings: PaperReadings;
+    patentClaimReadings: PatentClaimReadings;
+    claimElementMap: ClaimElementMap;
     gapMap: NoveltyGapMap;
     experimentPlan: ExperimentPlan;
     benchmarkPlan: BenchmarkPlan;
@@ -1095,6 +1152,9 @@ export class FactoryService {
       sourceReadingsEvidenceHash?: string;
       featureMatrixEvidenceHash?: string;
       counterEvidenceHash?: string;
+      paperReadingsEvidenceHash?: string;
+      patentClaimReadingsEvidenceHash?: string;
+      claimElementMapEvidenceHash?: string;
       noveltyGapMapEvidenceHash?: string;
       experimentPlanEvidenceHash?: string;
       benchmarkPlanEvidenceHash?: string;
@@ -1105,6 +1165,10 @@ export class FactoryService {
     enriched.sourceReadingsEvidenceHash = input.sourceReadings.evidenceHash;
     enriched.featureMatrixEvidenceHash = input.matrix.evidenceHash;
     enriched.counterEvidenceHash = input.counterEvidence.evidenceHash;
+    enriched.paperReadingsEvidenceHash = input.paperReadings.evidenceHash;
+    enriched.patentClaimReadingsEvidenceHash =
+      input.patentClaimReadings.evidenceHash;
+    enriched.claimElementMapEvidenceHash = input.claimElementMap.evidenceHash;
     enriched.noveltyGapMapEvidenceHash = input.gapMap.evidenceHash;
     enriched.experimentPlanEvidenceHash = input.experimentPlan.evidenceHash;
     enriched.benchmarkPlanEvidenceHash = input.benchmarkPlan.evidenceHash;
@@ -1222,6 +1286,9 @@ export class FactoryService {
       ["feature-matrix.json", "feature-matrix.summary.json"],
       ["claim-feature-matrix.json", "claim-feature-matrix.summary.json"],
       ["counter-evidence.json", "counter-evidence.summary.json"],
+      ["paper-readings.json", "paper-readings.summary.json"],
+      ["patent-claim-readings.json", "patent-claim-readings.summary.json"],
+      ["claim-element-map.json", "claim-element-map.summary.json"],
       ["novelty-gap-map.json", "novelty-gap-map.summary.json"],
       ["experiment-plan.json", "experiment-plan.summary.json"],
       ["benchmark-plan.json", "benchmark-plan.summary.json"],
@@ -1257,6 +1324,8 @@ export class FactoryService {
     for (const file of [
       "CLAIM_FEATURE_MATRIX.md",
       "COUNTER_EVIDENCE.md",
+      "SOURCE_TO_CLAIM_MAP.md",
+      "PATENT_RISK_NOTES.md",
       "EXPERIMENT_PLAN.md",
       "BENCHMARK_PLAN.md",
       "NOVELTY_GAP_REPORT.md",
@@ -1615,6 +1684,9 @@ function renderFactoryReport(input: {
   selected: SelectedCandidates;
   score: FactoryScore;
   counterEvidence: CounterEvidence;
+  paperReadings: PaperReadings;
+  patentClaimReadings: PatentClaimReadings;
+  claimElementMap: ClaimElementMap;
   experimentPlan: ExperimentPlan;
   benchmarkPlan: BenchmarkPlan;
 }): string {
@@ -1639,6 +1711,9 @@ function renderFactoryReport(input: {
     "",
     `Concrete sources read: ${input.sourceReadings.concreteSourcesRead}`,
     `Reading mode: ${input.sourceReadings.readingMode}`,
+    `Paper readings: ${input.paperReadings.paperCount}`,
+    `Patent claim sources read: ${input.patentClaimReadings.patentCount}`,
+    `Source-to-claim mappings: ${input.claimElementMap.mappings.length}`,
     "",
     "## Feature Matrix Summary",
     "",
@@ -1849,6 +1924,75 @@ function renderCounterEvidence(counterEvidence: CounterEvidence): string {
   lines.push(...listOrFallback(counterEvidence.limitations));
   lines.push("");
   return lines.join("\n");
+}
+
+function renderSourceToClaimMap(map: ClaimElementMap): string {
+  return [
+    "# Source-To-Claim Map",
+    "",
+    map.legalNotice,
+    "",
+    "| Claim/feature | Source cards | Paper readings | Patent elements | Risk | Possible difference |",
+    "| --- | --- | --- | --- | --- | --- |",
+    ...map.mappings.map((row) =>
+      [
+        mdCell(`${row.claimFeatureId}: ${row.featureText}`),
+        mdCell(row.sourceCardIds.join(", ") || "none"),
+        mdCell(row.paperReadingIds.join(", ") || "none"),
+        mdCell(row.patentElementIds.join(", ") || "none"),
+        row.riskLevel,
+        mdCell(row.possibleDifference),
+      ].join(" | "),
+    ),
+    "",
+    "## Required Follow-Up",
+    "",
+    ...map.mappings
+      .slice(0, 8)
+      .map((row) => `- ${row.mappingId}: ${row.requiredFollowUp}`),
+    "",
+    "## Limitations",
+    "",
+    ...listOrFallback(map.limitations),
+    "",
+  ].join("\n");
+}
+
+function renderPatentRiskNotes(
+  patentReadings: PatentClaimReadings,
+  claimElementMap: ClaimElementMap,
+): string {
+  return [
+    "# Patent Risk Notes",
+    "",
+    "These notes are conservative research cues. They are not legal claim construction, not a patentability opinion, and not a freedom-to-operate opinion.",
+    "",
+    `Concrete patent sources read: ${patentReadings.patentCount}`,
+    `Claim-like elements: ${patentReadings.claimElementCount}`,
+    `High-risk mappings: ${claimElementMap.highRiskMappings}`,
+    "",
+    ...patentReadings.patents.flatMap((patent) => [
+      `## ${patent.patentId}: ${patent.title}`,
+      "",
+      `Publication number: ${patent.publicationNumber ?? "unknown"}`,
+      `Reading depth: ${patent.readingDepth}`,
+      `URL: ${patent.url ?? "unknown"}`,
+      "",
+      "Claim-like elements:",
+      "",
+      ...listOrFallback(
+        patent.claimElements.map(
+          (element) =>
+            `${element.elementId}: ${element.text} Risk: ${element.overlapRisk}. Requires legal review: ${String(element.requiresLegalReview)}.`,
+        ),
+      ),
+      "",
+    ]),
+    "## Limitations",
+    "",
+    ...listOrFallback(patentReadings.limitations),
+    "",
+  ].join("\n");
 }
 
 function renderExperimentPlan(plan: ExperimentPlan): string {
@@ -2277,6 +2421,9 @@ function evidenceRefs(slug: string): string[] {
     "feature-matrix.json",
     "claim-feature-matrix.json",
     "counter-evidence.json",
+    "paper-readings.json",
+    "patent-claim-readings.json",
+    "claim-element-map.json",
     "novelty-gap-map.json",
     "experiment-plan.json",
     "benchmark-plan.json",
@@ -2287,6 +2434,8 @@ function evidenceRefs(slug: string): string[] {
     "LIMITATIONS.md",
     "CLAIM_FEATURE_MATRIX.md",
     "COUNTER_EVIDENCE.md",
+    "SOURCE_TO_CLAIM_MAP.md",
+    "PATENT_RISK_NOTES.md",
     "EXPERIMENT_PLAN.md",
     "BENCHMARK_PLAN.md",
     "NOVELTY_GAP_REPORT.md",

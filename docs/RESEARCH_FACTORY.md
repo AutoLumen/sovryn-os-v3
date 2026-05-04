@@ -61,6 +61,9 @@ Factory runs write:
   feature-matrix.json
   claim-feature-matrix.json
   counter-evidence.json
+  paper-readings.json
+  patent-claim-readings.json
+  claim-element-map.json
   novelty-gap-map.json
   experiment-plan.json
   benchmark-plan.json
@@ -71,6 +74,8 @@ Factory runs write:
   LIMITATIONS.md
   CLAIM_FEATURE_MATRIX.md
   COUNTER_EVIDENCE.md
+  SOURCE_TO_CLAIM_MAP.md
+  PATENT_RISK_NOTES.md
   EXPERIMENT_PLAN.md
   BENCHMARK_PLAN.md
   REPLAY_REPORT.md
@@ -107,6 +112,10 @@ Factory review checks:
 - `SOURCE_CARD_INDEX_HASH_VALID`
 - `CLAIM_FEATURE_MATRIX_V3_PRESENT`
 - `COUNTER_EVIDENCE_PRESENT`
+- `PAPER_READINGS_PRESENT`
+- `PATENT_CLAIM_READINGS_PRESENT`
+- `CLAIM_ELEMENT_MAP_PRESENT`
+- `CLAIM_ELEMENT_MAP_HASH_BOUND`
 - `EXPERIMENT_PLAN_PRESENT`
 - `FACTORY_REPLAY_PASSES`
 - `PUBLIC_RELEASE_V3_CURATED_ONLY`
@@ -141,6 +150,9 @@ candidate-inventions.summary.json
 selected-candidates.summary.json
 factory-score.summary.json
 counter-evidence.summary.json
+paper-readings.summary.json
+patent-claim-readings.summary.json
+claim-element-map.summary.json
 experiment-plan.summary.json
 benchmark-plan.summary.json
 replay-report.summary.json
@@ -155,6 +167,21 @@ REPLAY_REPORT.md
 
 Raw stdout/stderr logs, local command journals, secrets, tokens, and full raw
 source content are not copied into the public factory release.
+
+## Alpha.18 Source-To-Claim Intelligence
+
+Alpha.18 adds bounded paper and patent-claim intelligence without making legal
+claims. The factory summarizes paper readings in `paper-readings.json`, patent
+claim-like evidence in `patent-claim-readings.json`, and source/claim-feature
+overlap in `claim-element-map.json`. Human-readable reports are written to
+`SOURCE_TO_CLAIM_MAP.md` and `PATENT_RISK_NOTES.md`.
+
+These artifacts map possible overlap and possible differences between source
+cards, paper readings, patent-like claim elements, and candidate feature rows.
+They use careful language such as "possible difference", "requires human/legal
+review", and "not a legal novelty conclusion." Query links and adapter failures
+are excluded from reviewed support, and public packaging includes summaries
+only.
 
 ## Alpha.14 Research Intelligence
 

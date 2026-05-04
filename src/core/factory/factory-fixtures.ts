@@ -46,6 +46,19 @@ export function factoryPriorArtFixtures(brief: string): PriorArtSearchResult[] {
       note: `Deterministic fixture concrete OpenAlex-like paper source for ${brief}.`,
     },
     {
+      kind: "concrete_source",
+      title: "US20240123456A1 Structured research workflow evidence fixture",
+      sourceType: "patent",
+      url: "https://patents.google.com/patent/US20240123456A1/en",
+      relevance: "medium",
+      overlap:
+        "Patent-like fixture includes workflow evidence collection, review checkpoints, and publication preparation elements.",
+      difference:
+        "It does not describe Sovryn's open invention dossier, source-card index hash, replay gate, and curated dry-run publication package.",
+      citation: "US20240123456A1 fixture patent-source abstraction",
+      note: `Deterministic fixture concrete patent-like source for ${brief}.`,
+    },
+    {
       kind: "query_link",
       title: "Patent search lead for autonomous research evidence",
       sourceType: "patent",
@@ -146,17 +159,21 @@ export function factorySourceReadingFixtures(
           ? "code_structure_level"
           : source.url?.includes("openalex.org")
             ? "abstract_level"
-            : "abstract_level",
+            : "paper_fulltext_level",
       summary: github
         ? "Fixture README/code-structure summary describes multi-agent workflow orchestration, examples, and implementation modules."
         : patent
           ? "Fixture patent-like source stores bounded claim elements for follow-up comparison."
-          : "Fixture abstract/metadata describes agent workflows, reproducibility concerns, and evaluation constraints.",
+          : source.url?.includes("openalex.org")
+            ? "Fixture abstract/metadata describes agent workflows, reproducibility concerns, and evaluation constraints."
+            : "Fixture bounded fulltext-like reading summarizes method, evaluation, limitations, and artifact-release claims.",
       keyTechnicalMechanism: github
         ? "Multi-agent workflow orchestration with executable examples and modular agent components."
         : patent
           ? "Claim-like decomposition of research workflow evidence elements."
-          : "Agent workflow research with public scholarly metadata and abstract-level method claims.",
+          : source.url?.includes("openalex.org")
+            ? "Agent workflow research with public scholarly metadata and abstract-level method claims."
+            : "Bounded fulltext-like paper reading with method, evaluation, and limitation claims extracted from deterministic fixture text.",
       overlapWithInvention: `${source.overlap} Research goal: ${brief}.`,
       differenceFromInvention: `${source.difference} Compare against Sovryn factory source cards, claim matrix, prototype execution, and gated dry-run publication.`,
       extractedTechnicalClaims: github
@@ -182,7 +199,9 @@ export function factorySourceReadingFixtures(
               "Decompose claim-like elements into overlap and differentiator checks.",
             ]
           : [
-              "Use abstract and metadata as bounded research evidence; do not infer full paper details.",
+              source.url?.includes("openalex.org")
+                ? "Use abstract and metadata as bounded research evidence; do not infer full paper details."
+                : "Extract method, experiment, and limitation sections from bounded fixture fulltext; do not store raw paper content.",
             ],
       extractedLimitations: [
         "Fixture reading is deterministic and bounded; human review is still required.",
@@ -193,7 +212,9 @@ export function factorySourceReadingFixtures(
       extractedEvaluationClaims: [
         github
           ? "Runnable examples and tests may indicate prototype relevance but require separate verification."
-          : "Evaluation claims remain abstract-level unless full source text is reviewed.",
+          : source.url?.includes("openalex.org")
+            ? "Evaluation claims remain abstract-level unless full source text is reviewed."
+            : "Fixture fulltext-like evaluation claims are planned evidence only and should be verified against real paper text.",
       ],
       extractedImplementationHints: [
         "Build a prototype that scores source evidence, claim mapping, counter-evidence, and replay freshness.",
@@ -214,6 +235,16 @@ export function factorySourceReadingFixtures(
       metadata: {
         fixture: true,
         sourceTitle: source.title,
+        authors: github
+          ? []
+          : patent
+            ? []
+            : ["Fixture Author", "Sovryn Research Fixture"],
+        year: github ? null : 2023,
+        publicationNumber: patent ? "US20240123456A1" : null,
+        assignee: patent ? "Fixture Assignee" : null,
+        priorityDate: patent ? "2024-01-01" : null,
+        classifications: patent ? ["G06F", "G06N"] : [],
       },
       evidenceHash: "",
     });

@@ -365,6 +365,15 @@ prototype execution is absent, or public release evidence contains raw logs or
 local paths. These are research quality signals, not legal novelty or
 patentability conclusions.
 
+Alpha.18 adds bounded fulltext/claim intelligence artifacts on top of the same
+evidence model. Factory runs now write `paper-readings.json`,
+`patent-claim-readings.json`, `claim-element-map.json`,
+`SOURCE_TO_CLAIM_MAP.md`, and `PATENT_RISK_NOTES.md`. These map source cards,
+paper readings, and patent-like claim elements to candidate claim/features using
+careful language such as "possible difference" and "requires human/legal
+review." They are not legal claim construction, not patentability opinions, and
+not freedom-to-operate opinions.
+
 `sandbox-local` is a constrained command profile, not a kernel-level sandbox: it
 runs only allowlisted generated prototype test commands inside the prototype
 directory and records redacted evidence. Use containers, VMs, network namespaces,

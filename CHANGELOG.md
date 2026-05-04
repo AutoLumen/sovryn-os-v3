@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.0.0-alpha.18
+
+- Added bounded paper reading summaries, patent claim-like reading summaries,
+  and source-to-claim mapping artifacts for Factory runs.
+- Added `paper-readings.json`, `patent-claim-readings.json`,
+  `claim-element-map.json`, `SOURCE_TO_CLAIM_MAP.md`, and
+  `PATENT_RISK_NOTES.md`.
+- Added Factory gates that require paper/patent/claim-map evidence to exist and
+  remain hash-bound to the run.
+- Added curated public summaries for the new Alpha.18 evidence without copying
+  raw paper text, raw source content, or legal patent conclusions.
+
 ## 3.0.0-alpha.17
 
 - Added robust public-source research caching under `.sovryn/research-cache/`

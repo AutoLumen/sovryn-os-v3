@@ -215,7 +215,7 @@ type E2EPhaseInput = {
   degradedReasons?: string[];
 };
 
-const TARGET_VERSION = "3.0.0-beta.9";
+const TARGET_VERSION = "3.0.0-beta.10";
 const MAX_OUTPUT_CHARS = 6000;
 const MAX_PARSE_OUTPUT_CHARS = 2_000_000;
 
@@ -1463,30 +1463,15 @@ export class E2EService {
       await this.runCli(context, phase, ["launch", "demo", "--json"]),
       await this.runCli(context, phase, ["launch", "package", "--json"]),
     ];
-    if (context.releaseCandidateTarget > 1) {
-      indexes.push(
-        await this.runCli(context, phase, ["pilot", "run", "--all", "--json"]),
-      );
-      indexes.push(
-        await this.runCli(context, phase, ["pilot", "review", "--json"]),
-      );
-      indexes.push(
-        await this.runCli(context, phase, ["pilot", "package", "--json"]),
-      );
-    } else {
-      indexes.push(
-        await this.runCli(context, phase, [
-          "pilot",
-          "run",
-          "--scenario",
-          "autonomous-research",
-          "--json",
-        ]),
-      );
-      indexes.push(
-        await this.runCli(context, phase, ["pilot", "report", "--json"]),
-      );
-    }
+    indexes.push(
+      await this.runCli(context, phase, ["pilot", "run", "--all", "--json"]),
+    );
+    indexes.push(
+      await this.runCli(context, phase, ["pilot", "review", "--json"]),
+    );
+    indexes.push(
+      await this.runCli(context, phase, ["pilot", "package", "--json"]),
+    );
     const launchPackage = join(
       context.freshRepo,
       ".sovryn",

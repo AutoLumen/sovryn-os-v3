@@ -8,6 +8,7 @@ import { AppError } from "../shared/errors.js";
 import { AuditService } from "../core/audit/audit-service.js";
 import { BetaService } from "../core/beta/beta-service.js";
 import { configExists, loadConfig } from "../core/config.js";
+import { CorpusAutopublisher } from "../core/corpus/corpus-autopublisher.js";
 import { CorpusService } from "../core/corpus/corpus-service.js";
 import {
   FactoryService,
@@ -119,6 +120,9 @@ Commands:
   sovryn corpus badges build [--json]
   sovryn corpus graph explain <node-id> [--json]
   sovryn corpus release-notes build [--json]
+  sovryn corpus autopublish --target-repo <path> [--max-results 10] [--dry-run] [--json]
+  sovryn corpus publish-status --target-repo <path> [--json]
+  sovryn corpus publish-audit --target-repo <path> [--json]
   sovryn release candidates build --max 3 [--json]
   sovryn release candidates review [--json]
   sovryn release candidates package [--json]
@@ -611,6 +615,40 @@ async function corpusCommand(
   if (subcommand === "release-notes" && parsed.positionals[1] === "build") {
     return discovery.releaseNotesBuild();
   }
+  if (subcommand === "autopublish") {
+    const targetRepo = flagString(parsed.flags, "--target-repo");
+    if (!targetRepo) {
+      throw new AppError(
+        "CORPUS_AUTOPUBLISH_TARGET_REQUIRED",
+        "corpus autopublish requires --target-repo <path>.",
+      );
+    }
+    return new CorpusAutopublisher(root).autopublish({
+      targetRepo,
+      maxResults: flagInt(parsed.flags, "--max-results", 10),
+      dryRun: flagBool(parsed.flags, "--dry-run"),
+    });
+  }
+  if (subcommand === "publish-status") {
+    const targetRepo = flagString(parsed.flags, "--target-repo");
+    if (!targetRepo) {
+      throw new AppError(
+        "CORPUS_PUBLISH_STATUS_TARGET_REQUIRED",
+        "corpus publish-status requires --target-repo <path>.",
+      );
+    }
+    return new CorpusAutopublisher(root).status({ targetRepo });
+  }
+  if (subcommand === "publish-audit") {
+    const targetRepo = flagString(parsed.flags, "--target-repo");
+    if (!targetRepo) {
+      throw new AppError(
+        "CORPUS_PUBLISH_AUDIT_TARGET_REQUIRED",
+        "corpus publish-audit requires --target-repo <path>.",
+      );
+    }
+    return new CorpusAutopublisher(root).audit({ targetRepo });
+  }
   switch (subcommand) {
     case "index":
       return service.index();
@@ -643,7 +681,7 @@ async function corpusCommand(
     default:
       throw new AppError(
         "CORPUS_COMMAND_REQUIRED",
-        "Use: sovryn corpus <index|search|dedupe|report|export-public|site|graph|compare|explain|serve|api|badges|release-notes>.",
+        "Use: sovryn corpus <index|search|dedupe|report|export-public|site|graph|compare|explain|serve|api|badges|release-notes|autopublish|publish-status|publish-audit>.",
       );
   }
 }

@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `3.0.0-beta.9`
+Current version: `3.0.0-beta.10`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -15,7 +15,8 @@ research quality, and package launch/pilot evidence.
 
 Sovryn OS is not a blind agent framework. It does not judge truth with an LLM,
 does not require paid APIs, does not mutate the main tree by default, does not
-publish automatically, and does not trust agent output.
+publish outside explicit policy-gated workflows, and does not trust agent
+output.
 
 > Agents act. Sovryn verifies. Git isolates. Policy gates. Evidence persists.
 > Humans approve.
@@ -30,7 +31,7 @@ Sovryn OS v3 is now in the Beta operationalization line. The Alpha line built
 the Open-Invention Factory, Research Opportunity Engine, Quality Evaluator,
 Worker profiles, Corpus memory, public release audits, and beta demo path. The
 Beta line proves that those systems can operate together under bounded,
-auditable, no-autopublish conditions.
+auditable, policy-gated conditions.
 
 The late Alpha milestones were:
 
@@ -47,21 +48,22 @@ Alpha.26 was the first integrated beta-candidate path: release candidates,
 quality evaluation, security audit, reliability audit, public corpus export, and
 curated beta packaging are all connected.
 
-The current Beta.1-Beta.9 operationalization line builds on Alpha.26:
+The current Beta.1-Beta.10 operationalization line builds on Alpha.26:
 
-| Version        | Focus                         | Result                                                                                                                                                          |
-| -------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `3.0.0-beta.1` | Real Autonomy Validation      | Runs bounded autonomy campaigns, measures success/block/replay/quality rates, and writes autonomy scorecards without real publication.                          |
-| `3.0.0-beta.2` | GitHub Publication Governance | Adds publication queue, approval ledger, strict real-publish policy, org/token-scope checks, and dry-run-first release operations.                              |
-| `3.0.0-beta.3` | Persistent Node Alpha Worker  | Adds opt-in worker registration, job queues, heartbeat, toolchain policy enforcement, controlled execution, evidence upload, and cleanup.                       |
-| `3.0.0-beta.4` | Research Quality Benchmarking | Adds a curated benchmark suite for source quality, claim mapping, counter-evidence, prototypes, tests, reproducibility, and safety.                             |
-| `3.0.0-beta.5` | Public Corpus Discovery/API   | Exports a public corpus site/API with inventions, sources, quality labels, duplicate clusters, release readiness, and explanation reports.                      |
-| `3.0.0-beta.6` | Launch Readiness              | Adds launch check/demo/package and pilot run/report flows for public beta or v1.0-RC readiness decisions.                                                       |
-| `3.0.0-beta.7` | E2E Validation Harness        | Runs a fresh-repo fixture proof from init through beta, autonomy, Factory, worker, publication dry-run, audits, corpus, launch, and report.                     |
-| `3.0.0-beta.8` | Replay/Launch Stabilization   | Stabilizes replay-critical evidence, separates launch limitations, writes diagnostics, and raises fixture E2E readiness out of degraded.                        |
-| `3.0.0-beta.9` | Real Pilot Release Candidates | Builds three human-reviewable Open Invention pilot candidates and validates them through quality, security, replay, corpus, and publication dry-run governance. |
+| Version         | Focus                         | Result                                                                                                                                                          |
+| --------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `3.0.0-beta.1`  | Real Autonomy Validation      | Runs bounded autonomy campaigns, measures success/block/replay/quality rates, and writes autonomy scorecards without real publication.                          |
+| `3.0.0-beta.2`  | GitHub Publication Governance | Adds publication queue, approval ledger, strict real-publish policy, org/token-scope checks, and dry-run-first release operations.                              |
+| `3.0.0-beta.3`  | Persistent Node Alpha Worker  | Adds opt-in worker registration, job queues, heartbeat, toolchain policy enforcement, controlled execution, evidence upload, and cleanup.                       |
+| `3.0.0-beta.4`  | Research Quality Benchmarking | Adds a curated benchmark suite for source quality, claim mapping, counter-evidence, prototypes, tests, reproducibility, and safety.                             |
+| `3.0.0-beta.5`  | Public Corpus Discovery/API   | Exports a public corpus site/API with inventions, sources, quality labels, duplicate clusters, release readiness, and explanation reports.                      |
+| `3.0.0-beta.6`  | Launch Readiness              | Adds launch check/demo/package and pilot run/report flows for public beta or v1.0-RC readiness decisions.                                                       |
+| `3.0.0-beta.7`  | E2E Validation Harness        | Runs a fresh-repo fixture proof from init through beta, autonomy, Factory, worker, publication dry-run, audits, corpus, launch, and report.                     |
+| `3.0.0-beta.8`  | Replay/Launch Stabilization   | Stabilizes replay-critical evidence, separates launch limitations, writes diagnostics, and raises fixture E2E readiness out of degraded.                        |
+| `3.0.0-beta.9`  | Real Pilot Release Candidates | Builds three human-reviewable Open Invention pilot candidates and validates them through quality, security, replay, corpus, and publication dry-run governance. |
+| `3.0.0-beta.10` | Corpus Autopublish            | Publishes eligible, policy-gated results into the existing `n57d30top/sovryn-open-inventions` corpus repo without creating new repos or requiring human review. |
 
-At `3.0.0-beta.9`, Sovryn can run local autonomy campaigns, build release
+At `3.0.0-beta.10`, Sovryn can run local autonomy campaigns, build release
 candidates, govern publication queues, execute worker jobs, benchmark research
 quality, export a public corpus API/site shell, and produce launch/pilot
 evidence, then validate the full path through a deterministic fresh-repo E2E
@@ -71,7 +73,10 @@ policy, and corpus-deduplication Open Inventions. Each pilot is bound to a
 Factory run, Open Invention mission, quality evaluation, public-release audit,
 reliability replay, publication dry-run intent, corpus entry, release registry
 entry, and human review checklist. It still deliberately avoids real autonomous
-publication by default.
+publication to new GitHub repositories. Beta.10 adds a narrower autonomous
+publication path: eligible results may be copied into the existing public
+`n57d30top/sovryn-open-inventions` corpus repository only after strict automated
+quality, replay, security, safety, hygiene, and reliability gates pass.
 
 The beta operations line preserves the same operating rules:
 
@@ -82,22 +87,30 @@ The beta operations line preserves the same operating rules:
   unredacted command journals;
 - do not use host `sudo` or host package installation by default;
 - do not silently fall back from isolated worker profiles;
-- keep real GitHub publication disabled unless explicit strict policy and human
-  approval allow it;
+- keep real GitHub publication to standalone repositories disabled unless
+  explicit strict policy and human approval allow it;
+- keep corpus autopublish restricted to the existing `sovryn-open-inventions`
+  repository and block it on any critical automated gate failure;
 - write evidence for every autonomous workflow;
 - keep tests, docs, smoke flows, and reports attached to each milestone.
 
-### What Beta.9 Is And Is Not
+### What Beta.10 Is And Is Not
 
-Beta.9 is a local, reproducible operating proof for the Sovryn research factory.
+Beta.10 is a local, reproducible operating proof for the Sovryn research factory
+and the first policy-gated corpus publication path.
 It is meant to show that the factory can coordinate bounded research runs,
 evaluate quality, audit outputs, replay critical evidence, resolve launch
-blockers, and prepare three public-reviewable Open Invention release candidates.
+blockers, prepare public-reviewable Open Invention release candidates, and copy
+eligible results into an existing open corpus repository without creating new
+GitHub repositories.
 
-Beta.9 is not an autonomous legal-patent system, not a guarantee of novelty, not
-a freedom-to-operate opinion, and not a permissionless autopublisher. Real
-GitHub publication remains disabled unless explicit strict policy, approval
-evidence, and existing Sovryn publication gates allow it.
+Beta.10 is not an autonomous legal-patent system, not a guarantee of novelty,
+not a freedom-to-operate opinion, and not a permissionless autopublisher. Corpus
+autopublish does not require human review, but it is limited to
+`n57d30top/sovryn-open-inventions` and is blocked by automated gates. Real
+publication to newly created or standalone GitHub repositories remains disabled
+unless explicit strict policy, approval evidence, and existing Sovryn
+publication gates allow it.
 
 ## Install
 
@@ -189,6 +202,10 @@ sovryn corpus api export --json
 sovryn corpus badges build --json
 sovryn corpus graph explain <node-id> --json
 sovryn corpus release-notes build --json
+sovryn corpus publish-status --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+sovryn corpus publish-audit --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+sovryn corpus autopublish --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --dry-run --json
+sovryn corpus autopublish --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --max-results 10 --json
 sovryn release candidates build --max 3 --json
 sovryn release candidates review --json
 sovryn release candidates package --json
@@ -515,6 +532,33 @@ duplicate-risk clusters, and a corpus graph. It also writes a small
 gates reject raw logs, local absolute paths, secret-like values, private config,
 and uncurated files.
 
+Beta.10 adds autonomous corpus publication into the existing public repository
+`https://github.com/n57d30top/sovryn-open-inventions`:
+
+```bash
+sovryn corpus publish-status --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+sovryn corpus publish-audit --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+sovryn corpus autopublish --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --dry-run --json
+sovryn corpus autopublish --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --max-results 10 --json
+```
+
+Corpus autopublish is intentionally narrow. It publishes to the existing corpus
+repo only, never creates new GitHub repositories, and does not expose tokens.
+Human review is not required for this corpus path, but automated gates are
+strict: quality must be `good` or `excellent`, candidate status must be
+`dry_run_ready` or `review_ready`, evidence strength must be at least 80,
+reproducibility at least 90, publication safety at least 85, replay-critical
+pass rate must be 100, security/safety/reliability/public-hygiene checks must
+pass, and publication dry-run evidence must exist. Any raw logs, stdout/stderr
+fields, secrets, local absolute paths, private config, dangerous content, or
+fake patentability/freedom-to-operate claims block commit and push.
+
+Autopublish writes `.sovryn/corpus-autopublish/` with
+`autopublish-plan.json`, `AUTOPUBLISH_PLAN.md`, `rejected-results.json`, and
+`REJECTED_RESULTS.md`. A real run updates `results/<slug>/`, `INDEX.json`,
+`VERIFICATION.md`, and aggregate ledgers in the target corpus repo, then commits
+and pushes only if all final checks pass.
+
 ## Security and Reliability Audits
 
 Alpha.25 adds repo-level audit commands:
@@ -565,11 +609,13 @@ novelty, patentability, or freedom-to-operate opinions.
 
 ## Beta Operations
 
-Beta.1 through Beta.9 add operational proof workflows around the Alpha factory.
+Beta.1 through Beta.10 add operational proof workflows around the Alpha factory.
 They are local Evidence workflows: they measure autonomy, govern publication
 queues, coordinate worker jobs, benchmark research quality, export a public
 corpus API, package launch/pilot evidence, and validate the whole path with a
-fresh-repo E2E harness. They do not perform real GitHub publication by default.
+fresh-repo E2E harness. Beta.10 adds policy-gated publication into the existing
+`sovryn-open-inventions` corpus repo only. It does not create new repos and it
+blocks on automated gate failure.
 
 ```bash
 sovryn autonomy campaign plan --goal "Improve autonomous open-source research agents" --runs 10 --json
@@ -580,6 +626,7 @@ sovryn worker register alpha --json
 sovryn worker jobs list --json
 sovryn benchmark research run --json
 sovryn corpus api export --json
+sovryn corpus autopublish --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --dry-run --json
 sovryn launch check --json
 sovryn pilot run --all --json
 sovryn pilot review --json
@@ -605,6 +652,11 @@ default through `publication.allowAutonomousPublish: false`, requires explicit
 approval evidence, and still goes through Sovryn quality, security,
 reliability, Open Invention, and GitHub publication gates. GitHub credentials
 remain controller-owned and are never written to public artifacts.
+
+Corpus autopublish is separate from standalone GitHub publication. It writes
+eligible results into the existing public corpus repo only, with
+`humanReviewRequired: false`, `createNewRepos: false`, hard thresholds, and
+public hygiene scans before commit and push.
 
 ## Launch And Pilot Readiness
 
@@ -674,7 +726,7 @@ corpus entry, and public demo bundle.
 
 ## End-to-End Validation
 
-Beta.9 runs the deterministic fixture-backed validation harness in
+Beta.9 and Beta.10 run the deterministic fixture-backed validation harness in
 multi-candidate mode:
 
 ```bash

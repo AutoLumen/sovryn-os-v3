@@ -7,6 +7,7 @@ dist/
 .sovryn/adapters/
 .sovryn/workers/
 .sovryn/corpus/
+.sovryn/factory/
 .sovryn/releases/
 .sovryn/quality/
 .sovryn/overnight/
@@ -31,3 +32,7 @@ graphify-out/graph.json
 .sovryn/e2e/
 public-corpus/
 .sovryn/pilots/
+.sovryn/corpus-autopublish/
+.sovryn/config.json
+.sovryn/plugins.json
+.sovryn/policy.json

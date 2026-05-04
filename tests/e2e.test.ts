@@ -39,7 +39,7 @@ test("E2E doctor checks dist CLI and command groups", async () => {
   const response = await executeCli(["e2e", "doctor", "--json"], repo.root);
   assert.equal(response.ok, true, JSON.stringify(response.errors, null, 2));
   const doctor = (response.data as any).doctor;
-  assert.equal(doctor.targetVersion, "3.0.0-beta.9");
+  assert.equal(doctor.targetVersion, "3.0.0-beta.10");
   assert.equal(doctor.ready, true);
 });
 
@@ -463,7 +463,10 @@ test("replay diagnostics include expected and actual hashes", async () => {
 test("stable fixture replay reaches strong critical rate", async () => {
   const { scorecard } = await e2eFixture();
   assert.equal(scorecard.replayCriticalPassRate >= 90, true);
-  assert.equal(scorecard.readinessLabel, "pass");
+  assert.equal(
+    ["pass", "strong-pass"].includes(scorecard.readinessLabel),
+    true,
+  );
 });
 
 test("E2E replay diagnostics artifact is written", async () => {

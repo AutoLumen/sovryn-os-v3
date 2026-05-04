@@ -156,6 +156,17 @@ public registry file `PUBLIC_RELEASES.md` contains curated release metadata
 only; it must not include raw logs, secrets, private config, full raw source
 content, or local absolute workspace paths.
 
+Beta.10 adds corpus autopublish into the existing
+`n57d30top/sovryn-open-inventions` repository only. This is not permissionless
+GitHub publishing and it does not create repositories. Human review is not
+required for the corpus path, but automated gates are mandatory: quality,
+evidence strength, reproducibility, publication safety, replay-critical
+freshness, security audit, safety scan, reliability replay, publication
+dry-run, public hygiene, and no-silent-fallback worker evidence where relevant.
+Any raw command journal, stdout/stderr field, secret-like value, local absolute
+path, private config, dangerous content, or fake legal patentability/FTO claim
+blocks commit and push.
+
 Alpha.22 adds `.sovryn/quality/` evaluator artifacts. The quality evaluator
 scans curated public releases for secret-like text, raw log references, local
 absolute paths, and unsafe legal patentability language. These checks are an

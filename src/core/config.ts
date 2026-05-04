@@ -66,6 +66,18 @@ export type SovrynConfig = {
     requireNoPublicLeaks: boolean;
     maxReposPerDay: number;
     allowedOrg: string | null;
+    corpusAutopublish?: {
+      enabled: boolean;
+      targetRepo: string | null;
+      requireHumanReview: boolean;
+      minQualityLabel: "good" | "excellent";
+      minPublicationSafetyScore: number;
+      minEvidenceStrengthScore: number;
+      minReproducibilityScore: number;
+      maxResultsPerRun: number;
+      maxPushesPerDay: number;
+      createNewRepos: boolean;
+    };
   };
   research?: {
     requireConcretePriorArtForPublish: boolean;
@@ -230,6 +242,18 @@ export const DEFAULT_CONFIG: SovrynConfig = {
     requireNoPublicLeaks: true,
     maxReposPerDay: 3,
     allowedOrg: "sovryn-open-inventions",
+    corpusAutopublish: {
+      enabled: false,
+      targetRepo: null,
+      requireHumanReview: false,
+      minQualityLabel: "good",
+      minPublicationSafetyScore: 85,
+      minEvidenceStrengthScore: 80,
+      minReproducibilityScore: 90,
+      maxResultsPerRun: 10,
+      maxPushesPerDay: 20,
+      createNewRepos: false,
+    },
   },
   research: {
     requireConcretePriorArtForPublish: false,
@@ -389,6 +413,7 @@ async function ensureGitignore(root: string): Promise<void> {
     ".sovryn/launch/",
     ".sovryn/pilots/",
     ".sovryn/e2e/",
+    ".sovryn/corpus-autopublish/",
     "public-corpus/",
   ];
   const missing = required.filter(

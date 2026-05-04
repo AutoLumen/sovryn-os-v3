@@ -25,6 +25,7 @@ import {
 } from "../core/external-research/overnight-external-trial.js";
 import { PatchRiskAuditorResearchService } from "../core/external-research/patch-risk-auditor.js";
 import { RealSourceExternalCampaignService } from "../core/external-research/real-source-campaign.js";
+import { FalsificationService } from "../core/evaluation/falsification-service.js";
 import { InventionService } from "../core/invention/invention-service.js";
 import { MissionService } from "../core/mission/mission-service.js";
 import { NodeManager } from "../core/node/node-manager.js";
@@ -147,6 +148,8 @@ Commands:
   sovryn quality leaderboard [--json]
   sovryn quality anti-template <result-id> [--json]
   sovryn quality readability <result-id> [--json]
+  sovryn evaluate falsify <result-slug> --target-repo <path> [--json]
+  sovryn evaluate falsify-all --target-repo <path> [--json]
   sovryn overnight plan --goal "<broad-goal>" [--json]
   sovryn overnight run --goal "<broad-goal>" [--max-hours 8] [--max-runs 5] [--autopublish-corpus] [--json]
   sovryn overnight status [--json]
@@ -389,6 +392,16 @@ export async function executeCli(
       case "quality": {
         const result = await qualityCommand(parsed, root);
         return okEnvelope("quality", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
+      case "evaluate": {
+        const result = await evaluateCommand(parsed, root);
+        return okEnvelope("evaluate", result, {
           artifactRefs: Array.isArray(result.artifactRefs)
             ? result.artifactRefs.filter(
                 (value): value is string => typeof value === "string",
@@ -855,6 +868,38 @@ async function qualityCommand(
         "Use: sovryn quality <evaluate|evaluate-invention|compare|report|leaderboard|anti-template|readability>.",
       );
   }
+}
+
+async function evaluateCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const targetRepo = flagString(parsed.flags, "--target-repo");
+  if (!targetRepo) {
+    throw new AppError(
+      "EVALUATE_TARGET_REPO_REQUIRED",
+      "evaluate requires --target-repo <path>.",
+    );
+  }
+  const service = new FalsificationService(root);
+  if (subcommand === "falsify") {
+    const slug = parsed.positionals[1];
+    if (!slug) {
+      throw new AppError(
+        "EVALUATE_RESULT_SLUG_REQUIRED",
+        "evaluate falsify requires a result slug.",
+      );
+    }
+    return service.falsify({ targetRepo, slug });
+  }
+  if (subcommand === "falsify-all") {
+    return service.falsifyAll({ targetRepo });
+  }
+  throw new AppError(
+    "EVALUATE_COMMAND_REQUIRED",
+    "Use: sovryn evaluate <falsify|falsify-all>.",
+  );
 }
 
 async function overnightCommand(

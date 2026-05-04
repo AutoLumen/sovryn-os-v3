@@ -1,6 +1,6 @@
 # Beta Operationalization
 
-Sovryn OS v3 `3.0.0-beta.20` adds an operational proof layer above the Alpha
+Sovryn OS v3 `3.0.0-beta.21` adds an operational proof layer above the Alpha
 Factory. The goal is to show that Sovryn can run bounded autonomous research
 workflows, measure quality, keep publication governed, execute worker jobs
 without silent fallback, export a public corpus, and produce three
@@ -255,3 +255,22 @@ evidence from volatile observations and blocking launch limitations from
 accepted beta notes. Beta.9 adds multi-candidate validation for three pilot
 release candidates. The harness is fixture-backed and deterministic by default.
 It never performs real GitHub publication.
+
+## Beta.21 Falsification Evaluation
+
+```bash
+sovryn evaluate falsify <result-slug> --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+sovryn evaluate falsify-all --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+```
+
+Falsification is an independent public-corpus review pass. It creates
+per-result `FALSIFICATION.md` reports and safe synthetic `negative-tests/`
+cases, then writes `aggregate/falsification-report.json` and
+`aggregate/FALSIFICATION_REPORT.md`. The evaluator looks for likely false
+positives, likely false negatives, malformed inputs, unsupported assumptions,
+overclaiming language, weak evidence grounding, and public hygiene failures.
+
+The pass does not claim legal novelty or patentability. It can only keep a
+result reviewable, mark it as `needs_revision`, flag `overclaims`, mark
+`insufficient_tests`, or block it. Corpus showcase selection uses that status
+so failed falsification removes showcase eligibility without deleting evidence.

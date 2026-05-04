@@ -248,6 +248,13 @@ Result `README.md`, `SHOWCASE.md`, `METHOD.md`, `REPRODUCE.md`,
 that showcase outputs remain free of raw logs, secrets, local absolute paths,
 private config, unsafe content, and fake legal claims.
 
+Beta.21 adds public falsification artifacts to the same hygiene surface.
+`FALSIFICATION.md` and `negative-tests/` are curated public review artifacts:
+they may contain safe synthetic counter-cases, but they must not contain raw
+logs, command journals, secrets, private paths, unsafe operational content, or
+legal patentability/freedom-to-operate claims. Failed falsification demotes a
+result from showcase instead of weakening hygiene or publication gates.
+
 Alpha.25 adds security, reliability, and abuse audit commands:
 
 ```bash

@@ -51,6 +51,7 @@ type PublicResultCard = {
   externalPackages: string[];
   customTool: string | null;
   workerAssurance: string;
+  falsificationStatus: string;
   summary: string;
   limitations: string[];
   badges: Record<string, string>;
@@ -445,6 +446,12 @@ export class CorpusProductService {
         {},
       ),
       gate(
+        "SHOWCASE_FALSIFICATION_PASSED",
+        showcaseFalsificationPassed(corpus),
+        "Showcase results must pass falsification when falsification evidence is present.",
+        {},
+      ),
+      gate(
         "SHOWCASE_PUBLIC_SITE_LINKS_PRESENT",
         await showcaseSiteLinksPresent(siteRoot, corpus),
         "Public showcase pages must link to the result docs and showcase result pages.",
@@ -769,6 +776,7 @@ async function readResultCard(
   const customTool = inferCustomTool(slug, publicText);
   const domain = inferDomain(slug, `${title} ${readme}`);
   const summaryText = summarizeText(readme, title);
+  const falsificationStatus = await readFalsificationStatus(root);
   const rawSpecificityScore = number(
     record.specificityScore,
     number(summary.specificityScore, 0),
@@ -837,6 +845,7 @@ async function readResultCard(
     externalPackages: packages,
     customTool,
     workerAssurance,
+    falsificationStatus,
     summary: summaryText,
     limitations: extractLimitations(publicText),
     badges: {
@@ -847,6 +856,7 @@ async function readResultCard(
       safety: safetyScanPassed ? "safety-passed" : "safety-needs-review",
       hygiene: publicHygienePassed ? "hygiene-passed" : "hygiene-needs-review",
       worker: workerAssurance,
+      falsification: falsificationStatus,
     },
     showcaseDocumentation: await readShowcaseDocumentation(root),
   };
@@ -947,11 +957,15 @@ function lifecycleStatusFor(
   if (
     card.publicationStatus === "needs_revision" ||
     card.qualityLabel === "weak" ||
+    ["needs_revision", "overclaims", "insufficient_tests"].includes(
+      card.falsificationStatus,
+    ) ||
     /needs_revision/i.test(card.antiTemplateStatus) ||
     (card.specificityScore > 0 && card.specificityScore < 60)
   ) {
     return "needs_revision";
   }
+  if (card.falsificationStatus === "blocked") return "blocked";
   if (
     card.slug === card.versionGroup &&
     /^(evidence-chain|toolchain-policy|corpus-deduplication)$/.test(
@@ -974,6 +988,13 @@ function revisionReasonFor(
     return "Public hygiene, safety scan, or reliability replay did not pass.";
   }
   if (lifecycleStatus === "needs_revision") {
+    if (
+      ["needs_revision", "overclaims", "insufficient_tests"].includes(
+        card.falsificationStatus,
+      )
+    ) {
+      return `Falsification status is ${card.falsificationStatus}.`;
+    }
     if (card.specificityScore > 0 && card.specificityScore < 60) {
       return "Specificity score is below the public corpus promotion threshold.";
     }
@@ -995,6 +1016,12 @@ function isShowcaseEligible(
   if (lifecycleStatus !== "autopublished") return false;
   if (!["good", "excellent"].includes(card.qualityLabel)) return false;
   if (!isAntiTemplateShowcaseReady(card.antiTemplateStatus)) return false;
+  if (
+    card.falsificationStatus !== "not_evaluated" &&
+    card.falsificationStatus !== "passes_falsification"
+  ) {
+    return false;
+  }
   if (card.releaseReadinessScore < 88) return false;
   if (card.evidenceStrengthScore < 80) return false;
   if (card.reproducibilityScore < 90) return false;
@@ -1188,6 +1215,7 @@ function publicLifecycleResult(
     reliabilityReplayPassed: result.reliabilityReplayPassed,
     customTool: result.customTool,
     workerAssurance: result.workerAssurance,
+    falsificationStatus: result.falsificationStatus,
     disclaimer: CORPUS_DISCLAIMER,
   };
 }
@@ -1299,6 +1327,8 @@ function renderResultHtml(result: PublicResultCard): string {
       <li><a href="../../results/${escapeHtml(result.slug)}/REPRODUCE.md">REPRODUCE.md</a></li>
       <li><a href="../../results/${escapeHtml(result.slug)}/LIMITATIONS.md">LIMITATIONS.md</a></li>
       <li><a href="../../results/${escapeHtml(result.slug)}/EXAMPLES.md">EXAMPLES.md</a></li>
+      <li><a href="../../results/${escapeHtml(result.slug)}/FALSIFICATION.md">FALSIFICATION.md</a></li>
+      <li><a href="../../results/${escapeHtml(result.slug)}/negative-tests/negative-tests.json">negative-tests.json</a></li>
       <li><a href="../../results/${escapeHtml(result.slug)}/release/">Curated release folder</a></li>
     </ul>
   </main>
@@ -1924,6 +1954,14 @@ async function readShowcaseDocumentation(
   };
 }
 
+async function readFalsificationStatus(root: string): Promise<string> {
+  const report = await readFile(join(root, "FALSIFICATION.md"), "utf8").catch(
+    () => "",
+  );
+  const match = report.match(/Evaluation label:\s*([a-z_]+)/i);
+  return match?.[1] ?? "not_evaluated";
+}
+
 function completeShowcaseDocumentation(): ShowcaseDocumentation {
   return {
     readme: true,
@@ -2271,6 +2309,15 @@ function showcaseAntiTemplateReady(corpus: Record<string, unknown>): boolean {
   return items.every((item) =>
     isAntiTemplateShowcaseReady(text(item.antiTemplateStatus, "")),
   );
+}
+
+function showcaseFalsificationPassed(corpus: Record<string, unknown>): boolean {
+  const items = showcaseItems(corpus);
+  if (items.length === 0) return false;
+  return items.every((item) => {
+    const status = text(item.falsificationStatus, "not_evaluated");
+    return status === "not_evaluated" || status === "passes_falsification";
+  });
 }
 
 async function showcaseSiteLinksPresent(

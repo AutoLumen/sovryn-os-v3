@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `3.0.0-beta.20`
+Current version: `3.0.0-beta.21`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -48,7 +48,7 @@ Alpha.26 was the first integrated beta-candidate path: release candidates,
 quality evaluation, security audit, reliability audit, public corpus export, and
 curated beta packaging are all connected.
 
-The current Beta.1-Beta.20 operationalization line builds on Alpha.26:
+The current Beta.1-Beta.21 operationalization line builds on Alpha.26:
 
 | Version         | Focus                         | Result                                                                                                                                                                                   |
 | --------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -72,8 +72,9 @@ The current Beta.1-Beta.20 operationalization line builds on Alpha.26:
 | `3.0.0-beta.18` | Corpus Lifecycle Curation     | Adds lifecycle status, version groups, superseded maps, showcase selection, revision queue reports, and status-aware public corpus exports without deleting old evidence.                |
 | `3.0.0-beta.19` | Real-Source External Campaign | Adds a three-domain real-source campaign that uses public-source adapter/cache evidence, source cards, fallback declarations, and real-source autopublish gates.                         |
 | `3.0.0-beta.20` | High-Quality Showcase Results | Upgrades three public corpus results with human-readable showcase docs, stricter specificity/anti-template thresholds, reproduction notes, examples, limitations, and site-audit gates.  |
+| `3.0.0-beta.21` | Falsification Evaluation      | Adds public-corpus falsification reports, domain-specific negative tests, overclaim checks, and showcase demotion for failed results.                                                    |
 
-At `3.0.0-beta.20`, Sovryn can run local autonomy campaigns, build release
+At `3.0.0-beta.21`, Sovryn can run local autonomy campaigns, build release
 candidates, govern publication queues, execute worker jobs, benchmark research
 quality, export a public corpus API/site shell, and produce launch/pilot
 evidence, then validate the full path through a deterministic fresh-repo E2E
@@ -142,6 +143,15 @@ specificity at or above 75, anti-template status `review_ready` or better,
 reproducibility at or above 90, publication safety at or above 90, replay
 critical pass rate 100, and public hygiene. Results marked `needs_revision` or
 superseded stay visible but cannot be promoted.
+Beta.21 adds an independent falsification layer:
+`sovryn evaluate falsify <result-slug> --target-repo <repo> --json` writes a
+per-result `FALSIFICATION.md` and safe synthetic `negative-tests/`, while
+`sovryn evaluate falsify-all --target-repo <repo> --json` writes
+`aggregate/falsification-report.json` and `aggregate/FALSIFICATION_REPORT.md`.
+Falsification checks false-positive and false-negative risks, malformed inputs,
+unsupported assumptions, overclaiming language, weak evidence grounding, and
+public hygiene. Results that fail falsification move to `needs_revision`,
+`overclaims`, or `blocked` status and cannot remain showcase.
 
 The beta operations line preserves the same operating rules:
 
@@ -776,6 +786,18 @@ source evidence summary, counter-evidence/limitations, reproduction path,
 autopublish record, and safety scope. The audit enforces readable showcase
 docs, reproduction instructions, examples, limitations, anti-template readiness,
 specificity thresholds, and public site links.
+
+Beta.21 adds independent falsification before showcase results stay promoted:
+
+```bash
+sovryn evaluate falsify chemistry-record-auditor-tool-v2-v2 --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+sovryn evaluate falsify-all --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+```
+
+Each evaluated result receives `FALSIFICATION.md` and `negative-tests/` with
+safe synthetic counter-cases. The aggregate falsification report is public, and
+`corpus site build` exports each result's `falsificationStatus`. Failed
+falsification removes showcase eligibility rather than hiding the result.
 
 Autopublish writes `.sovryn/corpus-autopublish/` with
 `autopublish-plan.json`, `AUTOPUBLISH_PLAN.md`, `rejected-results.json`, and

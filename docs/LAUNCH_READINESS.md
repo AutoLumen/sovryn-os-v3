@@ -1,6 +1,6 @@
 # Launch Readiness
 
-Sovryn OS v3 `3.0.0-beta.20` includes launch-readiness commands for local
+Sovryn OS v3 `3.0.0-beta.21` includes launch-readiness commands for local
 public beta or v1.0-RC review:
 
 ```bash
@@ -72,6 +72,12 @@ Beta.9 launch checks separate:
 
 The E2E scorecard fails on blocking launch limitations and uses
 replay-critical pass rate for readiness decisions.
+
+Beta.21 adds falsification status as a public corpus launch input. Showcase
+results should either have `passes_falsification` or be explicitly unevaluated
+before the falsification pass is required. Results labeled `needs_revision`,
+`overclaims`, `insufficient_tests`, or `blocked` must not remain showcase until
+the public result is fixed and `sovryn evaluate falsify-all` is rerun.
 
 ## v1.0 Gate Set
 

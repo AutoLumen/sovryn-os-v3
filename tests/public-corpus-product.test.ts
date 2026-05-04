@@ -414,7 +414,7 @@ test("corpus site build rejects disallowed remote", async () => {
 
 test("package version is beta.20", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  assert.equal(pkg.version, "3.0.0-beta.20");
+  assert.equal(pkg.version, "3.0.0-beta.21");
 });
 
 test("Beta.18 version groups are created", async () => {
@@ -680,7 +680,7 @@ test("Beta.18 duplicate slugs are versioned without deletion", async () => {
 
 test("Beta.20 package version is beta.20", async () => {
   const pkg: any = await readJson(join(process.cwd(), "package.json"));
-  assert.equal(pkg.version, "3.0.0-beta.20");
+  assert.equal(pkg.version, "3.0.0-beta.21");
 });
 
 test("Beta.20 showcase writes SHOWCASE.md", async () => {

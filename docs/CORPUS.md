@@ -289,3 +289,32 @@ selection requires `good` or `excellent` quality, specificity score at least
 least 90, publication-safety score at least 90, replay-critical pass rate 100,
 and public hygiene passed. Results marked `needs_revision`, `blocked`,
 `demo_pilot`, or `superseded` stay visible but cannot become showcase entries.
+
+## Beta.21 Independent Falsification
+
+Beta.21 adds a public-corpus evaluation pass that tries to weaken or falsify a
+result before it remains showcase:
+
+```bash
+sovryn evaluate falsify <result-slug> --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+sovryn evaluate falsify-all --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+```
+
+Per result, Sovryn writes:
+
+```text
+results/<slug>/
+  FALSIFICATION.md
+  negative-tests/
+    negative-tests.json
+    <negative-test-id>.json
+```
+
+The aggregate report is written to `aggregate/falsification-report.json` and
+`aggregate/FALSIFICATION_REPORT.md`. Falsification checks domain-specific safe
+synthetic negative cases, false-positive risk, false-negative risk, malformed
+inputs, unsupported assumptions, overclaiming language, public hygiene, and
+evidence grounding. A failed result is not hidden, but its
+`falsificationStatus` can move it to `needs_revision`, `overclaims`, or
+`blocked`, which removes showcase eligibility until the public result is fixed
+and re-evaluated.

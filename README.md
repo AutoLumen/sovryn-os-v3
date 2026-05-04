@@ -86,6 +86,13 @@ sovryn overnight run --goal "Improve autonomous open-source research agents" --m
 sovryn overnight status --json
 sovryn overnight stop --json
 sovryn overnight report --json
+sovryn security audit --json
+sovryn security audit-public-release .sovryn/factory/<slug>/release/public --json
+sovryn security audit-worker --profile container-netoff --json
+sovryn reliability audit --json
+sovryn reliability replay-all --json
+sovryn safety scan-goal "Improve autonomous research agents" --json
+sovryn safety scan-release .sovryn/factory/<slug>/release/public --json
 sovryn worker doctor --profile container-local --json
 sovryn worker doctor --profile container-netoff --json
 sovryn worker doctor --all --json
@@ -120,6 +127,8 @@ Every command supports stable JSON output via `--json`.
 - Computes changed files, diff stats, policy risk, and approval requirements.
 - Blocks finalize when verification, policy, approval, blocked-path, or secret
   checks fail.
+- Audits generated public releases, worker posture, command evidence, corpus
+  exports, and replay consistency through security/reliability commands.
 - Re-runs verify immediately before finalize and requires the review/approval to
   match the current diff and verify outcome hash.
 - Treats missing verification commands as a failed verification, not a pass.
@@ -354,6 +363,32 @@ duplicate-risk clusters, and a corpus graph. It also writes a small
 `public-corpus/` static shell when `corpus site build` is used. Public corpus
 gates reject raw logs, local absolute paths, secret-like values, private config,
 and uncurated files.
+
+## Security and Reliability Audits
+
+Alpha.25 adds repo-level audit commands:
+
+```bash
+sovryn security audit --json
+sovryn security audit-public-release .sovryn/factory/<slug>/release/public --json
+sovryn security audit-worker --profile container-netoff --json
+sovryn reliability audit --json
+sovryn reliability replay-all --json
+sovryn safety scan-goal "Improve autonomous research agents" --json
+sovryn safety scan-release .sovryn/factory/<slug>/release/public --json
+```
+
+The audit layer checks generated public release roots, public corpus exports,
+release-candidate packages, worker doctor output, and generated command
+evidence. It blocks obvious command-injection patterns, unsafe installers,
+host `sudo`, raw stdout/stderr files or fields, local absolute paths,
+secret-like values, fake sandbox guarantees, fake patentability language,
+dangerous research goals, replay-all failures, public corpus leaks, and release
+registry inconsistencies. Audit reports are written under `.sovryn/audits/` and
+are ignored by default.
+
+Audits do not publish anything and they do not replace Factory, Quality, Worker,
+Open Invention, secret, replay, final verification, or GitHub publication gates.
 
 ## Release Candidates
 

@@ -170,6 +170,21 @@ and gates without network calls, verifies hashes, and writes replay evidence.
 evidence and routes publication through the generated Open Invention mission.
 Real GitHub publication remains gated by Sovryn Controller.
 
+Before treating a Factory run or Open Invention release candidate as
+publication-ready, Alpha.25 adds additional audit commands:
+
+```bash
+sovryn security audit --json
+sovryn reliability audit --json
+sovryn safety scan-release .sovryn/factory/<slug>/release/public --json
+```
+
+Security audit looks for raw log leakage, local paths, secrets, unsafe
+installer commands, host `sudo`, fake sandbox claims, and fake patentability
+language. Reliability audit replays all factory evidence and rebuilds corpus and
+registry views. These audits do not publish anything and do not provide legal
+novelty, patentability, or freedom-to-operate opinions.
+
 ## Research Opportunities
 
 Alpha.15 adds a Research Opportunity Engine that helps Sovryn decide what to

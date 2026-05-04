@@ -1,5 +1,23 @@
 # Changelog
 
+## 3.0.0-alpha.25
+
+- Added security, reliability, and abuse audit commands:
+  `sovryn security audit`, `security audit-public-release`,
+  `security audit-worker`, `reliability audit`, `reliability replay-all`,
+  `safety scan-goal`, and `safety scan-release`.
+- Added `.sovryn/audits/` artifacts for security audits, reliability audits,
+  replay-all reports, and abuse-risk reports.
+- Added hardening gates for command-injection risk, unsafe installers, host
+  `sudo`, public leaks, fake sandbox claims, fake patent claims, and replay-all
+  consistency.
+- Added conservative public-release scans for raw stdout/stderr fields/files,
+  local absolute paths, secret-like text, non-curated public files, unsafe
+  release content, and legal patentability language.
+- Added 50 audit tests covering goal safety, public release leaks, worker audit,
+  command evidence hardening, replay-all, reliability audit, and CLI JSON
+  outputs.
+
 ## 3.0.0-alpha.24
 
 - Added public corpus discovery exports under `.sovryn/corpus/public/`.

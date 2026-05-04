@@ -5,6 +5,7 @@ import {
   type JsonEnvelope,
 } from "../shared/json-envelope.js";
 import { AppError } from "../shared/errors.js";
+import { AuditService } from "../core/audit/audit-service.js";
 import { configExists, loadConfig } from "../core/config.js";
 import { CorpusService } from "../core/corpus/corpus-service.js";
 import {
@@ -100,6 +101,13 @@ Commands:
   sovryn overnight status [--json]
   sovryn overnight stop [--json]
   sovryn overnight report [--json]
+  sovryn security audit [--json]
+  sovryn security audit-public-release <path> [--json]
+  sovryn security audit-worker --profile container-netoff [--json]
+  sovryn reliability audit [--json]
+  sovryn reliability replay-all [--json]
+  sovryn safety scan-goal "<goal>" [--json]
+  sovryn safety scan-release <release-path> [--json]
   sovryn invention status <mission-id> [--json]
   sovryn invention dossier <mission-id> [--json]
   sovryn invention verify <mission-id> [--json]
@@ -316,6 +324,36 @@ export async function executeCli(
       case "overnight": {
         const result = await overnightCommand(parsed, root);
         return okEnvelope("overnight", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
+      case "security": {
+        const result = await securityCommand(parsed, root);
+        return okEnvelope("security", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
+      case "reliability": {
+        const result = await reliabilityCommand(parsed, root);
+        return okEnvelope("reliability", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
+      case "safety": {
+        const result = await safetyCommand(parsed, root);
+        return okEnvelope("safety", result, {
           artifactRefs: Array.isArray(result.artifactRefs)
             ? result.artifactRefs.filter(
                 (value): value is string => typeof value === "string",
@@ -938,6 +976,91 @@ async function workerCommand(
       throw new AppError(
         "WORKER_COMMAND_REQUIRED",
         "Use: sovryn worker <doctor|policy|run>.",
+      );
+  }
+}
+
+async function securityCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const service = new AuditService(root);
+  switch (subcommand) {
+    case "audit":
+      return service.securityAudit();
+    case "audit-public-release": {
+      const path = parsed.positionals[1];
+      if (!path) {
+        throw new AppError(
+          "PUBLIC_RELEASE_PATH_REQUIRED",
+          "security audit-public-release requires a path.",
+        );
+      }
+      return {
+        audit: await service.auditPublicRelease(path),
+        artifactRefs: [],
+      };
+    }
+    case "audit-worker":
+      return {
+        audit: await service.auditWorker(flagWorkerProfile(parsed.flags)),
+        artifactRefs: [],
+      };
+    default:
+      throw new AppError(
+        "SECURITY_COMMAND_REQUIRED",
+        "Use: sovryn security <audit|audit-public-release|audit-worker>.",
+      );
+  }
+}
+
+async function reliabilityCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const service = new AuditService(root);
+  switch (subcommand) {
+    case "audit":
+      return service.reliabilityAudit();
+    case "replay-all":
+      return service.replayAll();
+    default:
+      throw new AppError(
+        "RELIABILITY_COMMAND_REQUIRED",
+        "Use: sovryn reliability <audit|replay-all>.",
+      );
+  }
+}
+
+async function safetyCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const service = new AuditService(root);
+  switch (subcommand) {
+    case "scan-goal": {
+      const goal =
+        flagString(parsed.flags, "--goal") ??
+        parsed.positionals.slice(1).join(" ").trim();
+      return service.scanGoal(goal);
+    }
+    case "scan-release": {
+      const path = parsed.positionals[1];
+      if (!path) {
+        throw new AppError(
+          "RELEASE_PATH_REQUIRED",
+          "safety scan-release requires a release path.",
+        );
+      }
+      return service.scanRelease(path);
+    }
+    default:
+      throw new AppError(
+        "SAFETY_COMMAND_REQUIRED",
+        "Use: sovryn safety <scan-goal|scan-release>.",
       );
   }
 }

@@ -177,6 +177,35 @@ secret-like values, and no local absolute paths. The public corpus is discovery
 metadata only; it does not publish private memory, raw source content, raw
 execution evidence, or legal patentability claims.
 
+Alpha.25 adds security, reliability, and abuse audit commands:
+
+```bash
+sovryn security audit --json
+sovryn security audit-public-release <public-release-path> --json
+sovryn security audit-worker --profile container-netoff --json
+sovryn reliability audit --json
+sovryn reliability replay-all --json
+sovryn safety scan-goal "Improve autonomous research agents" --json
+sovryn safety scan-release <public-release-path> --json
+```
+
+Security audit scans generated public release roots, public corpus exports,
+release-candidate packages, worker doctor output, and generated command
+evidence. It blocks command-injection-like payloads in command evidence,
+curl-pipe-shell installers, host package-manager installs, `sudo`, raw stdout or
+stderr files/fields, secret-like text, local absolute paths, fake sandbox
+claims, and fake patentability or freedom-to-operate claims.
+
+Reliability audit runs `reliability replay-all`, rebuilds corpus/public-corpus
+views, and updates the release registry from current evidence. It fails when a
+factory replay fails, release-candidate review errors, public corpus gates fail,
+or registry reconstruction fails.
+
+Safety scans are conservative text checks. They are not semantic guarantees,
+but they prevent obvious abusive goals and unsafe public-release text from
+being treated as acceptable research evidence. They do not weaken existing
+Factory, Worker, Open Invention, secret, replay, quality, or publication gates.
+
 Factory public release packages are allowlisted. They must not include raw
 command journals, raw stdout/stderr logs, private config, tokens, local absolute
 paths, full raw source content, or files outside the curated public evidence

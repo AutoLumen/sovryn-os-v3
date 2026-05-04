@@ -10,6 +10,11 @@ sovryn corpus index --json
 sovryn corpus search "verifiable autonomous research agents" --json
 sovryn corpus dedupe --json
 sovryn corpus report --json
+sovryn corpus export-public --json
+sovryn corpus site build --json
+sovryn corpus graph --json
+sovryn corpus compare --json
+sovryn corpus explain <invention-id> --json
 sovryn release registry update --json
 ```
 
@@ -26,6 +31,7 @@ Artifacts are written under:
   corpus-quality-report.md
   PUBLIC_RELEASES.md
   last-search.json
+  public/
 ```
 
 The corpus stores summaries, identifiers, source-card metadata, reuse counts,
@@ -48,3 +54,35 @@ opinion.
 Opportunity scans read the corpus when present. Reusable source evidence and
 duplicate-risk signals can become `corpus`-sourced research opportunities, which
 helps Sovryn decide what to improve next.
+
+## Public Discovery Export
+
+Alpha.24 adds `.sovryn/corpus/public/` as a curated public discovery layer.
+
+```text
+.sovryn/corpus/public/
+  index.json
+  inventions.json
+  sources.json
+  source-cards.json
+  claim-features.json
+  release-candidates.json
+  quality-scores.json
+  duplicate-map.public.json
+  corpus-graph.json
+  CORPUS_INDEX.md
+  INVENTIONS.md
+  SOURCES.md
+  QUALITY.md
+  DUPLICATES.md
+```
+
+`corpus export-public` writes the curated files and gate results. `corpus graph`
+returns source/invention/factory/release relationships. `corpus compare` returns
+duplicate clusters and source reuse signals. `corpus explain <id>` returns a
+public explanation with evidence references for a factory run, invention,
+source, or release.
+
+`corpus site build` writes a deterministic `public-corpus/` shell for demos.
+The public export excludes raw logs, raw stdout/stderr, private config, full raw
+source content, secrets, local absolute paths, and unpublished private memory.

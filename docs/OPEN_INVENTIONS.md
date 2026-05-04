@@ -216,6 +216,22 @@ not published automatically. Its `PUBLIC_RELEASES.md` registry is an
 open-source research registry, not a legal patent filing or legal novelty
 opinion.
 
+Alpha.24 adds a curated public corpus export:
+
+```bash
+sovryn corpus export-public --json
+sovryn corpus site build --json
+sovryn corpus graph --json
+sovryn corpus compare --json
+sovryn corpus explain <invention-id> --json
+```
+
+The export writes `.sovryn/corpus/public/` with summaries for inventions,
+sources, source cards, claim features, release candidates, quality scores,
+duplicate-risk clusters, and graph data. The public export is allowlisted and
+checked for raw logs, secrets, local absolute paths, private config, and unsafe
+publication content.
+
 ## Release Candidates
 
 Alpha.21 adds a release-candidate workflow for producing human-reviewable Open

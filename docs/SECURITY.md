@@ -170,6 +170,13 @@ gate, keeps GitHub credentials with Sovryn Controller, writes redacted JSONL
 events, and does not copy raw stdout/stderr or command journals into reports.
 High-safety-risk opportunities are blocked before execution.
 
+Alpha.24 adds `.sovryn/corpus/public/` curated public corpus exports and an
+optional `public-corpus/` static shell. Public corpus export checks require an
+allowlisted file set, quality labels, release statuses, no raw command logs, no
+secret-like values, and no local absolute paths. The public corpus is discovery
+metadata only; it does not publish private memory, raw source content, raw
+execution evidence, or legal patentability claims.
+
 Factory public release packages are allowlisted. They must not include raw
 command journals, raw stdout/stderr logs, private config, tokens, local absolute
 paths, full raw source content, or files outside the curated public evidence

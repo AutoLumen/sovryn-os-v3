@@ -1,5 +1,18 @@
 # Changelog
 
+## 3.0.0-alpha.24
+
+- Added public corpus discovery exports under `.sovryn/corpus/public/`.
+- Added `sovryn corpus export-public`, `corpus site build`, `corpus graph`,
+  `corpus compare`, and `corpus explain`.
+- Added curated public corpus artifacts for inventions, sources, source cards,
+  claim features, release candidates, quality scores, duplicate-risk clusters,
+  and corpus graph data.
+- Added public corpus gates for curated-only exports, no private paths, no raw
+  logs, no secrets, quality-label inclusion, and release-status inclusion.
+- Added an optional deterministic `public-corpus/` static site shell for public
+  demos.
+
 ## 3.0.0-alpha.23
 
 - Added the Autonomous Overnight Operator for coordinating opportunity queues,

@@ -81,6 +81,11 @@ Commands:
   sovryn corpus search "<query>" [--json]
   sovryn corpus dedupe [--json]
   sovryn corpus report [--json]
+  sovryn corpus export-public [--json]
+  sovryn corpus site build [--json]
+  sovryn corpus graph [--json]
+  sovryn corpus compare [--json]
+  sovryn corpus explain <invention-id|factory-id|source-id> [--json]
   sovryn release candidates build --max 3 [--json]
   sovryn release candidates review [--json]
   sovryn release candidates package [--json]
@@ -425,6 +430,9 @@ async function corpusCommand(
 ): Promise<Record<string, unknown>> {
   const subcommand = parsed.positionals[0];
   const service = new CorpusService(root);
+  if (subcommand === "site" && parsed.positionals[1] === "build") {
+    return service.buildPublicSite();
+  }
   switch (subcommand) {
     case "index":
       return service.index();
@@ -436,10 +444,26 @@ async function corpusCommand(
       return service.dedupe();
     case "report":
       return service.report();
+    case "export-public":
+      return service.exportPublic();
+    case "graph":
+      return service.graph();
+    case "compare":
+      return service.compare();
+    case "explain": {
+      const id = parsed.positionals[1];
+      if (!id) {
+        throw new AppError(
+          "CORPUS_EXPLAIN_ID_REQUIRED",
+          "corpus explain requires an id.",
+        );
+      }
+      return service.explain(id);
+    }
     default:
       throw new AppError(
         "CORPUS_COMMAND_REQUIRED",
-        "Use: sovryn corpus <index|search|dedupe|report>.",
+        "Use: sovryn corpus <index|search|dedupe|report|export-public|site|graph|compare|explain>.",
       );
   }
 }

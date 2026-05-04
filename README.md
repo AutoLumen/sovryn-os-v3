@@ -67,6 +67,11 @@ sovryn corpus index --json
 sovryn corpus search "source-card trust scoring" --json
 sovryn corpus dedupe --json
 sovryn corpus report --json
+sovryn corpus export-public --json
+sovryn corpus site build --json
+sovryn corpus graph --json
+sovryn corpus compare --json
+sovryn corpus explain <invention-id> --json
 sovryn release candidates build --max 3 --json
 sovryn release candidates review --json
 sovryn release candidates package --json
@@ -332,6 +337,23 @@ evidence and duplicate-risk signals. It is local memory by default and is not
 published automatically. `PUBLIC_RELEASES.md` is a public Open Invention
 registry for releases or dry-run release packages; it is not a patent filing,
 not a patentability opinion, and not a freedom-to-operate opinion.
+
+Alpha.24 adds a curated public corpus discovery export:
+
+```bash
+sovryn corpus export-public --json
+sovryn corpus site build --json
+sovryn corpus graph --json
+sovryn corpus compare --json
+sovryn corpus explain <invention-id> --json
+```
+
+The export writes `.sovryn/corpus/public/` with public summaries for inventions,
+sources, source cards, claim features, release candidates, quality scores,
+duplicate-risk clusters, and a corpus graph. It also writes a small
+`public-corpus/` static shell when `corpus site build` is used. Public corpus
+gates reject raw logs, local absolute paths, secret-like values, private config,
+and uncurated files.
 
 ## Release Candidates
 

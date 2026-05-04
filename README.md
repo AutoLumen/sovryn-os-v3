@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `3.0.0-beta.19`
+Current version: `3.0.0-beta.20`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -48,7 +48,7 @@ Alpha.26 was the first integrated beta-candidate path: release candidates,
 quality evaluation, security audit, reliability audit, public corpus export, and
 curated beta packaging are all connected.
 
-The current Beta.1-Beta.19 operationalization line builds on Alpha.26:
+The current Beta.1-Beta.20 operationalization line builds on Alpha.26:
 
 | Version         | Focus                         | Result                                                                                                                                                                                   |
 | --------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -71,8 +71,9 @@ The current Beta.1-Beta.19 operationalization line builds on Alpha.26:
 | `3.0.0-beta.17` | Overnight External Trial      | Runs a bounded external-domain overnight trial, dry-run or corpus-autopublishes eligible results, and writes a v1-RC gate report.                                                        |
 | `3.0.0-beta.18` | Corpus Lifecycle Curation     | Adds lifecycle status, version groups, superseded maps, showcase selection, revision queue reports, and status-aware public corpus exports without deleting old evidence.                |
 | `3.0.0-beta.19` | Real-Source External Campaign | Adds a three-domain real-source campaign that uses public-source adapter/cache evidence, source cards, fallback declarations, and real-source autopublish gates.                         |
+| `3.0.0-beta.20` | High-Quality Showcase Results | Upgrades three public corpus results with human-readable showcase docs, stricter specificity/anti-template thresholds, reproduction notes, examples, limitations, and site-audit gates.  |
 
-At `3.0.0-beta.19`, Sovryn can run local autonomy campaigns, build release
+At `3.0.0-beta.20`, Sovryn can run local autonomy campaigns, build release
 candidates, govern publication queues, execute worker jobs, benchmark research
 quality, export a public corpus API/site shell, and produce launch/pilot
 evidence, then validate the full path through a deterministic fresh-repo E2E
@@ -133,6 +134,14 @@ declared fixture fallbacks are never counted as reviewed concrete prior art.
 Autopublish is blocked for real-source campaign results unless the result has
 at least three concrete-source-bound source cards and the real-source threshold
 is recorded as met.
+Beta.20 upgrades the public showcase layer. `corpus site build` rewrites the
+top three showcase result READMEs for human readers and adds `SHOWCASE.md`,
+`METHOD.md`, `REPRODUCE.md`, `LIMITATIONS.md`, and `EXAMPLES.md` per showcase
+result. Showcase selection now requires good or excellent quality,
+specificity at or above 75, anti-template status `review_ready` or better,
+reproducibility at or above 90, publication safety at or above 90, replay
+critical pass rate 100, and public hygiene. Results marked `needs_revision` or
+superseded stay visible but cannot be promoted.
 
 The beta operations line preserves the same operating rules:
 
@@ -752,6 +761,21 @@ and `blocked` lifecycle statuses. The best current results are listed in
 `aggregate/showcase-results.json` and `SHOWCASE_RESULTS.md`; weak or
 template-like results stay visible but move to revision or demo status instead
 of being hidden.
+
+Beta.20 turns the selected showcase entries into human-readable public results:
+
+```bash
+sovryn corpus site build --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+sovryn corpus site audit --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+```
+
+For the three selected showcase results, the build writes `SHOWCASE.md`,
+`METHOD.md`, `REPRODUCE.md`, `LIMITATIONS.md`, and `EXAMPLES.md`, and rewrites
+the result README with a clear problem statement, method, custom tool, tests,
+source evidence summary, counter-evidence/limitations, reproduction path,
+autopublish record, and safety scope. The audit enforces readable showcase
+docs, reproduction instructions, examples, limitations, anti-template readiness,
+specificity thresholds, and public site links.
 
 Autopublish writes `.sovryn/corpus-autopublish/` with
 `autopublish-plan.json`, `AUTOPUBLISH_PLAN.md`, `rejected-results.json`, and

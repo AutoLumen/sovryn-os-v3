@@ -33,7 +33,7 @@ does not provide legal novelty, patentability, or freedom-to-operate opinions.
 
 ## Beta Operations
 
-`3.0.0-beta.19` includes the operational proof commands, corpus lifecycle
+`3.0.0-beta.20` includes the operational proof commands, corpus lifecycle
 curation, and real-source external campaign path around the demo:
 
 ```bash

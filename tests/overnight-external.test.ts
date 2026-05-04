@@ -198,9 +198,9 @@ test("launch v1-rc-check passes with fixture external suite", async () => {
   assert.equal(v1.passed, true);
 });
 
-test("launch v1-rc-check reports target version beta18", async () => {
+test("launch v1-rc-check reports target version beta20", async () => {
   const { v1 } = await trialFixture();
-  assert.equal(v1.targetVersion, "3.0.0-beta.19");
+  assert.equal(v1.targetVersion, "3.0.0-beta.20");
 });
 
 test("launch v1-rc-check includes corpus site audit gate", async () => {
@@ -421,9 +421,9 @@ test("launch v1-rc-check blocks missing public corpus site", async () => {
   assert.equal(gate.passed, false);
 });
 
-test("package version is beta.19", async () => {
+test("package version is beta.20", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  assert.equal(pkg.version, "3.0.0-beta.19");
+  assert.equal(pkg.version, "3.0.0-beta.20");
 });
 
 async function trialFixture(): Promise<TrialFixture> {
@@ -526,6 +526,7 @@ async function writeResult(targetRepo: string, slug: string): Promise<void> {
     reproducibilityScore: 94,
     publicationSafetyScore: 96,
     specificityScore: 80,
+    antiTemplateStatus: "review_ready",
     publicHygienePassed: true,
     safetyScanPassed: true,
     reliabilityReplayPassed: true,
@@ -540,6 +541,7 @@ async function writeResult(targetRepo: string, slug: string): Promise<void> {
     publicationSafetyScore: 96,
     replayCriticalPassRate: 100,
     specificityScore: 80,
+    antiTemplateStatus: "review_ready",
     publicHygienePassed: true,
     safetyScanPassed: true,
     reliabilityReplayPassed: true,

@@ -258,3 +258,34 @@ binding and threshold satisfaction. A result with only query links, adapter
 failures, mock placeholders, or declared `fixture_fallback` records is recorded
 as degraded or `needs_revision`; it is not allowed into the public corpus as an
 autopublished result.
+
+## Beta.20 Showcase Result Documents
+
+Beta.20 promotes only high-quality, human-readable showcase results. Running
+the site build:
+
+```bash
+sovryn corpus site build --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+sovryn corpus site audit --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+```
+
+writes the following files for each selected showcase result:
+
+```text
+results/<slug>/
+  README.md
+  SHOWCASE.md
+  METHOD.md
+  REPRODUCE.md
+  LIMITATIONS.md
+  EXAMPLES.md
+```
+
+The README is rewritten for human readers with a clear problem statement,
+method, custom tool, tests, source evidence summary, counter-evidence and
+limitations, reproduction path, autopublish record, and safety scope. Showcase
+selection requires `good` or `excellent` quality, specificity score at least
+75, anti-template status `review_ready` or better, reproducibility score at
+least 90, publication-safety score at least 90, replay-critical pass rate 100,
+and public hygiene passed. Results marked `needs_revision`, `blocked`,
+`demo_pilot`, or `superseded` stay visible but cannot become showcase entries.

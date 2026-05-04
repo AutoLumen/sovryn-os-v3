@@ -30,9 +30,9 @@ let realSourceFallbackFixturePromise: Promise<{
   campaign: any;
 }> | null = null;
 
-test("package version is beta.19", async () => {
+test("package version is beta.20", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  assert.equal(pkg.version, "3.0.0-beta.19");
+  assert.equal(pkg.version, "3.0.0-beta.20");
 });
 
 test("CLI help lists external research command", async () => {

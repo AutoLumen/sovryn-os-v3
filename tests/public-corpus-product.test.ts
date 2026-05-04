@@ -412,9 +412,9 @@ test("corpus site build rejects disallowed remote", async () => {
   assert.equal(response.errors[0]?.code, "PUBLIC_CORPUS_TARGET_BLOCKED");
 });
 
-test("package version is beta.19", async () => {
+test("package version is beta.20", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  assert.equal(pkg.version, "3.0.0-beta.19");
+  assert.equal(pkg.version, "3.0.0-beta.20");
 });
 
 test("Beta.18 version groups are created", async () => {
@@ -637,7 +637,7 @@ test("Beta.18 site audit includes version group gate", async () => {
 });
 
 test("Beta.18 site audit blocks needs_revision showcase", async () => {
-  const { root, targetRepo } = await lifecycleFixture();
+  const { root, targetRepo } = await createLifecycleFixture();
   const corpus: any = await readJson(
     join(targetRepo, "public-corpus", "corpus.json"),
   );
@@ -676,6 +676,442 @@ test("Beta.18 duplicate slugs are versioned without deletion", async () => {
     ),
     true,
   );
+});
+
+test("Beta.20 package version is beta.20", async () => {
+  const pkg: any = await readJson(join(process.cwd(), "package.json"));
+  assert.equal(pkg.version, "3.0.0-beta.20");
+});
+
+test("Beta.20 showcase writes SHOWCASE.md", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  await access(
+    join(
+      targetRepo,
+      "results",
+      "chemistry-record-auditor-tool-v2-v2",
+      "SHOWCASE.md",
+    ),
+  );
+});
+
+test("Beta.20 showcase writes METHOD.md", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  await access(
+    join(
+      targetRepo,
+      "results",
+      "chemistry-record-auditor-tool-v2-v2",
+      "METHOD.md",
+    ),
+  );
+});
+
+test("Beta.20 showcase writes REPRODUCE.md", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  await access(
+    join(
+      targetRepo,
+      "results",
+      "chemistry-record-auditor-tool-v2-v2",
+      "REPRODUCE.md",
+    ),
+  );
+});
+
+test("Beta.20 showcase writes LIMITATIONS.md", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  await access(
+    join(
+      targetRepo,
+      "results",
+      "chemistry-record-auditor-tool-v2-v2",
+      "LIMITATIONS.md",
+    ),
+  );
+});
+
+test("Beta.20 showcase writes EXAMPLES.md", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  await access(
+    join(
+      targetRepo,
+      "results",
+      "chemistry-record-auditor-tool-v2-v2",
+      "EXAMPLES.md",
+    ),
+  );
+});
+
+test("Beta.20 showcase README is human-readable", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const readme = await readFile(
+    join(targetRepo, "results", "energy-usage-anomaly-auditor-v2", "README.md"),
+    "utf8",
+  );
+  assert.match(readme, /Problem Statement/);
+  assert.match(readme, /What This Catches/);
+  assert.match(readme, /What This Does Not Catch/);
+});
+
+test("Beta.20 showcase README explains tests", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const readme = await readFile(
+    join(targetRepo, "results", "patch-risk-auditor-v2", "README.md"),
+    "utf8",
+  );
+  assert.match(readme, /## Tests/);
+  assert.match(readme, /prototype and test evidence/i);
+});
+
+test("Beta.20 showcase README includes source evidence summary", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const readme = await readFile(
+    join(targetRepo, "results", "patch-risk-auditor-v2", "README.md"),
+    "utf8",
+  );
+  assert.match(readme, /Source Evidence Summary/);
+  assert.match(
+    readme,
+    /Query links,\s+adapter failures, and placeholders are not treated/,
+  );
+});
+
+test("Beta.20 showcase README includes counter-evidence and limitations", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const readme = await readFile(
+    join(
+      targetRepo,
+      "results",
+      "chemistry-record-auditor-tool-v2-v2",
+      "README.md",
+    ),
+    "utf8",
+  );
+  assert.match(readme, /Counter-Evidence And Limitations/);
+});
+
+test("Beta.20 showcase README includes reproduction path", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const readme = await readFile(
+    join(targetRepo, "results", "energy-usage-anomaly-auditor-v2", "README.md"),
+    "utf8",
+  );
+  assert.match(readme, /How To Reproduce/);
+  assert.match(readme, /REPRODUCE\.md/);
+});
+
+test("Beta.20 showcase README includes autopublish record", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const readme = await readFile(
+    join(targetRepo, "results", "patch-risk-auditor-v2", "README.md"),
+    "utf8",
+  );
+  assert.match(readme, /Autopublish Record/);
+  assert.match(readme, /AUTOPUBLISH_RECORD\.json/);
+});
+
+test("Beta.20 showcase README includes safety scope", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const readme = await readFile(
+    join(targetRepo, "results", "patch-risk-auditor-v2", "README.md"),
+    "utf8",
+  );
+  assert.match(readme, /Safety Scope/);
+  assert.match(readme, /unsafe activity/);
+});
+
+test("Beta.20 METHOD.md includes architecture diagram", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const method = await readFile(
+    join(targetRepo, "results", "energy-usage-anomaly-auditor-v2", "METHOD.md"),
+    "utf8",
+  );
+  assert.match(method, /flowchart LR/);
+  assert.match(method, /Tool Architecture/);
+});
+
+test("Beta.20 METHOD.md includes worker assurance", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const method = await readFile(
+    join(
+      targetRepo,
+      "results",
+      "chemistry-record-auditor-tool-v2-v2",
+      "METHOD.md",
+    ),
+    "utf8",
+  );
+  assert.match(method, /Worker assurance: container-netoff/);
+});
+
+test("Beta.20 EXAMPLES.md explains useful catches", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const examples = await readFile(
+    join(
+      targetRepo,
+      "results",
+      "energy-usage-anomaly-auditor-v2",
+      "EXAMPLES.md",
+    ),
+    "utf8",
+  );
+  assert.match(examples, /Duplicate timestamp/);
+  assert.match(examples, /weather baseline/);
+});
+
+test("Beta.20 EXAMPLES.md explains non-overclaim scope", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const examples = await readFile(
+    join(targetRepo, "results", "patch-risk-auditor-v2", "EXAMPLES.md"),
+    "utf8",
+  );
+  assert.match(examples, /does not exploit real repositories/i);
+  assert.match(examples, /does not prove that a pull request is malicious/i);
+});
+
+test("Beta.20 LIMITATIONS.md requires human review", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const limitations = await readFile(
+    join(
+      targetRepo,
+      "results",
+      "chemistry-record-auditor-tool-v2-v2",
+      "LIMITATIONS.md",
+    ),
+    "utf8",
+  );
+  assert.match(limitations, /Human Review Still Required/);
+});
+
+test("Beta.20 showcase API includes documentation flags", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const api: any = await readJson(
+    join(targetRepo, "public-corpus", "api", "showcase.json"),
+  );
+  assert.equal(api.results[0].showcaseDocumentation.showcase, true);
+  assert.equal(api.results[0].showcaseDocumentation.reproduce, true);
+});
+
+test("Beta.20 aggregate showcase includes documentation flags", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const aggregate: any = await readJson(
+    join(targetRepo, "aggregate", "showcase-results.json"),
+  );
+  assert.equal(aggregate.results[0].showcaseDocumentation.method, true);
+});
+
+test("Beta.20 showcase requires specificity threshold", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const showcase: any = await readJson(
+    join(targetRepo, "aggregate", "showcase-results.json"),
+  );
+  assert.equal(
+    showcase.results.every((item: any) => item.specificityScore >= 75),
+    true,
+  );
+});
+
+test("Beta.20 showcase requires anti-template ready status", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const showcase: any = await readJson(
+    join(targetRepo, "aggregate", "showcase-results.json"),
+  );
+  assert.equal(
+    showcase.results.every((item: any) =>
+      /^review_ready/.test(item.antiTemplateStatus),
+    ),
+    true,
+  );
+});
+
+test("Beta.20 patch-risk-auditor-v2 is showcase after revision", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const index: any = await readJson(join(targetRepo, "INDEX.json"));
+  const patch = index.results.find(
+    (item: any) => item.slug === "patch-risk-auditor-v2",
+  );
+  assert.equal(patch.lifecycleStatus, "showcase");
+  assert.match(patch.antiTemplateStatus, /^review_ready/);
+});
+
+test("Beta.20 patch-risk-auditor original is not showcase", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const index: any = await readJson(join(targetRepo, "INDEX.json"));
+  const patch = index.results.find(
+    (item: any) => item.slug === "patch-risk-auditor",
+  );
+  assert.notEqual(patch.lifecycleStatus, "showcase");
+});
+
+test("Beta.20 evidence-chain-v2 is not showcase when specificity is weak", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const index: any = await readJson(join(targetRepo, "INDEX.json"));
+  const evidence = index.results.find(
+    (item: any) => item.slug === "evidence-chain-v2",
+  );
+  assert.equal(evidence, undefined);
+});
+
+test("Beta.20 showcase public page links docs", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const html = await readFile(
+    join(targetRepo, "public-corpus", "showcase.html"),
+    "utf8",
+  );
+  assert.match(html, /SHOWCASE\.md/);
+  assert.match(html, /REPRODUCE\.md/);
+  assert.match(html, /LIMITATIONS\.md/);
+  assert.match(html, /EXAMPLES\.md/);
+});
+
+test("Beta.20 result page links showcase docs", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const html = await readFile(
+    join(targetRepo, "public-corpus", "results", "patch-risk-auditor-v2.html"),
+    "utf8",
+  );
+  assert.match(html, /METHOD\.md/);
+  assert.match(html, /EXAMPLES\.md/);
+});
+
+test("Beta.20 root README explains showcase documents", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const readme = await readFile(join(targetRepo, "README.md"), "utf8");
+  assert.match(readme, /SHOWCASE\.md, METHOD\.md, REPRODUCE\.md/);
+});
+
+test("Beta.20 verification explains showcase thresholds", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const verification = await readFile(
+    join(targetRepo, "VERIFICATION.md"),
+    "utf8",
+  );
+  assert.match(verification, /specificity, anti-template, reproducibility/);
+});
+
+test("Beta.20 showcase report includes specificity", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const report = await readFile(
+    join(targetRepo, "SHOWCASE_RESULTS.md"),
+    "utf8",
+  );
+  assert.match(report, /Specificity:/);
+  assert.match(report, /Anti-template status:/);
+});
+
+test("Beta.20 site audit checks readable showcase README", async () => {
+  const { root, targetRepo } = await lifecycleFixture();
+  const response = await executeCli(
+    ["corpus", "site", "audit", "--target-repo", targetRepo, "--json"],
+    root,
+  );
+  const gate = (response.data as any).audit.gates.find(
+    (item: any) => item.code === "SHOWCASE_README_HUMAN_READABLE",
+  );
+  assert.equal(gate.passed, true);
+});
+
+test("Beta.20 site audit checks reproduction docs", async () => {
+  const { root, targetRepo } = await lifecycleFixture();
+  const response = await executeCli(
+    ["corpus", "site", "audit", "--target-repo", targetRepo, "--json"],
+    root,
+  );
+  const gate = (response.data as any).audit.gates.find(
+    (item: any) => item.code === "SHOWCASE_REPRODUCTION_INSTRUCTIONS_PRESENT",
+  );
+  assert.equal(gate.passed, true);
+});
+
+test("Beta.20 site audit checks examples docs", async () => {
+  const { root, targetRepo } = await lifecycleFixture();
+  const response = await executeCli(
+    ["corpus", "site", "audit", "--target-repo", targetRepo, "--json"],
+    root,
+  );
+  const gate = (response.data as any).audit.gates.find(
+    (item: any) => item.code === "SHOWCASE_EXAMPLES_PRESENT",
+  );
+  assert.equal(gate.passed, true);
+});
+
+test("Beta.20 site audit checks quality thresholds", async () => {
+  const { root, targetRepo } = await lifecycleFixture();
+  const response = await executeCli(
+    ["corpus", "site", "audit", "--target-repo", targetRepo, "--json"],
+    root,
+  );
+  const gate = (response.data as any).audit.gates.find(
+    (item: any) => item.code === "SHOWCASE_QUALITY_THRESHOLDS_PASSED",
+  );
+  assert.equal(gate.passed, true);
+});
+
+test("Beta.20 site audit checks anti-template readiness", async () => {
+  const { root, targetRepo } = await lifecycleFixture();
+  const response = await executeCli(
+    ["corpus", "site", "audit", "--target-repo", targetRepo, "--json"],
+    root,
+  );
+  const gate = (response.data as any).audit.gates.find(
+    (item: any) => item.code === "ANTI_TEMPLATE_READY_FOR_SHOWCASE",
+  );
+  assert.equal(gate.passed, true);
+});
+
+test("Beta.20 site audit blocks missing showcase docs", async () => {
+  const { root, targetRepo } = await createLifecycleFixture();
+  await writeFile(
+    join(targetRepo, "results", "patch-risk-auditor-v2", "EXAMPLES.md"),
+    "",
+    "utf8",
+  );
+  const response = await executeCli(
+    ["corpus", "site", "audit", "--target-repo", targetRepo, "--json"],
+    root,
+  );
+  const gate = (response.data as any).audit.gates.find(
+    (item: any) => item.code === "SHOWCASE_EXAMPLES_PRESENT",
+  );
+  assert.equal(gate.passed, false);
+});
+
+test("Beta.20 public hygiene passes after showcase docs", async () => {
+  const { root, targetRepo } = await lifecycleFixture();
+  const response = await executeCli(
+    ["corpus", "site", "audit", "--target-repo", targetRepo, "--json"],
+    root,
+  );
+  const gate = (response.data as any).audit.gates.find(
+    (item: any) => item.code === "NO_CORPUS_LEAKS",
+  );
+  assert.equal(gate.passed, true);
+});
+
+test("Beta.20 showcase docs exclude raw log language", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const showcase = await readFile(
+    join(targetRepo, "results", "patch-risk-auditor-v2", "SHOWCASE.md"),
+    "utf8",
+  );
+  assert.doesNotMatch(showcase, /stdout\s*:/i);
+  assert.doesNotMatch(showcase, /stderr\s*:/i);
+});
+
+test("Beta.20 showcase docs exclude local absolute paths", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const reproduce = await readFile(
+    join(
+      targetRepo,
+      "results",
+      "energy-usage-anomaly-auditor-v2",
+      "REPRODUCE.md",
+    ),
+    "utf8",
+  );
+  assert.doesNotMatch(reproduce, /\/Users\//);
+  assert.doesNotMatch(reproduce, /\/home\//);
 });
 
 async function productFixture(): Promise<ProductFixture> {

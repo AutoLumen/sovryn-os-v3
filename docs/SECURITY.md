@@ -242,6 +242,12 @@ only. Query links, adapter failures, mock placeholders, and declared fixture
 fallbacks are not treated as reviewed prior art, and real-source campaign
 autopublish is blocked unless concrete-source-card thresholds are met.
 
+Beta.20 applies the same public hygiene rules to generated showcase documents.
+Result `README.md`, `SHOWCASE.md`, `METHOD.md`, `REPRODUCE.md`,
+`LIMITATIONS.md`, and `EXAMPLES.md` are public artifacts, so site audit checks
+that showcase outputs remain free of raw logs, secrets, local absolute paths,
+private config, unsafe content, and fake legal claims.
+
 Alpha.25 adds security, reliability, and abuse audit commands:
 
 ```bash

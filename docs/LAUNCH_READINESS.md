@@ -1,6 +1,6 @@
 # Launch Readiness
 
-Sovryn OS v3 `3.0.0-beta.19` includes launch-readiness commands for local
+Sovryn OS v3 `3.0.0-beta.20` includes launch-readiness commands for local
 public beta or v1.0-RC review:
 
 ```bash
@@ -47,12 +47,16 @@ Beta.19 adds real-source campaign evidence as a launch-readiness input:
 showcase and corpus candidates are stronger when source cards are bound to
 concrete public-source adapter/cache results rather than fixture fallback,
 query links, adapter failures, or mock placeholders.
+Beta.20 adds showcase readability as a launch-readiness input: selected
+showcase results must include README, SHOWCASE, METHOD, REPRODUCE, LIMITATIONS,
+and EXAMPLES documents with clear problem/method/test/limitation language.
 `corpus site build` now writes `aggregate/version-groups.json`,
 `aggregate/superseded-map.json`, `aggregate/showcase-results.json`,
 `aggregate/revision-queue.json`, and status reports. The site audit checks that
 `needs_revision`, `blocked`, `demo_pilot`, and `superseded` results are not
 showcase outputs and that `INDEX.json` includes lifecycle fields for every
-result.
+result. It also checks showcase documentation, specificity thresholds,
+anti-template readiness, and public showcase links.
 
 Beta.9 writes three pilot release-candidate records under `.sovryn/pilots/`.
 Each pilot includes Factory/Open Invention bindings, quality evaluation,

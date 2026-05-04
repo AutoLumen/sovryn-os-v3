@@ -1,6 +1,6 @@
 # Beta Operationalization
 
-Sovryn OS v3 `3.0.0-beta.19` adds an operational proof layer above the Alpha
+Sovryn OS v3 `3.0.0-beta.20` adds an operational proof layer above the Alpha
 Factory. The goal is to show that Sovryn can run bounded autonomous research
 workflows, measure quality, keep publication governed, execute worker jobs
 without silent fallback, export a public corpus, and produce three
@@ -43,6 +43,13 @@ reliability domains with public-source search enabled, writes
 matrices, counter-evidence, experiment plans, benchmark plans, and pilot
 bindings, then allows corpus autopublish only when concrete-source thresholds
 are met.
+Beta.20 upgrades the public showcase layer. `corpus site build` now rewrites
+the selected showcase result READMEs for humans and writes `SHOWCASE.md`,
+`METHOD.md`, `REPRODUCE.md`, `LIMITATIONS.md`, and `EXAMPLES.md` for each
+showcase result. Showcase selection requires good or excellent quality,
+specificity at or above 75, anti-template status `review_ready` or better,
+reproducibility at or above 90, publication safety at or above 90, replay
+critical pass rate 100, and public-hygiene-clean output.
 
 Sovryn produces Open Inventions, Defensive Publications, and Open Source
 Research Artifacts. It does not file legal patents and does not provide legal

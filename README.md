@@ -24,10 +24,15 @@ Sovryn produces Open Inventions, Defensive Publications, and Open Source
 Research Artifacts. It does not file legal patents and does not provide legal
 novelty, patentability, or freedom-to-operate opinions.
 
-## Current Alpha And Beta Line
+## Current Beta Line
 
-The latest Alpha line turns the early Open-Invention Factory into a
-beta-demonstrable autonomous research system:
+Sovryn OS v3 is now in the Beta operationalization line. The Alpha line built
+the Open-Invention Factory, Research Opportunity Engine, Quality Evaluator,
+Worker profiles, Corpus memory, public release audits, and beta demo path. The
+Beta line proves that those systems can operate together under bounded,
+auditable, no-autopublish conditions.
+
+The late Alpha milestones were:
 
 | Version          | Focus                             | Result                                                                                                                        |
 | ---------------- | --------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- |
@@ -38,11 +43,11 @@ beta-demonstrable autonomous research system:
 | `3.0.0-alpha.25` | Security/Reliability/Abuse Audits | Adds repo-level audits for public leaks, unsafe commands, replay consistency, dangerous goals, and fake legal/sandbox claims. |
 | `3.0.0-alpha.26` | Beta Prep                         | Adds beta check, beta demo, and beta package commands for a reproducible public demo path.                                    |
 
-The project is still Alpha software, but Alpha.26 is the first integrated beta
-candidate path: release candidates, quality, security audit, reliability audit,
-public corpus export, and curated beta packaging are all connected.
+Alpha.26 was the first integrated beta-candidate path: release candidates,
+quality evaluation, security audit, reliability audit, public corpus export, and
+curated beta packaging are all connected.
 
-The Beta.1-Beta.6 operationalization line builds on Alpha.26:
+The current Beta.1-Beta.6 operationalization line builds on Alpha.26:
 
 | Version        | Focus                         | Result                                                                                                                                     |
 | -------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -52,6 +57,11 @@ The Beta.1-Beta.6 operationalization line builds on Alpha.26:
 | `3.0.0-beta.4` | Research Quality Benchmarking | Adds a curated benchmark suite for source quality, claim mapping, counter-evidence, prototypes, tests, reproducibility, and safety.        |
 | `3.0.0-beta.5` | Public Corpus Discovery/API   | Exports a public corpus site/API with inventions, sources, quality labels, duplicate clusters, release readiness, and explanation reports. |
 | `3.0.0-beta.6` | Launch Readiness              | Adds launch check/demo/package and pilot run/report flows for public beta or v1.0-RC readiness decisions.                                  |
+
+At `3.0.0-beta.6`, Sovryn can run local autonomy campaigns, build release
+candidates, govern publication queues, execute worker jobs, benchmark research
+quality, export a public corpus API/site shell, and produce launch/pilot
+evidence. It still deliberately avoids real autonomous publication by default.
 
 The beta operations line preserves the same operating rules:
 
@@ -66,6 +76,17 @@ The beta operations line preserves the same operating rules:
   approval allow it;
 - write evidence for every autonomous workflow;
 - keep tests, docs, smoke flows, and reports attached to each milestone.
+
+### What Beta.6 Is And Is Not
+
+Beta.6 is a local, reproducible operating proof for the Sovryn research factory.
+It is meant to show that the factory can coordinate bounded research runs,
+evaluate quality, audit outputs, and prepare public review packages.
+
+Beta.6 is not an autonomous legal-patent system, not a guarantee of novelty, not
+a freedom-to-operate opinion, and not a permissionless autopublisher. Real
+GitHub publication remains disabled unless explicit strict policy, approval
+evidence, and existing Sovryn publication gates allow it.
 
 ## Install
 
@@ -180,6 +201,7 @@ sovryn publication queue --json
 sovryn publication review <candidate-id> --json
 sovryn publication approve <candidate-id> --json
 sovryn publication publish <candidate-id> --dry-run --json
+sovryn publication publish <candidate-id> --real --json
 sovryn publication audit <candidate-id> --json
 sovryn benchmark research run --json
 sovryn benchmark research report --json
@@ -562,6 +584,46 @@ default through `publication.allowAutonomousPublish: false`, requires explicit
 approval evidence, and still goes through Sovryn quality, security,
 reliability, Open Invention, and GitHub publication gates. GitHub credentials
 remain controller-owned and are never written to public artifacts.
+
+## Launch And Pilot Readiness
+
+Beta.6 adds the launch-readiness layer for public beta or v1.0-RC review:
+
+```bash
+sovryn launch check --json
+sovryn launch demo --json
+sovryn launch package --json
+sovryn pilot run --scenario autonomous-research --json
+sovryn pilot report --json
+```
+
+Launch evidence is written under `.sovryn/launch/`:
+
+```text
+.sovryn/launch/
+  launch-check.json
+  launch-demo.json
+  launch-package.json
+  pilot-results.json
+  LAUNCH_READINESS.md
+  PILOT_REPORT.md
+```
+
+The launch flow aggregates beta demo evidence, release-candidate evidence,
+security audit evidence, reliability replay evidence, public corpus export
+evidence, and pilot results. It does not publish to GitHub. It is a readiness
+decision workflow for humans and policy, not an automatic release switch.
+
+The recommended pilot scenarios are:
+
+- evidence chains in autonomous research agents;
+- policy-gated toolchain installation on Linux research nodes;
+- corpus deduplication of defensive publications.
+
+Each pilot should produce an Opportunity, Factory run, source evidence, claim
+matrix, counter-evidence, prototype/tests, worker execution or unavailable
+worker evidence, replay, quality evaluation, audit evidence, release candidate,
+corpus entry, and public demo bundle.
 
 ## Release Candidates
 

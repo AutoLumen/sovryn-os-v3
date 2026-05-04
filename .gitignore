@@ -28,4 +28,5 @@ graphify-out/graph.json
 .sovryn/publication/
 .sovryn/benchmarks/
 .sovryn/launch/
+.sovryn/e2e/
 public-corpus/

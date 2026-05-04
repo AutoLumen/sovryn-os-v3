@@ -45,9 +45,9 @@ test("CLI help lists Beta operationalization commands", async () => {
   }
 });
 
-test("package version is beta.6", async () => {
+test("package version is beta.7", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  assert.equal(pkg.version, "3.0.0-beta.6");
+  assert.equal(pkg.version, "3.0.0-beta.7");
 });
 
 test("init ignores new operational evidence directories", async () => {
@@ -59,6 +59,7 @@ test("init ignores new operational evidence directories", async () => {
     ".sovryn/publication/",
     ".sovryn/benchmarks/",
     ".sovryn/launch/",
+    ".sovryn/e2e/",
     "public-corpus/",
   ]) {
     assert.match(gitignore, new RegExp(escapeRegExp(line)));

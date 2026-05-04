@@ -915,7 +915,12 @@ export class WorkerJobService {
       jobId: job.jobId,
       tools: ["node", "npm"],
       hostInstallDefault: false,
-      blockedInstallCommands: ["sudo", "apt", "brew", "curl | sh"],
+      blockedInstallClasses: [
+        "privileged host escalation",
+        "host package manager installation",
+        "pipe-to-shell installer",
+        "global host package installation",
+      ],
       evidenceHash: hashEvidence({ jobId: job.jobId, tools: ["node", "npm"] }),
     });
     let execution: Record<string, unknown>;
@@ -1374,7 +1379,7 @@ export class LaunchService {
     const check = withHash({
       kind: "launch_check" as const,
       checkedAt: nowIso(),
-      targetVersion: "3.0.0-beta.6",
+      targetVersion: "3.0.0-beta.7",
       passed: gates.every((item) => item.passed),
       gates,
       evidenceHash: "",

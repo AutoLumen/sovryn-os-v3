@@ -1,5 +1,22 @@
 # Changelog
 
+## 3.0.0-beta.7
+
+- Added the Beta.7 end-to-end validation harness with `sovryn e2e doctor`,
+  `sovryn e2e run --profile beta-fixture`, and `sovryn e2e report`.
+- Added `.sovryn/e2e/` evidence for build sanity, fresh-repo initialization,
+  beta flow, autonomy campaign, Factory/Open Invention flow, worker validation,
+  quality/benchmark flow, publication governance dry-run, audit/safety flow,
+  corpus export, launch/pilot flow, scorecards, failures, risk registers, and
+  reports.
+- Added deterministic fixture E2E execution from built `dist/cli.js`, including
+  a fresh temporary Git repository, curated public artifact scans, no-real-
+  publication checks, no-silent-fallback checks, and degraded readiness
+  reporting.
+- Added E2E tests and demo docs under `examples/e2e-beta-demo/`.
+- Hardened worker toolchain evidence wording so blocked installer classes do
+  not look like executable unsafe commands in security audits.
+
 ## 3.0.0-beta.6
 
 - Added Beta operationalization commands for autonomy campaigns, publication

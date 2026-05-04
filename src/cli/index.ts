@@ -13,6 +13,7 @@ import {
   FactoryService,
   type FactoryRunMode,
 } from "../core/factory/factory-service.js";
+import { E2EService } from "../core/e2e/e2e-service.js";
 import { InventionService } from "../core/invention/invention-service.js";
 import { MissionService } from "../core/mission/mission-service.js";
 import { NodeManager } from "../core/node/node-manager.js";
@@ -151,6 +152,9 @@ Commands:
   sovryn launch package [--json]
   sovryn pilot run --scenario autonomous-research [--json]
   sovryn pilot report [--json]
+  sovryn e2e doctor [--json]
+  sovryn e2e run --profile beta-fixture [--json]
+  sovryn e2e report [--json]
   sovryn invention status <mission-id> [--json]
   sovryn invention dossier <mission-id> [--json]
   sovryn invention verify <mission-id> [--json]
@@ -457,6 +461,16 @@ export async function executeCli(
       case "pilot": {
         const result = await pilotCommand(parsed, root);
         return okEnvelope("pilot", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
+      case "e2e": {
+        const result = await e2eCommand(parsed, root);
+        return okEnvelope("e2e", result, {
           artifactRefs: Array.isArray(result.artifactRefs)
             ? result.artifactRefs.filter(
                 (value): value is string => typeof value === "string",
@@ -916,6 +930,29 @@ async function pilotCommand(
       throw new AppError(
         "PILOT_COMMAND_REQUIRED",
         "Use: sovryn pilot <run|report>.",
+      );
+  }
+}
+
+async function e2eCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const service = new E2EService(root);
+  switch (subcommand) {
+    case "doctor":
+      return service.doctor();
+    case "run":
+      return service.run(
+        flagString(parsed.flags, "--profile") ?? "beta-fixture",
+      );
+    case "report":
+      return service.report();
+    default:
+      throw new AppError(
+        "E2E_COMMAND_REQUIRED",
+        "Use: sovryn e2e <doctor|run|report>.",
       );
   }
 }

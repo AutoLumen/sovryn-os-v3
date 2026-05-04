@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `3.0.0-beta.6`
+Current version: `3.0.0-beta.7`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -47,21 +47,23 @@ Alpha.26 was the first integrated beta-candidate path: release candidates,
 quality evaluation, security audit, reliability audit, public corpus export, and
 curated beta packaging are all connected.
 
-The current Beta.1-Beta.6 operationalization line builds on Alpha.26:
+The current Beta.1-Beta.7 operationalization line builds on Alpha.26:
 
-| Version        | Focus                         | Result                                                                                                                                     |
-| -------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| `3.0.0-beta.1` | Real Autonomy Validation      | Runs bounded autonomy campaigns, measures success/block/replay/quality rates, and writes autonomy scorecards without real publication.     |
-| `3.0.0-beta.2` | GitHub Publication Governance | Adds publication queue, approval ledger, strict real-publish policy, org/token-scope checks, and dry-run-first release operations.         |
-| `3.0.0-beta.3` | Persistent Node Alpha Worker  | Adds opt-in worker registration, job queues, heartbeat, toolchain policy enforcement, controlled execution, evidence upload, and cleanup.  |
-| `3.0.0-beta.4` | Research Quality Benchmarking | Adds a curated benchmark suite for source quality, claim mapping, counter-evidence, prototypes, tests, reproducibility, and safety.        |
-| `3.0.0-beta.5` | Public Corpus Discovery/API   | Exports a public corpus site/API with inventions, sources, quality labels, duplicate clusters, release readiness, and explanation reports. |
-| `3.0.0-beta.6` | Launch Readiness              | Adds launch check/demo/package and pilot run/report flows for public beta or v1.0-RC readiness decisions.                                  |
+| Version        | Focus                         | Result                                                                                                                                      |
+| -------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
+| `3.0.0-beta.1` | Real Autonomy Validation      | Runs bounded autonomy campaigns, measures success/block/replay/quality rates, and writes autonomy scorecards without real publication.      |
+| `3.0.0-beta.2` | GitHub Publication Governance | Adds publication queue, approval ledger, strict real-publish policy, org/token-scope checks, and dry-run-first release operations.          |
+| `3.0.0-beta.3` | Persistent Node Alpha Worker  | Adds opt-in worker registration, job queues, heartbeat, toolchain policy enforcement, controlled execution, evidence upload, and cleanup.   |
+| `3.0.0-beta.4` | Research Quality Benchmarking | Adds a curated benchmark suite for source quality, claim mapping, counter-evidence, prototypes, tests, reproducibility, and safety.         |
+| `3.0.0-beta.5` | Public Corpus Discovery/API   | Exports a public corpus site/API with inventions, sources, quality labels, duplicate clusters, release readiness, and explanation reports.  |
+| `3.0.0-beta.6` | Launch Readiness              | Adds launch check/demo/package and pilot run/report flows for public beta or v1.0-RC readiness decisions.                                   |
+| `3.0.0-beta.7` | E2E Validation Harness        | Runs a fresh-repo fixture proof from init through beta, autonomy, Factory, worker, publication dry-run, audits, corpus, launch, and report. |
 
-At `3.0.0-beta.6`, Sovryn can run local autonomy campaigns, build release
+At `3.0.0-beta.7`, Sovryn can run local autonomy campaigns, build release
 candidates, govern publication queues, execute worker jobs, benchmark research
 quality, export a public corpus API/site shell, and produce launch/pilot
-evidence. It still deliberately avoids real autonomous publication by default.
+evidence, then validate the full path through a deterministic fresh-repo E2E
+harness. It still deliberately avoids real autonomous publication by default.
 
 The beta operations line preserves the same operating rules:
 
@@ -77,13 +79,13 @@ The beta operations line preserves the same operating rules:
 - write evidence for every autonomous workflow;
 - keep tests, docs, smoke flows, and reports attached to each milestone.
 
-### What Beta.6 Is And Is Not
+### What Beta.7 Is And Is Not
 
-Beta.6 is a local, reproducible operating proof for the Sovryn research factory.
+Beta.7 is a local, reproducible operating proof for the Sovryn research factory.
 It is meant to show that the factory can coordinate bounded research runs,
 evaluate quality, audit outputs, and prepare public review packages.
 
-Beta.6 is not an autonomous legal-patent system, not a guarantee of novelty, not
+Beta.7 is not an autonomous legal-patent system, not a guarantee of novelty, not
 a freedom-to-operate opinion, and not a permissionless autopublisher. Real
 GitHub publication remains disabled unless explicit strict policy, approval
 evidence, and existing Sovryn publication gates allow it.
@@ -222,6 +224,9 @@ sovryn launch demo --json
 sovryn launch package --json
 sovryn pilot run --scenario autonomous-research --json
 sovryn pilot report --json
+sovryn e2e doctor --json
+sovryn e2e run --profile beta-fixture --json
+sovryn e2e report --json
 sovryn worker doctor --profile container-local --json
 sovryn worker doctor --profile container-netoff --json
 sovryn worker doctor --all --json
@@ -549,11 +554,11 @@ novelty, patentability, or freedom-to-operate opinions.
 
 ## Beta Operations
 
-Beta.1 through Beta.6 add operational proof workflows around the Alpha factory.
+Beta.1 through Beta.7 add operational proof workflows around the Alpha factory.
 They are local Evidence workflows: they measure autonomy, govern publication
 queues, coordinate worker jobs, benchmark research quality, export a public
-corpus API, and package launch/pilot evidence. They do not perform real GitHub
-publication by default.
+corpus API, package launch/pilot evidence, and validate the whole path with a
+fresh-repo E2E harness. They do not perform real GitHub publication by default.
 
 ```bash
 sovryn autonomy campaign plan --goal "Improve autonomous open-source research agents" --runs 10 --json
@@ -566,6 +571,7 @@ sovryn benchmark research run --json
 sovryn corpus api export --json
 sovryn launch check --json
 sovryn pilot run --scenario autonomous-research --json
+sovryn e2e run --profile beta-fixture --json
 ```
 
 Operational artifacts are written under:
@@ -576,6 +582,7 @@ Operational artifacts are written under:
 .sovryn/workers/alpha/
 .sovryn/benchmarks/
 .sovryn/launch/
+.sovryn/e2e/
 public-corpus/api/
 ```
 
@@ -624,6 +631,55 @@ Each pilot should produce an Opportunity, Factory run, source evidence, claim
 matrix, counter-evidence, prototype/tests, worker execution or unavailable
 worker evidence, replay, quality evaluation, audit evidence, release candidate,
 corpus entry, and public demo bundle.
+
+## End-to-End Validation
+
+Beta.7 adds a deterministic fixture-backed validation harness:
+
+```bash
+sovryn e2e doctor --json
+sovryn e2e run --profile beta-fixture --json
+sovryn e2e report --json
+```
+
+The E2E runner creates a fresh temporary Git repository and invokes the built
+`dist/cli.js` through the same public CLI surface a user would run. It verifies
+the path from initialization through beta demo/check/package, autonomy campaign,
+Factory/Open-Invention packaging, worker/Node Alpha validation, benchmark and
+quality reporting, publication governance dry-run, security/reliability/safety
+audits, corpus export, launch, and pilot reports.
+
+E2E artifacts are written under `.sovryn/e2e/`:
+
+```text
+.sovryn/e2e/
+  build-sanity.json
+  fresh-repo-init.json
+  beta-flow.json
+  autonomy-flow.json
+  factory-flow.json
+  worker-flow.json
+  quality-benchmark-flow.json
+  publication-flow.json
+  audit-safety-flow.json
+  corpus-flow.json
+  launch-pilot-flow.json
+  e2e-run.json
+  e2e-events.jsonl
+  e2e-command-results.json
+  e2e-artifacts.json
+  e2e-scorecard.json
+  e2e-failures.json
+  E2E_REPORT.md
+  E2E_ARTIFACT_TREE.md
+  E2E_RISK_REGISTER.md
+```
+
+The harness blocks or degrades the scorecard for critical public leaks,
+unexpected real publication, silent container-to-host fallback, missing Factory
+runs, missing release candidates, unavailable worker profiles, stale replay
+evidence, and unsafe safety-scan results. It does not require public network
+access in `beta-fixture` mode and does not perform real GitHub publication.
 
 ## Release Candidates
 

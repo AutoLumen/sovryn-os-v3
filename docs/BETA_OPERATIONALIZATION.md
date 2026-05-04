@@ -1,6 +1,6 @@
 # Beta Operationalization
 
-Sovryn OS v3 `3.0.0-beta.6` adds an operational proof layer above the Alpha
+Sovryn OS v3 `3.0.0-beta.7` adds an operational proof layer above the Alpha
 Factory. The goal is to show that Sovryn can run bounded autonomous research
 workflows, measure quality, keep publication governed, execute worker jobs
 without silent fallback, export a public corpus, and produce launch/pilot
@@ -43,6 +43,7 @@ sovryn publication queue --json
 sovryn publication review <candidate-id> --json
 sovryn publication approve <candidate-id> --json
 sovryn publication publish <candidate-id> --dry-run --json
+sovryn publication publish <candidate-id> --real --json
 sovryn publication audit <candidate-id> --json
 ```
 
@@ -120,3 +121,19 @@ Launch checks aggregate beta, audit, reliability, public corpus, and no-leak
 signals. Pilot runs create end-to-end evidence for real-world scenarios while
 keeping real publication disabled unless a later operator explicitly approves a
 strict gated publish.
+
+## Beta.7 E2E Validation
+
+```bash
+sovryn e2e doctor --json
+sovryn e2e run --profile beta-fixture --json
+sovryn e2e report --json
+```
+
+The E2E harness creates a fresh temporary Git repository and invokes the built
+`dist/cli.js`. It validates init, beta demo/check/package, autonomy campaign,
+Factory/Open-Invention packaging, worker validation, benchmarks, publication
+dry-run governance, audits, corpus export, launch, and pilot evidence.
+
+Artifacts are written under `.sovryn/e2e/`. The harness is fixture-backed and
+deterministic by default. It never performs real GitHub publication.

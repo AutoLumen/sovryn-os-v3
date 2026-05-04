@@ -13,6 +13,7 @@ import {
 import { InventionService } from "../core/invention/invention-service.js";
 import { MissionService } from "../core/mission/mission-service.js";
 import { NodeManager } from "../core/node/node-manager.js";
+import { ResearchOpportunityEngine } from "../core/research/opportunity-engine.js";
 import { workerDoctor } from "../core/worker/worker-doctor.js";
 import { runCommand } from "../adapters/shell/command.js";
 import { loadPlugins } from "../plugins/loader.js";
@@ -49,6 +50,12 @@ Commands:
   sovryn factory replay <factory-id> [--json]
   sovryn factory improve <factory-id> [--max-cycles 2] [--json]
   sovryn factory publish-github <factory-id> --dry-run [--json]
+  sovryn research scan --goal "<broad-goal>" [--json]
+  sovryn research queue build --goal "<broad-goal>" [--json]
+  sovryn research queue status [--json]
+  sovryn research queue run [--max-runs 3] [--json]
+  sovryn research opportunity review <opportunity-id> [--json]
+  sovryn research morning-report [--json]
   sovryn worker doctor --profile container-local [--json]
   sovryn invention status <mission-id> [--json]
   sovryn invention dossier <mission-id> [--json]
@@ -201,6 +208,16 @@ export async function executeCli(
         return okEnvelope("node", await nodeCommand(parsed, root));
       case "worker":
         return okEnvelope("worker", await workerCommand(parsed, root));
+      case "research": {
+        const result = await researchCommand(parsed, root);
+        return okEnvelope("research", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
       case "factory": {
         const result = await factoryCommand(parsed, root);
         return okEnvelope("factory", result, {
@@ -221,6 +238,76 @@ export async function executeCli(
     }
   } catch (error) {
     return errorEnvelope(parsed.command, error);
+  }
+}
+
+async function researchCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  if (!subcommand) {
+    throw new AppError(
+      "RESEARCH_COMMAND_REQUIRED",
+      "Use: sovryn research <scan|queue|opportunity|morning-report>.",
+    );
+  }
+  const engine = new ResearchOpportunityEngine(root);
+  switch (subcommand) {
+    case "scan": {
+      const goal = flagString(parsed.flags, "--goal");
+      if (!goal) {
+        throw new AppError(
+          "RESEARCH_GOAL_REQUIRED",
+          "research scan requires --goal.",
+        );
+      }
+      return engine.scan(goal);
+    }
+    case "queue": {
+      const queueCommand = parsed.positionals[1];
+      switch (queueCommand) {
+        case "build": {
+          const goal = flagString(parsed.flags, "--goal");
+          if (!goal) {
+            throw new AppError(
+              "RESEARCH_GOAL_REQUIRED",
+              "research queue build requires --goal.",
+            );
+          }
+          return engine.buildQueue(goal);
+        }
+        case "status":
+          return engine.status();
+        case "run":
+          return engine.runQueue({
+            maxRuns: flagInt(parsed.flags, "--max-runs", 1),
+          });
+        default:
+          throw new AppError(
+            "RESEARCH_QUEUE_COMMAND_REQUIRED",
+            "Use: sovryn research queue <build|status|run>.",
+          );
+      }
+    }
+    case "opportunity": {
+      const action = parsed.positionals[1];
+      const id = parsed.positionals[2];
+      if (action !== "review" || !id) {
+        throw new AppError(
+          "RESEARCH_OPPORTUNITY_USAGE",
+          "Use: sovryn research opportunity review <opportunity-id>.",
+        );
+      }
+      return engine.reviewOpportunity(id);
+    }
+    case "morning-report":
+      return engine.morningReport();
+    default:
+      throw new AppError(
+        "UNKNOWN_RESEARCH_COMMAND",
+        `Unknown research command: ${subcommand}`,
+      );
   }
 }
 

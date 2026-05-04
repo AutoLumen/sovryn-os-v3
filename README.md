@@ -55,6 +55,10 @@ sovryn factory improve <factory-id> --max-cycles 2 --json
 sovryn factory replay <factory-id> --json
 sovryn factory package <factory-id> --json
 sovryn factory publish-github <factory-id> --dry-run --json
+sovryn research scan --goal "Improve autonomous open-source research agents" --json
+sovryn research queue build --goal "Improve autonomous open-source research agents" --json
+sovryn research queue run --max-runs 1 --json
+sovryn research morning-report --json
 sovryn worker doctor --profile container-local --json
 sovryn node register alpha --host local --json
 sovryn node run alpha <mission-id> --json
@@ -216,6 +220,62 @@ Factory strictness is controlled under `research.factory`:
       "minReadingDepthScore": 40,
       "minClaimMappingScore": 50,
       "minNoveltyRiskScore": 50
+    }
+  }
+}
+```
+
+## Research Opportunity Engine
+
+Alpha.15 adds a Research Opportunity Engine above Factory Mode. The engine is a
+portfolio manager for autonomous open research: it scans broad goals, previous
+Factory runs, previous Open Inventions, weak scores, novelty gaps,
+counter-evidence, failed gates, and optional fixture/public-source signals. It
+scores opportunities, builds an auditable queue, starts selected Factory runs,
+and writes a morning report.
+
+```bash
+sovryn research scan --goal "Improve autonomous open-source research agents" --json
+sovryn research queue build --goal "Improve autonomous open-source research agents" --json
+sovryn research queue status --json
+sovryn research queue run --max-runs 1 --json
+sovryn research opportunity review <opportunity-id> --json
+sovryn research morning-report --json
+```
+
+Artifacts are written under `.sovryn/opportunities/`:
+
+```text
+.sovryn/opportunities/
+  opportunity-scan.json
+  opportunity-candidates.json
+  priority-ranking.json
+  rejected-opportunities.json
+  research-queue.json
+  RESEARCH_QUEUE.md
+  OPPORTUNITY_REPORT.md
+  morning-report.json
+  MORNING_REPORT.md
+```
+
+Queue execution starts Factory runs only. It does not publish to GitHub and does
+not bypass Factory, Open Invention, safety, secret, replay, or publication
+gates. Blocked opportunities are not executed. Duplicate-like opportunities are
+scored and explained instead of being silently discarded.
+
+Opportunity settings live under `research.opportunities`:
+
+```json
+{
+  "research": {
+    "opportunities": {
+      "enabled": true,
+      "maxCandidates": 10,
+      "minPriorityScore": 60,
+      "maxQueueRuns": 3,
+      "blockHighSafetyRisk": true,
+      "allowSelfImprovementGoals": true,
+      "preferSovrynSelfImprovement": true
     }
   }
 }

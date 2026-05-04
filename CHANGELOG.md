@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.0.0-alpha.15
+
+- Added the Research Opportunity Engine for scanning broad goals, ranking
+  research opportunities, detecting duplicate-like work, and producing
+  opportunity evidence under `.sovryn/opportunities/`.
+- Added autonomous research queue commands for building a queue, running
+  selected A-class opportunities through existing Factory Mode, and writing
+  morning reports.
+- Added opportunity review gates for scan/ranking/queue evidence, blocked
+  opportunity execution, safety risk, duplicate review, Factory run binding, and
+  morning report evidence.
+- Added `docs/RESEARCH_OPPORTUNITIES.md` and
+  `examples/research-opportunity-demo/`.
+
 ## 3.0.0-alpha.14
 
 - Added Factory source readers v2 with bounded reading-depth evidence for

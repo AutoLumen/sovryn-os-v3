@@ -101,6 +101,15 @@ export type SovrynConfig = {
       minClaimMappingScore: number;
       minNoveltyRiskScore: number;
     };
+    opportunities?: {
+      enabled: boolean;
+      maxCandidates: number;
+      minPriorityScore: number;
+      maxQueueRuns: number;
+      blockHighSafetyRisk: boolean;
+      allowSelfImprovementGoals: boolean;
+      preferSovrynSelfImprovement: boolean;
+    };
   };
 };
 
@@ -202,6 +211,15 @@ export const DEFAULT_CONFIG: SovrynConfig = {
       minClaimMappingScore: 50,
       minNoveltyRiskScore: 50,
     },
+    opportunities: {
+      enabled: true,
+      maxCandidates: 10,
+      minPriorityScore: 60,
+      maxQueueRuns: 3,
+      blockHighSafetyRisk: true,
+      allowSelfImprovementGoals: true,
+      preferSovrynSelfImprovement: true,
+    },
   },
 };
 
@@ -247,6 +265,7 @@ async function ensureGitignore(root: string): Promise<void> {
     ".sovryn/inventions/",
     ".sovryn/nodes/",
     ".sovryn/node-alpha/",
+    ".sovryn/opportunities/",
   ];
   const missing = required.filter(
     (line) => !existing.split("\n").includes(line),

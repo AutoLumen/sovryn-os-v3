@@ -63,6 +63,12 @@ strong readiness because the concrete source/read evidence is explicit and
 hash-bound; query links, adapter failures, and mock placeholders still do not
 count as reviewed prior art.
 
+Alpha.15 adds the Research Opportunity Engine above Factory Mode. Use
+`sovryn research scan`, `sovryn research queue build`, and
+`sovryn research queue run --max-runs 1` to let Sovryn rank possible research
+directions and launch selected Factory runs. Queue execution does not publish;
+it writes `.sovryn/opportunities/` evidence and a morning report.
+
 See `generated-public/` for abbreviated example public artifacts. The report
 states that this is an open-source research artifact and defensive-publication
 workflow, not a legal patent filing, patentability opinion, novelty opinion, or

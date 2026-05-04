@@ -1,0 +1,17 @@
+{
+  "research": {
+    "publicSearch": {
+      "enabled": false,
+      "fixtureMode": true
+    },
+    "opportunities": {
+      "enabled": true,
+      "maxCandidates": 10,
+      "minPriorityScore": 60,
+      "maxQueueRuns": 3,
+      "blockHighSafetyRisk": true,
+      "allowSelfImprovementGoals": true,
+      "preferSovrynSelfImprovement": true
+    }
+  }
+}

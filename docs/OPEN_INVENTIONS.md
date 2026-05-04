@@ -137,6 +137,33 @@ and gates without network calls, verifies hashes, and writes replay evidence.
 evidence and routes publication through the generated Open Invention mission.
 Real GitHub publication remains gated by Sovryn Controller.
 
+## Research Opportunities
+
+Alpha.15 adds a Research Opportunity Engine that helps Sovryn decide what to
+research next. It does not publish and it does not make legal novelty claims.
+It scans a broad goal, existing Factory runs, generated Open Inventions, weak
+factory scores, novelty gaps, counter-evidence, and optional public-source or
+fixture signals. It then scores and prioritizes opportunities that could become
+useful, safe, evidence-backed Open Inventions.
+
+```bash
+sovryn research scan --goal "Improve autonomous open-source research agents" --json
+sovryn research queue build --goal "Improve autonomous open-source research agents" --json
+sovryn research queue run --max-runs 1 --json
+sovryn research morning-report --json
+```
+
+The queue writes `.sovryn/opportunities/research-queue.json` and
+`RESEARCH_QUEUE.md`. Queue execution starts selected Factory runs and records
+the resulting Factory IDs in `morning-report.json` and `MORNING_REPORT.md`.
+Blocked opportunities are never executed, B/C-class opportunities are deferred,
+and duplicate-like work is flagged with rationale rather than hidden.
+
+This is the portfolio-management layer for the open research factory. It still
+uses the same publication philosophy: agents act, Sovryn verifies, evidence
+persists, policy gates block weak or unsafe work, and humans approve public
+release.
+
 ## Dossier
 
 Each invention has a typed dossier with technical field, problem, background,

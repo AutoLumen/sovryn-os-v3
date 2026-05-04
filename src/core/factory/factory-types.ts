@@ -512,7 +512,7 @@ export type PrototypeExecutionEvidence = {
   kind: "prototype_execution";
   missionId: string;
   prototypePath: string;
-  executionProfile: "sandbox-local" | "container-local";
+  executionProfile: "sandbox-local" | "container-local" | "container-netoff";
   available?: boolean;
   runtime?: string | null;
   limitations?: string[];
@@ -586,13 +586,27 @@ export type FactoryReplayReport = {
   evidenceHash: string;
 };
 
+export type WorkerProfile =
+  | "sandbox-local"
+  | "container-local"
+  | "container-netoff"
+  | "vm-local"
+  | "ci-isolated";
+
+export type WorkerAssurance = "low" | "medium" | "medium-high" | "high";
+
 export type WorkerDoctorResult = {
-  profile: "container-local";
+  profile: WorkerProfile;
   available: boolean;
   runtime: "docker" | "podman" | null;
   version: string | null;
   canRun: boolean;
+  assurance: WorkerAssurance;
+  networkPolicy: "host" | "best_effort_off" | "off" | "unavailable";
+  filesystemPolicy: "prototype_only" | "workspace_only" | "unavailable";
+  resourceLimits: string[];
   limitations: string[];
   recommendedCommand: string | null;
   warnings: string[];
+  evidenceHash?: string;
 };

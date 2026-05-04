@@ -84,7 +84,8 @@ export type NodeRunMode = "validation" | "autonomous";
 export type NodeExecutionProfile =
   | "default"
   | "sandbox-local"
-  | "container-local";
+  | "container-local"
+  | "container-netoff";
 
 export type NodeRunOptions = {
   mode: NodeRunMode;

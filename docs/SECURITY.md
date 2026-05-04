@@ -94,6 +94,33 @@ execution. `container-local` is sandbox-ready infrastructure, not a legal or
 formal proof of isolation. Use a hardened VM, container policy, dedicated user,
 firewalling, and secret isolation for stronger guarantees.
 
+Alpha.19 adds the secure worker runtime profile set:
+
+```bash
+sovryn worker doctor --all --json
+sovryn worker doctor --profile container-netoff --json
+sovryn worker policy check --json
+sovryn node run alpha <mission-id> --mode validate --profile container-netoff --json
+sovryn worker run <mission-id> --profile container-netoff --json
+```
+
+The profiles are explicit about assurance:
+
+- `sandbox-local`: low assurance; allowlisted host commands only.
+- `container-local`: medium assurance; Docker/Podman when available.
+- `container-netoff`: medium-high assurance; Docker/Podman with `--network none`
+  and resource-limit intent.
+- `vm-local` and `ci-isolated`: high-assurance placeholders that report
+  unavailable until real backends are configured.
+
+`container-netoff` never silently falls back to host execution. If Docker or
+Podman is missing, Sovryn writes unavailable execution evidence and stops. Worker
+reports under `.sovryn/workers/` record sandbox posture, network policy,
+filesystem mount intent, resource limits, worker policy, and supply-chain risk.
+These reports are evidence, not a proof that the runtime is safe for hostile
+code. Strong isolation still requires a hardened container or VM policy,
+dedicated credentials, network controls, resource controls, and operator review.
+
 Alpha.16 adds Node Alpha toolchain planning:
 
 ```bash

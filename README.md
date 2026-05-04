@@ -64,11 +64,16 @@ sovryn research adapters doctor --json
 sovryn research cache status --json
 sovryn research cache prune --json
 sovryn worker doctor --profile container-local --json
+sovryn worker doctor --profile container-netoff --json
+sovryn worker doctor --all --json
+sovryn worker policy check --json
+sovryn worker run <mission-id> --profile container-netoff --json
 sovryn node register alpha --host local --json
 sovryn node run alpha <mission-id> --json
 sovryn node run alpha <mission-id> --mode autonomous --max-steps 25 --json
 sovryn node run alpha <mission-id> --mode validate --profile sandbox-local --json
 sovryn node run alpha <mission-id> --mode validate --profile container-local --json
+sovryn node run alpha <mission-id> --mode validate --profile container-netoff --json
 sovryn node alpha toolchain plan <factory-id> --json
 sovryn node alpha toolchain doctor --json
 sovryn node alpha toolchain install <toolchain-plan-id> --profile container-local --json
@@ -389,6 +394,28 @@ sovryn node run alpha <mission-id> --mode validate --profile container-local --j
 
 It never silently falls back to host execution. It is stronger than
 `sandbox-local`, but it is not a formal kernel-level sandbox or VM boundary.
+
+Alpha.19 adds a secure worker runtime layer with explicit assurance profiles:
+`sandbox-local` (low), `container-local` (medium), `container-netoff`
+(medium-high), and unavailable placeholders for `vm-local` and `ci-isolated`.
+The new `container-netoff` profile requires Docker or Podman, requests
+`--network none`, avoids mounting the user's home directory, records resource
+limit intent, and writes execution summaries without raw logs:
+
+```bash
+sovryn worker doctor --all --json
+sovryn worker policy check --json
+sovryn node run alpha <mission-id> --mode validate --profile container-netoff --json
+sovryn worker run <mission-id> --profile container-netoff --json
+```
+
+If no container runtime is available, `container-netoff` writes unavailable
+evidence and stops; it does not run the same command on the host. Worker policy
+reports are written under `.sovryn/workers/` and summarize sandbox assurance,
+network policy, filesystem mount intent, resource limits, and supply-chain
+risks. These profiles are still not a guarantee against hostile code. For high
+assurance, pair Sovryn with hardened containers, VMs, dedicated users,
+firewalling, and secret isolation.
 
 Factory dry-run publication is controller-owned:
 

@@ -24,6 +24,9 @@ node dist/cli.js factory publish-github <factory-id> --dry-run --json
 node dist/cli.js research adapters doctor --json
 node dist/cli.js research cache status --json
 node dist/cli.js worker doctor --profile container-local --json
+node dist/cli.js worker doctor --profile container-netoff --json
+node dist/cli.js worker doctor --all --json
+node dist/cli.js worker policy check --json
 ```
 
 The demo creates `.sovryn/factory/<slug>/` and at least one generated Open
@@ -89,6 +92,14 @@ The generated public release includes source-to-claim and patent-risk reports
 with careful non-legal language. They are useful research artifacts, not
 patentability, legal novelty, claim construction, or freedom-to-operate
 opinions.
+
+Alpha.19 adds secure worker runtime evidence. `container-netoff` uses Docker or
+Podman when available, requests network-off execution, records resource-limit
+intent, and never silently falls back to host execution. If no container runtime
+is present, the demo still writes unavailable worker evidence and suggests
+`sandbox-local` as a lower-assurance profile; it does not pretend that container
+isolation occurred. Worker reports live under `.sovryn/workers/` and are local
+evidence by default.
 
 See `generated-public/` for abbreviated example public artifacts. The report
 states that this is an open-source research artifact and defensive-publication

@@ -132,9 +132,10 @@ export class LocalNodeAlphaBackend implements NodeAlphaBackend {
       recursive: true,
       force: true,
     });
-    if (profile === "container-local") {
+    if (profile === "container-local" || profile === "container-netoff") {
       return this.runContainerLocal({
         mission,
+        profile,
         startedAt,
         workspacePath,
         artifactsPath,
@@ -354,6 +355,7 @@ export class LocalNodeAlphaBackend implements NodeAlphaBackend {
 
   private async runContainerLocal(input: {
     mission: OpenInventionMissionState;
+    profile: "container-local" | "container-netoff";
     startedAt: string;
     workspacePath: string;
     artifactsPath: string;
@@ -361,14 +363,14 @@ export class LocalNodeAlphaBackend implements NodeAlphaBackend {
     sourcePath: string;
     workspacePrototypePath: string;
   }): Promise<NodeRunResult> {
-    const doctor = await workerDoctor(this.root, "container-local");
+    const doctor = await workerDoctor(this.root, input.profile);
     const executionDir = join(input.sourcePath, "evidence", "execution");
     await mkdir(executionDir, { recursive: true });
     await writeJson(join(executionDir, "container-worker-doctor.json"), doctor);
     const command =
       doctor.runtime && doctor.available
-        ? `${doctor.runtime} create/cp/start node:22-alpine npm test`
-        : "container-local unavailable";
+        ? `${doctor.runtime} create/cp/start --network none node:22-alpine npm test`
+        : `${input.profile} unavailable`;
     const startedAt = nowIso();
     const result =
       doctor.runtime && doctor.available
@@ -390,7 +392,7 @@ export class LocalNodeAlphaBackend implements NodeAlphaBackend {
       kind: "prototype_execution",
       missionId: input.mission.id,
       prototypePath: "prototype",
-      executionProfile: "container-local" as const,
+      executionProfile: input.profile,
       available: doctor.available,
       runtime: doctor.runtime,
       limitations: doctor.limitations,
@@ -405,29 +407,31 @@ export class LocalNodeAlphaBackend implements NodeAlphaBackend {
       evidenceHash: "",
     };
     evidence.evidenceHash = hashEvidence(evidence);
-    await writeJson(
-      join(executionDir, "container-prototype-execution.json"),
-      evidence,
-    );
-    await writeJson(
-      join(executionDir, "container-prototype-execution.summary.json"),
-      {
-        kind: evidence.kind,
-        missionId: evidence.missionId,
-        prototypePath: evidence.prototypePath,
-        executionProfile: evidence.executionProfile,
-        available: evidence.available,
-        runtime: evidence.runtime,
-        limitations: evidence.limitations,
-        command: evidence.command,
-        cwd: evidence.cwd,
-        startedAt: evidence.startedAt,
-        finishedAt: evidence.finishedAt,
-        exitCode: evidence.exitCode,
-        passed: evidence.passed,
-        evidenceHash: evidence.evidenceHash,
-      },
-    );
+    const executionFile =
+      input.profile === "container-netoff"
+        ? "container-netoff-prototype-execution.json"
+        : "container-prototype-execution.json";
+    const summaryFile =
+      input.profile === "container-netoff"
+        ? "container-netoff-prototype-execution.summary.json"
+        : "container-prototype-execution.summary.json";
+    await writeJson(join(executionDir, executionFile), evidence);
+    await writeJson(join(executionDir, summaryFile), {
+      kind: evidence.kind,
+      missionId: evidence.missionId,
+      prototypePath: evidence.prototypePath,
+      executionProfile: evidence.executionProfile,
+      available: evidence.available,
+      runtime: evidence.runtime,
+      limitations: evidence.limitations,
+      command: evidence.command,
+      cwd: evidence.cwd,
+      startedAt: evidence.startedAt,
+      finishedAt: evidence.finishedAt,
+      exitCode: evidence.exitCode,
+      passed: evidence.passed,
+      evidenceHash: evidence.evidenceHash,
+    });
     await writeJson(join(executionDir, "command-journal.redacted.json"), {
       entries: [
         {
@@ -443,14 +447,14 @@ export class LocalNodeAlphaBackend implements NodeAlphaBackend {
     const log = [
       `# Node Alpha Container Run ${input.mission.id}`,
       "",
-      "Profile: container-local",
+      `Profile: ${input.profile}`,
       `Available: ${String(doctor.available)}`,
       `Runtime: ${doctor.runtime ?? "none"}`,
       `Exit code: ${result.exitCode}`,
       "",
       doctor.available
-        ? "Container-local execution attempted."
-        : "Container-local unavailable; no host fallback was performed.",
+        ? `${input.profile} execution attempted.`
+        : `${input.profile} unavailable; no host fallback was performed.`,
       "",
     ].join("\n");
     await writeFile(input.logPath, log, "utf8");
@@ -472,7 +476,7 @@ export class LocalNodeAlphaBackend implements NodeAlphaBackend {
       nodeId: this.registration.id,
       missionId: input.mission.id,
       mode: "validation",
-      profile: "container-local",
+      profile: input.profile,
       workspacePath: input.workspacePath,
       logPath: input.logPath,
       artifactsPath: input.artifactsPath,
@@ -485,8 +489,7 @@ export class LocalNodeAlphaBackend implements NodeAlphaBackend {
         {
           stepId: "container-prototype-test",
           phase: "verification",
-          purpose:
-            "Run generated prototype tests inside container-local when available.",
+          purpose: `Run generated prototype tests inside ${input.profile} when available.`,
           command,
           cwd: "prototype",
           exitCode: result.exitCode,

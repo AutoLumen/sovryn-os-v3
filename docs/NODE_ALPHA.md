@@ -14,7 +14,12 @@ sovryn node run alpha <mission-id>
 sovryn node run alpha <mission-id> --mode autonomous --max-steps 25
 sovryn node run alpha <mission-id> --mode validate --profile sandbox-local
 sovryn node run alpha <mission-id> --mode validate --profile container-local
+sovryn node run alpha <mission-id> --mode validate --profile container-netoff
 sovryn worker doctor --profile container-local
+sovryn worker doctor --profile container-netoff
+sovryn worker doctor --all
+sovryn worker policy check
+sovryn worker run <mission-id> --profile container-netoff
 sovryn node alpha toolchain plan <factory-id>
 sovryn node alpha toolchain doctor
 sovryn node alpha toolchain install <toolchain-plan-id> --profile container-local
@@ -86,6 +91,32 @@ directory. When no runtime is available, it writes degraded/unavailable
 execution evidence and does not silently run on the host. This is stronger than
 `sandbox-local`, but it is still not a formal OS isolation proof or a hardened
 VM boundary.
+
+Alpha.19 adds secure worker runtime profiles and policy evidence. The
+`container-netoff` profile is a stricter container profile that requires Docker
+or Podman, requests `--network none`, records CPU/memory limit intent, mounts
+only the generated prototype workspace for validation, and writes summary
+execution evidence. If no runtime is available, the result is explicitly
+unavailable; Node Alpha must not silently run the command on the host.
+
+Worker reports are stored under:
+
+```text
+.sovryn/workers/
+  doctor-<profile>.json
+  doctor-all.json
+  worker-policy.json
+  worker-sandbox-report.json
+  network-policy-report.json
+  filesystem-mount-report.json
+  resource-limit-report.json
+  supply-chain-risk-report.json
+```
+
+The reports distinguish low, medium, medium-high, and high-assurance profiles.
+`vm-local` and `ci-isolated` currently report unavailable until real backends
+are configured. `container-netoff` is a stronger local worker profile, not a
+guarantee of safe execution for hostile code.
 
 Autonomous agents may work in mission workspaces and install legitimate
 development dependencies when policy permits. They may not access secrets

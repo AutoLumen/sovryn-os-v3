@@ -20,7 +20,11 @@ import {
   pruneResearchCache,
   researchCacheStatus,
 } from "../core/research/research-cache.js";
-import { workerDoctor } from "../core/worker/worker-doctor.js";
+import {
+  workerDoctor,
+  workerDoctorAll,
+  workerPolicyCheck,
+} from "../core/worker/worker-doctor.js";
 import { runCommand } from "../adapters/shell/command.js";
 import { loadPlugins } from "../plugins/loader.js";
 
@@ -65,7 +69,10 @@ Commands:
   sovryn research adapters doctor [--json]
   sovryn research cache status [--json]
   sovryn research cache prune [--json]
-  sovryn worker doctor --profile container-local [--json]
+  sovryn worker doctor --profile container-local|container-netoff [--json]
+  sovryn worker doctor --all [--json]
+  sovryn worker policy check [--json]
+  sovryn worker run <mission-id> --profile container-netoff [--json]
   sovryn invention status <mission-id> [--json]
   sovryn invention dossier <mission-id> [--json]
   sovryn invention verify <mission-id> [--json]
@@ -74,7 +81,7 @@ Commands:
   sovryn publish-github <mission-id> --org <org> --repo <repo> [--dry-run] [--json]
   sovryn node register alpha --host local [--json]
   sovryn node status alpha [--json]
-  sovryn node run alpha <mission-id> [--mode validation|autonomous|validate] [--profile sandbox-local|container-local] [--max-steps 25] [--json]
+  sovryn node run alpha <mission-id> [--mode validation|autonomous|validate] [--profile sandbox-local|container-local|container-netoff] [--max-steps 25] [--json]
   sovryn node logs alpha <mission-id> [--json]
   sovryn node artifacts alpha <mission-id> [--json]
   sovryn node alpha toolchain plan <factory-id> [--json]
@@ -651,21 +658,50 @@ async function workerCommand(
   root: string,
 ): Promise<Record<string, unknown>> {
   const subcommand = parsed.positionals[0];
-  if (subcommand !== "doctor") {
-    throw new AppError(
-      "WORKER_COMMAND_REQUIRED",
-      "Use: sovryn worker doctor --profile container-local.",
-    );
+  switch (subcommand) {
+    case "doctor": {
+      if (flagBool(parsed.flags, "--all")) return workerDoctorAll(root);
+      return workerDoctor(root, flagWorkerProfile(parsed.flags));
+    }
+    case "policy": {
+      if (parsed.positionals[1] !== "check") {
+        throw new AppError(
+          "WORKER_POLICY_COMMAND_REQUIRED",
+          "Use: sovryn worker policy check.",
+        );
+      }
+      return workerPolicyCheck(root);
+    }
+    case "run": {
+      const missionId = parsed.positionals[1];
+      if (!missionId) {
+        throw new AppError(
+          "MISSION_ID_REQUIRED",
+          "worker run requires a mission id.",
+        );
+      }
+      const profile = flagWorkerProfile(parsed.flags);
+      if (profile !== "container-netoff" && profile !== "container-local") {
+        throw new AppError(
+          "WORKER_RUN_PROFILE_INVALID",
+          "worker run supports --profile container-netoff or container-local.",
+          { profile },
+        );
+      }
+      const manager = new NodeManager(root);
+      await manager.register("alpha", { host: "local" });
+      return manager.run("alpha", missionId, {
+        mode: "validation",
+        maxSteps: 25,
+        profile,
+      });
+    }
+    default:
+      throw new AppError(
+        "WORKER_COMMAND_REQUIRED",
+        "Use: sovryn worker <doctor|policy|run>.",
+      );
   }
-  const profile = flagString(parsed.flags, "--profile") ?? "container-local";
-  if (profile !== "container-local") {
-    throw new AppError(
-      "WORKER_PROFILE_INVALID",
-      "--profile must be container-local.",
-      { profile },
-    );
-  }
-  return workerDoctor(root, "container-local");
 }
 
 async function nodeCommand(
@@ -802,17 +838,36 @@ function flagRunMode(
 
 function flagNodeProfile(
   flags: Map<string, string | boolean>,
-): "default" | "sandbox-local" | "container-local" {
+): "default" | "sandbox-local" | "container-local" | "container-netoff" {
   const value = flagString(flags, "--profile") ?? "default";
   if (
     value === "default" ||
     value === "sandbox-local" ||
-    value === "container-local"
+    value === "container-local" ||
+    value === "container-netoff"
   )
     return value;
   throw new AppError(
     "NODE_RUN_PROFILE_INVALID",
-    "--profile must be default, sandbox-local, or container-local.",
+    "--profile must be default, sandbox-local, container-local, or container-netoff.",
+    { profile: value },
+  );
+}
+
+function flagWorkerProfile(flags: Map<string, string | boolean>) {
+  const value = flagString(flags, "--profile") ?? "container-local";
+  if (
+    value === "sandbox-local" ||
+    value === "container-local" ||
+    value === "container-netoff" ||
+    value === "vm-local" ||
+    value === "ci-isolated"
+  ) {
+    return value;
+  }
+  throw new AppError(
+    "WORKER_PROFILE_INVALID",
+    "--profile must be sandbox-local, container-local, container-netoff, vm-local, or ci-isolated.",
     { profile: value },
   );
 }

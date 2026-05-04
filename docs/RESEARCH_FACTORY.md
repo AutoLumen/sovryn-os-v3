@@ -202,6 +202,22 @@ sovryn node run alpha <mission-id> --mode validate --profile container-local --j
 It uses Docker or Podman if available and reports unavailable without silently
 falling back to host execution. It is not a substitute for a hardened VM.
 
+## Alpha.19 Worker Runtime
+
+Alpha.19 adds worker runtime profiles for safer prototype validation:
+
+```bash
+sovryn worker doctor --all --json
+sovryn worker policy check --json
+sovryn node run alpha <mission-id> --mode validate --profile container-netoff --json
+```
+
+`container-netoff` requests Docker or Podman execution with `--network none`,
+prototype-only workspace handling, and CPU/memory limit intent. If the runtime
+is unavailable, Sovryn writes unavailable evidence and does not fall back to
+host execution. Worker reports under `.sovryn/workers/` document assurance,
+network policy, filesystem mount intent, resource limits, and supply-chain risk.
+
 ## Scope
 
 This is an open-source research artifact and defensive-publication workflow. It

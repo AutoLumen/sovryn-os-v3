@@ -1,5 +1,19 @@
 # Changelog
 
+## 3.0.0-alpha.19
+
+- Added secure worker runtime profiles for `sandbox-local`, `container-local`,
+  `container-netoff`, `vm-local`, and `ci-isolated`, including explicit
+  assurance levels and no-silent-fallback behavior.
+- Added `sovryn worker doctor --all`, `sovryn worker policy check`,
+  `sovryn worker run <mission-id> --profile container-netoff`, and
+  `container-netoff` Node Alpha validation.
+- Added worker evidence under `.sovryn/workers/` for sandbox posture, network
+  policy, filesystem mount intent, resource limits, worker policy, and
+  supply-chain risk.
+- Added `container-netoff` execution summaries without raw logs and with clear
+  unavailable/degraded results when Docker or Podman is not available.
+
 ## 3.0.0-alpha.18
 
 - Added bounded paper reading summaries, patent claim-like reading summaries,

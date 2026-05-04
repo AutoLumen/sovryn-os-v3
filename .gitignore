@@ -5,6 +5,7 @@ dist/
 .sovryn/logs/
 .sovryn/research-cache/
 .sovryn/adapters/
+.sovryn/workers/
 .sovryn/postgres-artifacts/
 coverage/
 *.log

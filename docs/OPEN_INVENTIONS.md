@@ -155,6 +155,14 @@ Factory run and can be packaged as curated public summaries. The corresponding
 only. They do not assert patentability, legal novelty, claim construction, or
 freedom-to-operate.
 
+Alpha.19 adds secure worker runtime evidence for validating generated
+prototypes. `container-netoff` requests Docker/Podman execution with
+`--network none`, prototype-only workspace handling, and resource-limit intent.
+If the runtime is unavailable, Sovryn writes unavailable evidence and does not
+fall back to host execution. Worker reports are local evidence under
+`.sovryn/workers/` and document assurance, network policy, filesystem mount
+intent, resource limits, policy rules, and supply-chain risk.
+
 `sovryn factory improve <factory-id>` runs deterministic improvement cycles
 from existing evidence. `sovryn factory replay <factory-id>` recomputes score
 and gates without network calls, verifies hashes, and writes replay evidence.

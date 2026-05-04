@@ -15,6 +15,11 @@ import { MissionService } from "../core/mission/mission-service.js";
 import { NodeManager } from "../core/node/node-manager.js";
 import { NodeAlphaToolchainManager } from "../core/node/toolchain-manager.js";
 import { ResearchOpportunityEngine } from "../core/research/opportunity-engine.js";
+import {
+  adapterDoctor,
+  pruneResearchCache,
+  researchCacheStatus,
+} from "../core/research/research-cache.js";
 import { workerDoctor } from "../core/worker/worker-doctor.js";
 import { runCommand } from "../adapters/shell/command.js";
 import { loadPlugins } from "../plugins/loader.js";
@@ -44,7 +49,7 @@ Commands:
   sovryn invent-open "<brief>" [--json]
   sovryn factory-open "<research-goal>" [--json]
   sovryn factory plan "<research-goal>" [--json]
-  sovryn factory run "<research-goal>" [--mode autonomous] [--max-cycles 3] [--json]
+  sovryn factory run "<research-goal>" [--mode autonomous] [--max-cycles 3] [--real-sources] [--json]
   sovryn factory status <factory-id> [--json]
   sovryn factory review <factory-id> [--json]
   sovryn factory package <factory-id> [--json]
@@ -57,6 +62,9 @@ Commands:
   sovryn research queue run [--max-runs 3] [--json]
   sovryn research opportunity review <opportunity-id> [--json]
   sovryn research morning-report [--json]
+  sovryn research adapters doctor [--json]
+  sovryn research cache status [--json]
+  sovryn research cache prune [--json]
   sovryn worker doctor --profile container-local [--json]
   sovryn invention status <mission-id> [--json]
   sovryn invention dossier <mission-id> [--json]
@@ -316,6 +324,24 @@ async function researchCommand(
     }
     case "morning-report":
       return engine.morningReport();
+    case "adapters": {
+      if (parsed.positionals[1] !== "doctor") {
+        throw new AppError(
+          "RESEARCH_ADAPTERS_COMMAND_REQUIRED",
+          "Use: sovryn research adapters doctor.",
+        );
+      }
+      return adapterDoctor(root);
+    }
+    case "cache": {
+      const action = parsed.positionals[1];
+      if (action === "status") return researchCacheStatus(root);
+      if (action === "prune") return pruneResearchCache(root);
+      throw new AppError(
+        "RESEARCH_CACHE_COMMAND_REQUIRED",
+        "Use: sovryn research cache <status|prune>.",
+      );
+    }
     default:
       throw new AppError(
         "UNKNOWN_RESEARCH_COMMAND",
@@ -547,6 +573,7 @@ async function factoryCommand(
       return service.run(goal, {
         mode: flagFactoryRunMode(parsed.flags),
         maxCycles: flagInt(parsed.flags, "--max-cycles", 1),
+        realSources: flagBool(parsed.flags, "--real-sources"),
       });
     }
     case "status": {

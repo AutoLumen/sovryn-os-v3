@@ -49,6 +49,7 @@ sovryn doctor --json
 sovryn invent-open "A method for verifiable open-source agent research" --json
 sovryn factory-open "A factory for verifiable open-source invention research" --json
 sovryn factory run "Develop a method for verifiable autonomous research agents" --json
+sovryn factory run "Develop a method for verifiable autonomous research agents" --real-sources --json
 sovryn factory status <factory-id> --json
 sovryn factory review <factory-id> --json
 sovryn factory improve <factory-id> --max-cycles 2 --json
@@ -59,6 +60,9 @@ sovryn research scan --goal "Improve autonomous open-source research agents" --j
 sovryn research queue build --goal "Improve autonomous open-source research agents" --json
 sovryn research queue run --max-runs 1 --json
 sovryn research morning-report --json
+sovryn research adapters doctor --json
+sovryn research cache status --json
+sovryn research cache prune --json
 sovryn worker doctor --profile container-local --json
 sovryn node register alpha --host local --json
 sovryn node run alpha <mission-id> --json
@@ -196,7 +200,12 @@ Factory strictness is controlled under `research.factory`:
   "research": {
     "publicSearch": {
       "enabled": false,
-      "fixtureMode": false
+      "fixtureMode": false,
+      "cacheEnabled": true,
+      "cacheTtlHours": 168,
+      "retryAttempts": 2,
+      "retryBaseDelayMs": 100,
+      "offlineReplay": false
     },
     "sourceReading": {
       "enabled": false,
@@ -310,6 +319,25 @@ make factory evidence stronger. Fixture mode can simulate concrete GitHub and
 paper sources, patent/standards query links, and adapter failures without
 network access for tests and demos. Defaults remain deterministic and do not
 require paid APIs or an LLM.
+
+Alpha.17 hardens real public-source research. Public-source discovery can cache
+results under `.sovryn/research-cache/`, retry transient adapter failures, replay
+from cache when offline replay is enabled, deduplicate repeated source URLs, and
+write adapter health, source quality, dedupe, and rate-limit evidence under
+`.sovryn/adapters/`.
+
+```bash
+sovryn factory run "Develop a method for verifiable autonomous research agents" --real-sources --json
+sovryn research adapters doctor --json
+sovryn research cache status --json
+sovryn research cache prune --json
+```
+
+`--real-sources` enables public search for that Factory run without changing the
+stored config. Query links remain research leads, adapter failures remain
+degraded evidence, and mock placeholders cap readiness. Cache/offline replay
+improves reproducibility; it does not turn weak evidence into concrete prior
+art.
 
 Strict evidence mode makes the factory more conservative:
 

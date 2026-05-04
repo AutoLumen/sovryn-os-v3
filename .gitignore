@@ -3,6 +3,8 @@ dist/
 .DS_Store
 .sovryn/worktrees/
 .sovryn/logs/
+.sovryn/research-cache/
+.sovryn/adapters/
 .sovryn/postgres-artifacts/
 coverage/
 *.log

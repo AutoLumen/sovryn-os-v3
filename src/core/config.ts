@@ -68,6 +68,11 @@ export type SovrynConfig = {
       githubTokenEnv: string | null;
       fixtureMode?: boolean;
       fixturePath?: string | null;
+      cacheEnabled?: boolean;
+      cacheTtlHours?: number;
+      retryAttempts?: number;
+      retryBaseDelayMs?: number;
+      offlineReplay?: boolean;
     };
     sourceReading: {
       enabled: boolean;
@@ -178,6 +183,11 @@ export const DEFAULT_CONFIG: SovrynConfig = {
       githubTokenEnv: null,
       fixtureMode: false,
       fixturePath: null,
+      cacheEnabled: true,
+      cacheTtlHours: 168,
+      retryAttempts: 2,
+      retryBaseDelayMs: 100,
+      offlineReplay: false,
     },
     sourceReading: {
       enabled: false,
@@ -266,6 +276,8 @@ async function ensureGitignore(root: string): Promise<void> {
     ".sovryn/nodes/",
     ".sovryn/node-alpha/",
     ".sovryn/opportunities/",
+    ".sovryn/research-cache/",
+    ".sovryn/adapters/",
   ];
   const missing = required.filter(
     (line) => !existing.split("\n").includes(line),

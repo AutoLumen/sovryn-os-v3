@@ -41,6 +41,23 @@ require concrete sources instead of deterministic placeholders. These results
 are research leads only. Sovryn does not make legal novelty, patentability, or
 freedom-to-operate conclusions.
 
+Alpha.17 adds robust public-source research support for real runs. Source
+discovery can write a TTL cache under `.sovryn/research-cache/`, retry transient
+adapter failures, replay from cache when `research.publicSearch.offlineReplay`
+is enabled, deduplicate repeated URLs, and report adapter health, source quality,
+dedupe, and rate-limit events under `.sovryn/adapters/`.
+
+```bash
+sovryn factory run "Develop a method for verifiable autonomous research agents" --real-sources --json
+sovryn research adapters doctor --json
+sovryn research cache status --json
+sovryn research cache prune --json
+```
+
+Cached and replayed results remain evidence about the discovery process, not a
+legal prior-art conclusion. Query links, failures, and placeholders are still
+weak/degraded evidence and do not count as reviewed concrete sources.
+
 When Node Alpha runs in autonomous mode, it reads this evidence during the
 `public_research_review` phase. It creates source-review evidence and updates
 the dossier's research artifacts without pretending that query links, adapter

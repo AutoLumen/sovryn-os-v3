@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.0.0-alpha.17
+
+- Added robust public-source research caching under `.sovryn/research-cache/`
+  with TTLs, offline replay, retry/backoff controls, and deterministic fixture
+  parity.
+- Added adapter health, source dedupe, source quality, and rate-limit evidence
+  under `.sovryn/adapters/`.
+- Added `sovryn research adapters doctor`, `sovryn research cache status`,
+  `sovryn research cache prune`, and `sovryn factory run --real-sources`.
+- Kept query links, adapter failures, and mock placeholders out of concrete
+  evidence while making their quality limits explicit in reports.
+
 ## 3.0.0-alpha.16
 
 - Added Node Alpha Toolchain Autonomy for planning, doctor checks,

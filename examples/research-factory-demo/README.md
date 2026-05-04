@@ -14,12 +14,15 @@ npm test
 npm run build
 node dist/cli.js init
 node dist/cli.js factory run "Develop a method for verifiable autonomous open-source research agents" --mode autonomous --max-cycles 3 --json
+node dist/cli.js factory run "Develop a method for verifiable autonomous open-source research agents" --real-sources --json
 node dist/cli.js factory status <factory-id> --json
 node dist/cli.js factory improve <factory-id> --max-cycles 1 --json
 node dist/cli.js factory replay <factory-id> --json
 node dist/cli.js factory review <factory-id> --json
 node dist/cli.js factory package <factory-id> --json
 node dist/cli.js factory publish-github <factory-id> --dry-run --json
+node dist/cli.js research adapters doctor --json
+node dist/cli.js research cache status --json
 node dist/cli.js worker doctor --profile container-local --json
 ```
 
@@ -68,6 +71,13 @@ Alpha.15 adds the Research Opportunity Engine above Factory Mode. Use
 `sovryn research queue run --max-runs 1` to let Sovryn rank possible research
 directions and launch selected Factory runs. Queue execution does not publish;
 it writes `.sovryn/opportunities/` evidence and a morning report.
+
+Alpha.17 adds robust public-source research evidence. Fixture mode still avoids
+network calls, but the same path writes cache, dedupe, quality, adapter-health,
+and rate-limit artifacts under `.sovryn/research-cache/` and
+`.sovryn/adapters/`. `--real-sources` enables public-source search for one
+Factory run; cached or replayed query links are still research leads, not
+reviewed concrete prior art.
 
 See `generated-public/` for abbreviated example public artifacts. The report
 states that this is an open-source research artifact and defensive-publication

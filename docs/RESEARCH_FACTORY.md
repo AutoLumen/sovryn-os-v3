@@ -5,6 +5,7 @@ auditable Open Invention research cycle:
 
 ```bash
 sovryn factory run "Develop open-source methods for self-verifying autonomous research agents" --json
+sovryn factory run "Develop open-source methods for self-verifying autonomous research agents" --real-sources --json
 sovryn factory status <factory-id> --json
 sovryn factory improve <factory-id> --max-cycles 2 --json
 sovryn factory replay <factory-id> --json
@@ -15,6 +16,35 @@ sovryn factory package <factory-id> --json
 The MVP is deterministic and does not require an LLM API. It reuses the existing
 Open Invention, public-source search, source-reading, prototype, verification,
 and publication-gate architecture.
+
+## Real Public-Source Robustness
+
+Alpha.17 makes optional real-source runs more robust without making network
+access mandatory. `sovryn factory run ... --real-sources` enables public-source
+search for that run, then stores adapter evidence under:
+
+```text
+.sovryn/research-cache/
+  index.json
+  search/<cache-key>.json
+.sovryn/adapters/
+  adapter-health.json
+  source-dedupe-report.json
+  source-quality-report.json
+  rate-limit-events.json
+```
+
+The cache has bounded TTLs, retry/backoff settings, and an offline replay mode
+for deterministic reruns from previous evidence. Adapter health survives partial
+failures, repeated URLs are deduplicated, and source quality reports make weak
+evidence explicit. Query links, adapter failures, and mock placeholders do not
+become concrete source evidence.
+
+```bash
+sovryn research adapters doctor --json
+sovryn research cache status --json
+sovryn research cache prune --json
+```
 
 ## Outputs
 

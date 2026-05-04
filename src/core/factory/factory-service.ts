@@ -15,7 +15,12 @@ import { readJson, writeJson } from "../../shared/fs.js";
 import { createMissionId } from "../../shared/ids.js";
 import { redactSecrets } from "../../shared/redaction.js";
 import { nowIso } from "../../shared/time.js";
-import { configExists, loadConfig, type SovrynConfig } from "../config.js";
+import {
+  DEFAULT_CONFIG,
+  configExists,
+  loadConfig,
+  type SovrynConfig,
+} from "../config.js";
 import { InventionService } from "../invention/invention-service.js";
 import type { InventionDossier } from "../invention/invention-types.js";
 import {
@@ -27,6 +32,7 @@ import {
   createSourceReadingEvidence,
   createSourceReadingProvider,
 } from "../invention/source-readers.js";
+import { searchPublicSourcesWithCache } from "../research/research-cache.js";
 import {
   buildCandidateInventions,
   buildBenchmarkPlan,
@@ -146,7 +152,11 @@ export class FactoryService {
 
   async run(
     researchGoal: string,
-    options: { mode?: FactoryRunMode; maxCycles?: number } = {},
+    options: {
+      mode?: FactoryRunMode;
+      maxCycles?: number;
+      realSources?: boolean;
+    } = {},
   ): Promise<{
     run: ResearchFactoryRun;
     review: FactoryReviewResult;
@@ -164,7 +174,24 @@ export class FactoryService {
     await writeJson(join(factoryDir, "question-map.json"), questionMap);
 
     const queries = plan.sourceQueries.slice(0, maxCycles);
-    const sovrynConfig = await this.config();
+    let sovrynConfig = await this.config();
+    if (options.realSources) {
+      sovrynConfig = {
+        ...sovrynConfig,
+        research: {
+          ...DEFAULT_CONFIG.research!,
+          ...sovrynConfig.research,
+          requireConcretePriorArtForPublish:
+            sovrynConfig.research?.requireConcretePriorArtForPublish ??
+            DEFAULT_CONFIG.research!.requireConcretePriorArtForPublish,
+          publicSearch: {
+            ...DEFAULT_CONFIG.research!.publicSearch,
+            ...sovrynConfig.research?.publicSearch,
+            enabled: true,
+          },
+        },
+      };
+    }
     const searchResults: PriorArtSearchResult[] = [];
     const adapter = createPriorArtSearchAdapter(sovrynConfig);
     for (const query of queries) {
@@ -889,16 +916,45 @@ export class FactoryService {
         typeof settings.fixturePath === "string" &&
         settings.fixturePath.trim().length > 0
       ) {
-        return readJson<PriorArtSearchResult[]>(
+        const results = await readJson<PriorArtSearchResult[]>(
           join(this.root, settings.fixturePath),
         );
+        return (
+          await searchPublicSourcesWithCache({
+            root: this.root,
+            config: input.config,
+            query: {
+              brief: input.brief,
+              sources: ["web", "github", "papers", "standards", "patents"],
+            },
+            adapter: { search: async () => results },
+          })
+        ).results;
       }
-      return factoryPriorArtFixtures(input.brief);
+      const results = factoryPriorArtFixtures(input.brief);
+      return (
+        await searchPublicSourcesWithCache({
+          root: this.root,
+          config: input.config,
+          query: {
+            brief: input.brief,
+            sources: ["web", "github", "papers", "standards", "patents"],
+          },
+          adapter: { search: async () => results },
+        })
+      ).results;
     }
-    return input.adapter.search({
-      brief: input.brief,
-      sources: ["web", "github", "papers", "standards", "patents"],
-    });
+    return (
+      await searchPublicSourcesWithCache({
+        root: this.root,
+        config: input.config,
+        query: {
+          brief: input.brief,
+          sources: ["web", "github", "papers", "standards", "patents"],
+        },
+        adapter: input.adapter,
+      })
+    ).results;
   }
 
   private async readSources(input: {

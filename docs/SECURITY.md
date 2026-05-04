@@ -42,10 +42,10 @@ that open sockets through another runtime may still need OS-level isolation. For
 strong no-network guarantees, run Sovryn in a container, network namespace,
 `firejail`/`nsjail`-style runtime, or CI environment with network disabled.
 
-Mission evidence can still contain sensitive project context after redaction.
-`sovryn init` adds `.sovryn/missions/` and `.sovryn/memory/` to `.gitignore`.
-Only remove those ignores when the project intentionally publishes evidence and
-memory artifacts.
+Mission and research evidence can still contain sensitive project context after
+redaction. `sovryn init` adds local evidence, cache, node, factory, opportunity,
+and adapter directories under `.sovryn/` to `.gitignore`. Only remove those
+ignores when the project intentionally publishes evidence and memory artifacts.
 
 The Autonomous Open Research Factory separates autonomous research artifacts
 from publication. Factory runs may generate dossiers, prototypes, tests, scores,
@@ -108,6 +108,20 @@ tools, but it does not let Node Alpha perform uncontrolled host installation.
 host Python user installs are blocked in policy evidence. Missing tools are
 recorded as missing/blocked and require an approved worker profile or manual
 operator action. Toolchain logs are redacted and use relative paths.
+
+Alpha.17 adds public-source research cache and adapter health artifacts:
+
+```bash
+sovryn research adapters doctor --json
+sovryn research cache status --json
+sovryn research cache prune --json
+```
+
+These artifacts are local by default. They may include public URLs, source
+titles, adapter failure notes, and source-quality judgments, but they must not
+include tokens, raw stdout/stderr, private config, or full raw source content.
+Offline replay and cache hits improve reproducibility; they do not bypass
+Factory, Open Invention, safety, secret, or publication gates.
 
 Factory public release packages are allowlisted. They must not include raw
 command journals, raw stdout/stderr logs, private config, tokens, local absolute

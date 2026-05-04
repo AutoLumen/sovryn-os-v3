@@ -408,6 +408,7 @@ async function ensureGitignore(root: string): Promise<void> {
     ".sovryn/audits/",
     ".sovryn/beta/",
     ".sovryn/public-beta/",
+    ".sovryn/v1-rc/",
     ".sovryn/autonomy/",
     ".sovryn/publication/",
     ".sovryn/benchmarks/",

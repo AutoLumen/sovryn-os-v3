@@ -46,7 +46,7 @@ prepares corpus autopublish as a dry-run only. It writes
 
 ## Beta Operations
 
-`3.0.0-beta.22` includes the operational proof commands, corpus lifecycle
+`3.0.0-rc.1` includes the operational proof commands, corpus lifecycle
 curation, and real-source external campaign path around the demo:
 
 ```bash

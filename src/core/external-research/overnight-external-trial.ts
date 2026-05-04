@@ -4,6 +4,7 @@ import { AppError } from "../../shared/errors.js";
 import { readJson, writeJson } from "../../shared/fs.js";
 import { nowIso } from "../../shared/time.js";
 import { AuditService } from "../audit/audit-service.js";
+import { PublicBetaService } from "../beta/public-beta-service.js";
 import { configExists } from "../config.js";
 import {
   CorpusAutopublisher,
@@ -32,6 +33,7 @@ type TrialOptions = {
   targetRepo?: string;
   profile?: "sandbox-local" | "container-netoff";
   fixtureInstall?: boolean;
+  realSourcesPreferred?: boolean;
 };
 
 type TrialRunResult = {
@@ -48,6 +50,8 @@ type TrialRunResult = {
   evidenceStrengthScore: number;
   reproducibilityScore: number;
   replayCriticalPassRate: number;
+  sudoUsed: boolean;
+  curlPipeShellUsed: boolean;
 };
 
 export class OvernightExternalTrialService {
@@ -77,6 +81,7 @@ export class OvernightExternalTrialService {
     const maxHours = clampInt(options.maxHours, 8, 1, 24);
     const profile = options.profile ?? "container-netoff";
     const fixtureInstall = options.fixtureInstall !== false;
+    const realSourcesPreferred = options.realSourcesPreferred === true;
     const targetRepo = resolve(options.targetRepo ?? DEFAULT_CORPUS_REPO);
     const trialRoot = this.trialRoot();
     await mkdir(trialRoot, { recursive: true });
@@ -95,6 +100,8 @@ export class OvernightExternalTrialService {
       autopublishCorpus: options.autopublishCorpus === true,
       targetRepo: "https://github.com/n57d30top/sovryn-open-inventions",
       fixtureInstall,
+      realSourcesPreferred,
+      fixtureFallbackAllowed: true,
       profile,
       safetyScope:
         "Safe external data-quality and defensive software-assurance toy datasets only.",
@@ -275,6 +282,7 @@ export class OvernightExternalTrialService {
         kind: "overnight_external_trial",
         trialId: TRIAL_ID,
         readinessLabel: v1Report.passed ? "v1_rc_candidate" : "needs_fix",
+        realSourcesPreferred,
         resultCount: results.length,
         resultSlugs: results.map((item) => item.slug),
         customToolsBuilt: runResults.customToolsBuilt,
@@ -354,14 +362,37 @@ export class V1RcGateService {
       throw new AppError("NOT_INITIALIZED", "Run sovryn init first.");
     }
     const targetRepo = resolve(input.targetRepo ?? DEFAULT_CORPUS_REPO);
-    const trial = await readJson<Record<string, unknown>>(
+    const runResults = await readJson<Record<string, unknown>>(
       join(this.root, ".sovryn", "overnight-external", "run-results.json"),
     ).catch(() => null);
+    const autopublishSummary = await readJson<Record<string, unknown>>(
+      join(
+        this.root,
+        ".sovryn",
+        "overnight-external",
+        "autopublish-summary.json",
+      ),
+    ).catch((): Record<string, unknown> => ({}));
+    const rejectedResults = await readJson<Record<string, unknown>>(
+      join(this.root, ".sovryn", "overnight-external", "rejected-results.json"),
+    ).catch((): Record<string, unknown> => ({}));
+    const qualitySummary = await readJson<Record<string, unknown>>(
+      join(this.root, ".sovryn", "overnight-external", "quality-summary.json"),
+    ).catch((): Record<string, unknown> => ({}));
+    const workerSummary = await readJson<Record<string, unknown>>(
+      join(this.root, ".sovryn", "overnight-external", "worker-summary.json"),
+    ).catch((): Record<string, unknown> => ({}));
+    const safetySummary = await readJson<Record<string, unknown>>(
+      join(this.root, ".sovryn", "overnight-external", "safety-summary.json"),
+    ).catch((): Record<string, unknown> => ({}));
     const e2e: Record<string, unknown> = await readJson<
       Record<string, unknown>
     >(join(this.root, ".sovryn", "e2e", "e2e-scorecard.json")).catch(
       (): Record<string, unknown> => ({}),
     );
+    const publicBeta = await new PublicBetaService(this.root).check({
+      targetRepo,
+    });
     const security = await new AuditService(this.root).securityAudit();
     const reliability = await new AuditService(this.root).reliabilityAudit();
     const siteAudit = await new CorpusProductService(this.root).auditSite({
@@ -372,23 +403,55 @@ export class V1RcGateService {
     >(join(targetRepo, "public-corpus", "corpus.json")).catch(
       (): Record<string, unknown> => ({}),
     );
+    const falsification = await readJson<Record<string, unknown>>(
+      join(targetRepo, "aggregate", "falsification-report.json"),
+    ).catch((): Record<string, unknown> => ({}));
     const hygiene = await scanCorpusPublicHygiene(targetRepo);
-    const results = Array.isArray(trial?.results)
-      ? trial.results.filter(isRecord)
+    const results = Array.isArray(runResults?.results)
+      ? runResults.results.filter(isRecord)
       : [];
     const domains = new Set(
       results.map((item) => text(item.domain, "")).filter(Boolean),
     );
+    const siteResults = Array.isArray(site.results)
+      ? site.results.filter(isRecord)
+      : [];
+    const showcaseResults = Array.isArray(site.showcaseResults)
+      ? site.showcaseResults.filter(isRecord)
+      : siteResults.filter((item) => item.showcaseEligible === true);
+    const falsificationResults = Array.isArray(falsification.results)
+      ? falsification.results.filter(isRecord)
+      : [];
+    const falsificationPassCount = falsificationResults.filter(
+      (item) => text(item.label, "") === "passes_falsification",
+    ).length;
     const customTools = new Set(
       results.map((item) => text(item.customToolName, "")).filter(Boolean),
     );
     const nodeAlphaExecutions = results.filter(
       (item) => text(item.nodeAlphaExecutionStatus, "") === "passed",
     ).length;
+    const containerNetoffExecutions = results.filter(
+      (item) => text(item.workerProfileUsed, "") === "container-netoff",
+    ).length;
     const replayCriticalPassRate = number(
       e2e.replayCriticalPassRate,
       number(reliability.audit.replayAll.replayCriticalPassRate, 0),
     );
+    const publicBetaCheck = publicBeta.check as Record<string, unknown>;
+    const siteAuditPassed = Boolean(
+      (siteAudit.audit as Record<string, unknown>).passed,
+    );
+    const fakeLegalClaimCount = hygiene.findings.filter(
+      (item) => item.kind === "fake_legal_claim",
+    ).length;
+    const dangerousGoalCount = hygiene.findings.filter(
+      (item) => item.kind === "dangerous_goal",
+    ).length;
+    const autopublishEvidencePresent =
+      autopublishSummary.pushed === true ||
+      (autopublishSummary.dryRun === true &&
+        number(autopublishSummary.eligibleResults, 0) >= 1);
     const gates = [
       gate(
         "E2E_STRONG_PASS_OR_REPLAY_READY",
@@ -422,15 +485,38 @@ export class V1RcGateService {
       ),
       gate(
         "CORPUS_SITE_AUDIT_PASSED",
-        Boolean((siteAudit.audit as Record<string, unknown>).passed),
+        siteAuditPassed,
         "Public corpus site audit must pass.",
         {},
       ),
       gate(
-        "FIVE_PUBLIC_CORPUS_RESULTS_PRESENT",
-        number(site.resultCount, 0) >= 5,
-        "At least five public corpus results should exist.",
+        "PUBLIC_BETA_CHECK_PASSED",
+        publicBetaCheck.passed === true,
+        "Public beta check must pass before v1-RC promotion.",
+        {
+          failedGates: Array.isArray(publicBetaCheck.gates)
+            ? publicBetaCheck.gates
+                .filter(isRecord)
+                .filter((item) => item.passed !== true)
+                .map((item) => text(item.code, "UNKNOWN_GATE"))
+            : [],
+        },
+      ),
+      gate(
+        "ELEVEN_PUBLIC_CORPUS_RESULTS_RETAINED",
+        number(site.resultCount, 0) >= 11,
+        "At least eleven existing public corpus results must be retained.",
         { resultCount: number(site.resultCount, 0) },
+      ),
+      gate(
+        "THREE_SHOWCASE_RESULTS_PRESENT",
+        showcaseResults.length >= 3,
+        "At least three showcase results must be present.",
+        {
+          showcaseResults: showcaseResults
+            .map((item) => text(item.slug, "unknown"))
+            .sort(),
+        },
       ),
       gate(
         "THREE_EXTERNAL_DOMAIN_RESULTS_PRESENT",
@@ -449,6 +535,28 @@ export class V1RcGateService {
         nodeAlphaExecutions >= 2,
         "At least two successful Node Alpha executions are required.",
         { nodeAlphaExecutions },
+      ),
+      gate(
+        "CONTAINER_NETOFF_EXECUTION_PRESENT",
+        containerNetoffExecutions >= 1,
+        "At least one container-netoff execution must be recorded.",
+        { containerNetoffExecutions },
+      ),
+      gate(
+        "TWO_RESULTS_PASS_FALSIFICATION",
+        falsificationPassCount >= 2,
+        "At least two public corpus results must pass falsification.",
+        { falsificationPassCount },
+      ),
+      gate(
+        "AUTOPUBLISH_RESULT_PROVEN",
+        autopublishEvidencePresent,
+        "The RC trial must record a real corpus autopublish or a fixture dry-run eligible result.",
+        {
+          pushed: autopublishSummary.pushed === true,
+          dryRun: autopublishSummary.dryRun === true,
+          eligibleResults: number(autopublishSummary.eligibleResults, 0),
+        },
       ),
       gate(
         "NO_CRITICAL_PUBLIC_LEAKS",
@@ -472,16 +580,105 @@ export class V1RcGateService {
         "Corpus publication remains restricted to the existing repo.",
         {},
       ),
+      gate(
+        "NO_DANGEROUS_CONTENT",
+        safetySummary.dangerousGoalsExecuted === false &&
+          dangerousGoalCount === 0,
+        "Dangerous content or unsafe goals must not enter public outputs.",
+        {
+          dangerousGoalsExecuted: safetySummary.dangerousGoalsExecuted,
+          dangerousGoalFindings: dangerousGoalCount,
+        },
+      ),
+      gate(
+        "NO_FAKE_LEGAL_CLAIMS",
+        safetySummary.fakeLegalClaims === false && fakeLegalClaimCount === 0,
+        "Public outputs must not contain patentability, legal novelty, or freedom-to-operate claims.",
+        {
+          fakeLegalClaims: safetySummary.fakeLegalClaims,
+          fakeLegalClaimFindings: fakeLegalClaimCount,
+        },
+      ),
+      gate(
+        "NO_SILENT_FALLBACK",
+        workerSummary.noSilentFallbackRecorded === true,
+        "Worker evidence must record no silent fallback from isolated profiles.",
+        { noSilentFallbackRecorded: workerSummary.noSilentFallbackRecorded },
+      ),
+      gate(
+        "NO_HOST_SUDO",
+        results.every((item) => item.sudoUsed === false),
+        "External tool provisioning must not use host sudo.",
+        {
+          sudoUsedResults: results
+            .filter((item) => item.sudoUsed !== false)
+            .map((item) => text(item.slug, "unknown")),
+        },
+      ),
     ];
+    const passed = gates.every((item) => item.passed);
+    const blockingGates = gates.filter((item) => !item.passed);
+    const scorecard = withHash({
+      kind: "v1_rc_scorecard" as const,
+      checkedAt: nowIso(),
+      targetVersion: "3.0.0-rc.1",
+      passed,
+      readinessLabel: passed ? "v1_rc_ready" : "blocked",
+      e2eReadinessLabel: text(e2e.readinessLabel, "not_recorded"),
+      replayCriticalPassRate,
+      securityAuditPassed: security.audit.passed,
+      reliabilityAuditPassed: reliability.audit.passed,
+      publicHygienePassed: hygiene.passed,
+      corpusSiteAuditPassed: siteAuditPassed,
+      publicBetaCheckPassed: publicBetaCheck.passed === true,
+      resultCount: number(site.resultCount, 0),
+      showcaseResultCount: showcaseResults.length,
+      externalDomainCount: domains.size,
+      customToolCount: customTools.size,
+      nodeAlphaExecutions,
+      containerNetoffExecutions,
+      falsificationPassCount,
+      autopublishPushed: autopublishSummary.pushed === true,
+      autopublishDryRun: autopublishSummary.dryRun === true,
+      noStandaloneRepoCreation: true,
+      noSilentFallback: workerSummary.noSilentFallbackRecorded === true,
+      noHostSudo: results.every((item) => item.sudoUsed === false),
+      evidenceHash: "",
+    });
+    const blockers = withHash({
+      kind: "v1_rc_blockers" as const,
+      generatedAt: nowIso(),
+      blockerCount: blockingGates.length,
+      blockers: blockingGates.map((item) => ({
+        gate: item.code,
+        message: item.message,
+        details: item.details,
+      })),
+      evidenceHash: "",
+    });
+    const launchDecision = withHash({
+      kind: "v1_launch_decision" as const,
+      decidedAt: nowIso(),
+      decision: passed ? "promote_to_v1_rc" : "do_not_promote",
+      targetVersion: passed ? "3.0.0-rc.1" : "3.0.0-beta.23",
+      reason: passed
+        ? "All automated v1-RC gates passed."
+        : "One or more automated v1-RC gates failed.",
+      realStandalonePublication: false,
+      corpusOnlyPublication: true,
+      humanInterpretationRequired: true,
+      evidenceHash: "",
+    });
     const check = withHash({
       kind: "v1_rc_check" as const,
       checkedAt: nowIso(),
-      targetVersion: "3.0.0-beta.22",
-      passed: gates.every((item) => item.passed),
-      readinessLabel: gates.every((item) => item.passed)
-        ? "v1_rc_ready"
-        : "blocked",
+      targetVersion: "3.0.0-rc.1",
+      passed,
+      readinessLabel: passed ? "v1_rc_ready" : "blocked",
       gates,
+      scorecard,
+      blockingGates: blockingGates.map((item) => item.code),
+      launchDecision,
       targetRepo: "https://github.com/n57d30top/sovryn-open-inventions",
       evidenceHash: "",
     });
@@ -493,6 +690,65 @@ export class V1RcGateService {
     await mkdir(join(this.root, ".sovryn", "overnight-external"), {
       recursive: true,
     });
+    const v1Root = join(this.root, ".sovryn", "v1-rc");
+    await mkdir(v1Root, { recursive: true });
+    await writeJson(
+      join(v1Root, "rc-run.json"),
+      withHash({
+        kind: "v1_rc_run" as const,
+        generatedAt: nowIso(),
+        trialId: TRIAL_ID,
+        runResultsPath: ".sovryn/overnight-external/run-results.json",
+        targetRepo: "https://github.com/n57d30top/sovryn-open-inventions",
+        realStandalonePublication: false,
+        corpusOnlyPublication: true,
+        evidenceHash: "",
+      }),
+    );
+    await writeJson(join(v1Root, "rc-scorecard.json"), scorecard);
+    await writeJson(join(v1Root, "rc-blockers.json"), blockers);
+    await writeJson(join(v1Root, "overnight-results.json"), runResults ?? {});
+    await writeJson(
+      join(v1Root, "autopublish-summary.json"),
+      autopublishSummary,
+    );
+    await writeJson(join(v1Root, "rejected-results.json"), rejectedResults);
+    await writeJson(join(v1Root, "quality-summary.json"), qualitySummary);
+    await writeJson(
+      join(v1Root, "falsification-summary.json"),
+      withHash({
+        kind: "v1_rc_falsification_summary" as const,
+        generatedAt: nowIso(),
+        resultCount: number(falsification.resultCount, 0),
+        labelCounts: isRecord(falsification.labelCounts)
+          ? falsification.labelCounts
+          : {},
+        passCount: falsificationPassCount,
+        evidenceHash: "",
+      }),
+    );
+    await writeJson(
+      join(v1Root, "public-corpus-summary.json"),
+      withHash({
+        kind: "v1_rc_public_corpus_summary" as const,
+        generatedAt: nowIso(),
+        resultCount: number(site.resultCount, 0),
+        showcaseResultCount: showcaseResults.length,
+        domainCounts: isRecord(site.domainCounts) ? site.domainCounts : {},
+        publicHygienePassed: hygiene.passed,
+        evidenceHash: "",
+      }),
+    );
+    await writeFile(
+      join(v1Root, "V1_RC_REPORT.md"),
+      renderV1GateReport(check),
+      "utf8",
+    );
+    await writeFile(
+      join(v1Root, "LAUNCH_DECISION.md"),
+      renderLaunchDecision(launchDecision, blockers),
+      "utf8",
+    );
     await writeFile(
       join(this.root, ".sovryn", "overnight-external", "V1_RC_GATE_REPORT.md"),
       renderV1GateReport(check),
@@ -503,6 +759,8 @@ export class V1RcGateService {
       artifactRefs: [
         ".sovryn/launch/v1-rc-check.json",
         ".sovryn/overnight-external/V1_RC_GATE_REPORT.md",
+        ".sovryn/v1-rc/rc-scorecard.json",
+        ".sovryn/v1-rc/LAUNCH_DECISION.md",
       ],
     };
   }
@@ -585,6 +843,8 @@ function toTrialResult(
     evidenceStrengthScore: number(run.evidenceStrengthScore, 0),
     reproducibilityScore: number(run.reproducibilityScore, 0),
     replayCriticalPassRate: number(run.replayCriticalPassRate, 0),
+    sudoUsed: run.sudoUsed === true,
+    curlPipeShellUsed: run.curlPipeShellUsed === true,
   };
 }
 
@@ -689,9 +949,39 @@ function renderV1GateReport(report: Record<string, unknown>): string {
   return `# v1-RC Gate Report
 
 Passed: ${String(report.passed)}
-Target version: ${text(report.targetVersion, "3.0.0-beta.22")}
+Target version: ${text(report.targetVersion, "3.0.0-rc.1")}
 
 ${gates.map((item) => `- ${text(item.code, "gate")}: ${String(item.passed)}`).join("\n")}
+
+Sovryn produces Open Inventions, Defensive Publications, and Open Source
+Research Artifacts. It does not provide legal patentability, legal novelty, or
+freedom-to-operate conclusions.
+`;
+}
+
+function renderLaunchDecision(
+  decision: Record<string, unknown>,
+  blockers: Record<string, unknown>,
+): string {
+  const blockerItems = Array.isArray(blockers.blockers)
+    ? blockers.blockers.filter(isRecord)
+    : [];
+  return `# Launch Decision
+
+Decision: ${text(decision.decision, "do_not_promote")}
+Target version: ${text(decision.targetVersion, "3.0.0-beta.23")}
+
+${text(decision.reason, "")}
+
+## Blockers
+
+${blockerItems.length === 0 ? "- none" : blockerItems.map((item) => `- ${text(item.gate, "gate")}: ${text(item.message, "")}`).join("\n")}
+
+## Publication Scope
+
+- Real standalone GitHub publication: ${String(decision.realStandalonePublication)}
+- Corpus-only publication: ${String(decision.corpusOnlyPublication)}
+- Human interpretation required: ${String(decision.humanInterpretationRequired)}
 
 Sovryn produces Open Inventions, Defensive Publications, and Open Source
 Research Artifacts. It does not provide legal patentability, legal novelty, or

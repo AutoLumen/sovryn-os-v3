@@ -15,6 +15,7 @@ dist/
 .sovryn/audits/
 .sovryn/beta/
 .sovryn/public-beta/
+.sovryn/v1-rc/
 .sovryn/postgres-artifacts/
 coverage/
 *.log

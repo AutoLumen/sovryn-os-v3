@@ -412,9 +412,9 @@ test("corpus site build rejects disallowed remote", async () => {
   assert.equal(response.errors[0]?.code, "PUBLIC_CORPUS_TARGET_BLOCKED");
 });
 
-test("package version is beta.20", async () => {
+test("package version is rc.1", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  assert.equal(pkg.version, "3.0.0-beta.22");
+  assert.equal(pkg.version, "3.0.0-rc.1");
 });
 
 test("Beta.18 version groups are created", async () => {
@@ -678,9 +678,9 @@ test("Beta.18 duplicate slugs are versioned without deletion", async () => {
   );
 });
 
-test("Beta.20 package version is beta.20", async () => {
+test("Beta.20 package version is rc.1", async () => {
   const pkg: any = await readJson(join(process.cwd(), "package.json"));
-  assert.equal(pkg.version, "3.0.0-beta.22");
+  assert.equal(pkg.version, "3.0.0-rc.1");
 });
 
 test("Beta.20 showcase writes SHOWCASE.md", async () => {

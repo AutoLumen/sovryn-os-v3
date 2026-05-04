@@ -1,6 +1,6 @@
 # Launch Readiness
 
-Sovryn OS v3 `3.0.0-beta.22` includes launch-readiness commands for local
+Sovryn OS v3 `3.0.0-rc.1` includes launch-readiness commands for local
 public beta or v1.0-RC review:
 
 ```bash
@@ -90,6 +90,30 @@ The public beta check records Node/build/doc status, worker doctor evidence,
 corpus target configuration, safe corpus-autopublish defaults, and dry-run-only
 demo evidence. It is a tester-facing readiness layer and does not replace
 security, reliability, falsification, corpus site, or v1-RC gates.
+
+v1.0-RC.1 adds a stricter launch-candidate artifact set:
+
+```text
+.sovryn/v1-rc/
+  rc-run.json
+  rc-scorecard.json
+  rc-blockers.json
+  overnight-results.json
+  autopublish-summary.json
+  rejected-results.json
+  quality-summary.json
+  falsification-summary.json
+  public-corpus-summary.json
+  V1_RC_REPORT.md
+  LAUNCH_DECISION.md
+```
+
+The RC gate also checks public-beta readiness, at least eleven retained corpus
+results, at least three showcase results, at least two results passing
+falsification, no silent worker fallback, no host sudo, and no standalone
+repository creation. The overnight trial accepts `--real-sources-preferred` to
+record that real public evidence should be preferred while any fixture fallback
+must remain explicit.
 
 ## v1.0 Gate Set
 

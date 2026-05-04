@@ -27,9 +27,9 @@ type AutopublishFixture = {
 
 let fixturePromise: Promise<AutopublishFixture> | null = null;
 
-test("package version is beta.20", async () => {
+test("package version is rc.1", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  assert.equal(pkg.version, "3.0.0-beta.22");
+  assert.equal(pkg.version, "3.0.0-rc.1");
 });
 
 test("CLI help lists corpus autopublish", async () => {

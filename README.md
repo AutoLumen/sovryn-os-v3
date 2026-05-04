@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `3.0.0-beta.22`
+Current version: `3.0.0-rc.1`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -74,8 +74,9 @@ The current Beta.1-Beta.22 operationalization line builds on Alpha.26:
 | `3.0.0-beta.20` | High-Quality Showcase Results | Upgrades three public corpus results with human-readable showcase docs, stricter specificity/anti-template thresholds, reproduction notes, examples, limitations, and site-audit gates.  |
 | `3.0.0-beta.21` | Falsification Evaluation      | Adds public-corpus falsification reports, domain-specific negative tests, overclaim checks, and showcase demotion for failed results.                                                    |
 | `3.0.0-beta.22` | Public Beta UX and Demo       | Adds public-beta check/demo commands, one-command fixture demo, onboarding docs, install/quickstart guidance, and dry-run-only corpus publication proof for external testers.            |
+| `3.0.0-rc.1`    | v1.0-RC Launch Candidate      | Adds stricter v1-RC gate artifacts, public-beta/falsification/corpus-showcase checks, launch-decision evidence, and the real-sources-preferred overnight trial flag.                     |
 
-At `3.0.0-beta.22`, Sovryn can run local autonomy campaigns, build release
+At `3.0.0-rc.1`, Sovryn can run local autonomy campaigns, build release
 candidates, govern publication queues, execute worker jobs, benchmark research
 quality, export a public corpus API/site shell, and produce launch/pilot
 evidence, then validate the full path through a deterministic fresh-repo E2E
@@ -755,6 +756,7 @@ sovryn overnight run \
   --goal "Generate safe external open inventions" \
   --max-runs 3 \
   --autopublish-corpus \
+  --real-sources-preferred \
   --json
 sovryn launch v1-rc-check --json
 ```

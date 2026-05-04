@@ -27,6 +27,11 @@ test("Beta.17 CLI help lists launch v1-rc-check", async () => {
   assert.match((help.data as any).help, /launch v1-rc-check/);
 });
 
+test("v1-RC CLI help lists real sources preferred flag", async () => {
+  const help = await executeCli(["--help", "--json"]);
+  assert.match((help.data as any).help, /--real-sources-preferred/);
+});
+
 test("overnight external trial creates plan artifact", async () => {
   const { root } = await trialFixture();
   await access(
@@ -198,9 +203,9 @@ test("launch v1-rc-check passes with fixture external suite", async () => {
   assert.equal(v1.passed, true);
 });
 
-test("launch v1-rc-check reports target version beta20", async () => {
+test("launch v1-rc-check reports target version rc1", async () => {
   const { v1 } = await trialFixture();
-  assert.equal(v1.targetVersion, "3.0.0-beta.22");
+  assert.equal(v1.targetVersion, "3.0.0-rc.1");
 });
 
 test("launch v1-rc-check includes corpus site audit gate", async () => {
@@ -211,10 +216,10 @@ test("launch v1-rc-check includes corpus site audit gate", async () => {
   );
 });
 
-test("launch v1-rc-check requires five public results", async () => {
+test("launch v1-rc-check requires eleven retained public results", async () => {
   const { v1 } = await trialFixture();
   const gate = v1.gates.find(
-    (item: any) => item.code === "FIVE_PUBLIC_CORPUS_RESULTS_PRESENT",
+    (item: any) => item.code === "ELEVEN_PUBLIC_CORPUS_RESULTS_RETAINED",
   );
   assert.equal(gate.passed, true);
 });
@@ -262,7 +267,23 @@ test("launch v1-rc-check fails without external results", async () => {
 });
 
 test("launch v1-rc-check fails on public leak", async () => {
-  const { root, targetRepo } = await trialFixture();
+  const repo = await makeTempRepo();
+  await executeCli(["init", "--json"], repo.root);
+  await mkdir(join(repo.root, ".sovryn", "public-beta"), { recursive: true });
+  await writeJson(
+    join(repo.root, ".sovryn", "public-beta", "public-beta-demo.json"),
+    {
+      kind: "public_beta_demo",
+      corpusAutopublishDryRunPassed: true,
+      realPublicationPerformed: false,
+      evidenceHash: "fixture",
+    },
+  );
+  const targetRepo = await makeTargetRepo(11);
+  await executeCli(
+    ["corpus", "site", "build", "--target-repo", targetRepo, "--json"],
+    repo.root,
+  );
   await writeFile(
     join(targetRepo, "public-corpus", "leak.txt"),
     "/Users/private/path\n",
@@ -270,7 +291,7 @@ test("launch v1-rc-check fails on public leak", async () => {
   );
   const response = await executeCli(
     ["launch", "v1-rc-check", "--target-repo", targetRepo, "--json"],
-    root,
+    repo.root,
   );
   const gate = (response.data as any).check.gates.find(
     (item: any) => item.code === "PUBLIC_HYGIENE_PASSED",
@@ -389,6 +410,22 @@ test("trial fixture install is recorded in plan", async () => {
   assert.equal(plan.fixtureInstall, true);
 });
 
+test("trial records real sources preferred flag", async () => {
+  const { root } = await trialFixture();
+  const plan: any = await readJson(
+    join(root, ".sovryn", "overnight-external", "overnight-plan.json"),
+  );
+  assert.equal(plan.realSourcesPreferred, true);
+});
+
+test("trial records fixture fallback allowance", async () => {
+  const { root } = await trialFixture();
+  const plan: any = await readJson(
+    join(root, ".sovryn", "overnight-external", "overnight-plan.json"),
+  );
+  assert.equal(plan.fixtureFallbackAllowed, true);
+});
+
 test("trial v1 report uses careful non-legal language", async () => {
   const { root } = await trialFixture();
   const report = await readFile(
@@ -421,9 +458,141 @@ test("launch v1-rc-check blocks missing public corpus site", async () => {
   assert.equal(gate.passed, false);
 });
 
-test("package version is beta.20", async () => {
+for (const code of [
+  "PUBLIC_BETA_CHECK_PASSED",
+  "ELEVEN_PUBLIC_CORPUS_RESULTS_RETAINED",
+  "THREE_SHOWCASE_RESULTS_PRESENT",
+  "THREE_EXTERNAL_DOMAIN_RESULTS_PRESENT",
+  "TWO_CUSTOM_TOOLS_BUILT",
+  "TWO_NODE_ALPHA_EXECUTIONS",
+  "CONTAINER_NETOFF_EXECUTION_PRESENT",
+  "TWO_RESULTS_PASS_FALSIFICATION",
+  "AUTOPUBLISH_RESULT_PROVEN",
+  "NO_CRITICAL_PUBLIC_LEAKS",
+  "NO_STANDALONE_REPO_CREATION",
+  "NO_DANGEROUS_CONTENT",
+  "NO_FAKE_LEGAL_CLAIMS",
+  "NO_SILENT_FALLBACK",
+  "NO_HOST_SUDO",
+]) {
+  test(`v1-RC gate passes: ${code}`, async () => {
+    const { v1 } = await trialFixture();
+    const gate = v1.gates.find((item: any) => item.code === code);
+    assert.equal(gate?.passed, true, code);
+  });
+}
+
+for (const file of [
+  "rc-run.json",
+  "rc-scorecard.json",
+  "rc-blockers.json",
+  "overnight-results.json",
+  "autopublish-summary.json",
+  "rejected-results.json",
+  "quality-summary.json",
+  "falsification-summary.json",
+  "public-corpus-summary.json",
+  "V1_RC_REPORT.md",
+  "LAUNCH_DECISION.md",
+]) {
+  test(`v1-RC artifact is written: ${file}`, async () => {
+    const { root } = await trialFixture();
+    await access(join(root, ".sovryn", "v1-rc", file));
+  });
+}
+
+for (const [field, expected] of [
+  ["targetVersion", "3.0.0-rc.1"],
+  ["readinessLabel", "v1_rc_ready"],
+  ["replayCriticalPassRate", 100],
+  ["securityAuditPassed", true],
+  ["reliabilityAuditPassed", true],
+  ["publicHygienePassed", true],
+  ["publicBetaCheckPassed", true],
+  ["resultCount", 11],
+  ["showcaseResultCount", 3],
+  ["externalDomainCount", 3],
+  ["customToolCount", 3],
+  ["nodeAlphaExecutions", 3],
+  ["containerNetoffExecutions", 3],
+  ["noStandaloneRepoCreation", true],
+  ["noSilentFallback", true],
+  ["noHostSudo", true],
+] as const) {
+  test(`v1-RC scorecard records ${field}`, async () => {
+    const { root } = await trialFixture();
+    const scorecard: any = await readJson(
+      join(root, ".sovryn", "v1-rc", "rc-scorecard.json"),
+    );
+    assert.equal(scorecard[field], expected);
+  });
+}
+
+test("v1-RC blocker report is empty on fixture pass", async () => {
+  const { root } = await trialFixture();
+  const blockers: any = await readJson(
+    join(root, ".sovryn", "v1-rc", "rc-blockers.json"),
+  );
+  assert.equal(blockers.blockerCount, 0);
+});
+
+test("v1-RC launch decision promotes only after gates pass", async () => {
+  const { root } = await trialFixture();
+  const text = await readFile(
+    join(root, ".sovryn", "v1-rc", "LAUNCH_DECISION.md"),
+    "utf8",
+  );
+  assert.match(text, /Decision: promote_to_v1_rc/);
+  assert.match(text, /Real standalone GitHub publication: false/);
+});
+
+test("v1-RC check exposes scorecard in JSON", async () => {
+  const { v1 } = await trialFixture();
+  assert.equal(v1.scorecard.readinessLabel, "v1_rc_ready");
+});
+
+test("v1-RC check exposes launch decision in JSON", async () => {
+  const { v1 } = await trialFixture();
+  assert.equal(v1.launchDecision.decision, "promote_to_v1_rc");
+});
+
+test("v1-RC public corpus summary records showcase count", async () => {
+  const { root } = await trialFixture();
+  const summary: any = await readJson(
+    join(root, ".sovryn", "v1-rc", "public-corpus-summary.json"),
+  );
+  assert.equal(summary.showcaseResultCount, 3);
+});
+
+test("v1-RC falsification summary records pass count", async () => {
+  const { root } = await trialFixture();
+  const summary: any = await readJson(
+    join(root, ".sovryn", "v1-rc", "falsification-summary.json"),
+  );
+  assert.equal(summary.passCount >= 2, true);
+});
+
+test("v1-RC report states no legal conclusions", async () => {
+  const { root } = await trialFixture();
+  const report = await readFile(
+    join(root, ".sovryn", "v1-rc", "V1_RC_REPORT.md"),
+    "utf8",
+  );
+  assert.match(report, /does not provide legal patentability/i);
+});
+
+test("v1-RC launch decision states human interpretation remains required", async () => {
+  const { root } = await trialFixture();
+  const report = await readFile(
+    join(root, ".sovryn", "v1-rc", "LAUNCH_DECISION.md"),
+    "utf8",
+  );
+  assert.match(report, /Human interpretation required: true/);
+});
+
+test("package version is rc.1", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  assert.equal(pkg.version, "3.0.0-beta.22");
+  assert.equal(pkg.version, "3.0.0-rc.1");
 });
 
 async function trialFixture(): Promise<TrialFixture> {
@@ -434,7 +603,7 @@ async function trialFixture(): Promise<TrialFixture> {
 async function createTrialFixture(): Promise<TrialFixture> {
   const repo = await makeTempRepo();
   await executeCli(["init", "--json"], repo.root);
-  const targetRepo = await makeTargetRepo(5);
+  const targetRepo = await makeTargetRepo(11);
   const response = await executeCli(
     [
       "overnight",
@@ -447,13 +616,28 @@ async function createTrialFixture(): Promise<TrialFixture> {
       "--dry-run",
       "--target-repo",
       targetRepo,
+      "--real-sources-preferred",
       "--json",
     ],
     repo.root,
   );
   assert.equal(response.ok, true, JSON.stringify(response.errors, null, 2));
+  await mkdir(join(repo.root, ".sovryn", "public-beta"), { recursive: true });
+  await writeJson(
+    join(repo.root, ".sovryn", "public-beta", "public-beta-demo.json"),
+    {
+      kind: "public_beta_demo",
+      corpusAutopublishDryRunPassed: true,
+      realPublicationPerformed: false,
+      evidenceHash: "fixture",
+    },
+  );
   await executeCli(
     ["corpus", "site", "build", "--target-repo", targetRepo, "--json"],
+    repo.root,
+  );
+  await executeCli(
+    ["evaluate", "falsify-all", "--target-repo", targetRepo, "--json"],
     repo.root,
   );
   const v1Response = await executeCli(

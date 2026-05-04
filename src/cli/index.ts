@@ -152,7 +152,7 @@ Commands:
   sovryn evaluate falsify <result-slug> --target-repo <path> [--json]
   sovryn evaluate falsify-all --target-repo <path> [--json]
   sovryn overnight plan --goal "<broad-goal>" [--json]
-  sovryn overnight run --goal "<broad-goal>" [--max-hours 8] [--max-runs 5] [--autopublish-corpus] [--json]
+  sovryn overnight run --goal "<broad-goal>" [--max-hours 8] [--max-runs 5] [--autopublish-corpus] [--real-sources-preferred] [--json]
   sovryn overnight status [--json]
   sovryn overnight stop [--json]
   sovryn overnight report [--json]
@@ -952,6 +952,10 @@ async function overnightCommand(
           autopublishDryRun: flagBool(parsed.flags, "--dry-run"),
           targetRepo: flagString(parsed.flags, "--target-repo"),
           fixtureInstall: !flagBool(parsed.flags, "--real-install"),
+          realSourcesPreferred: flagBool(
+            parsed.flags,
+            "--real-sources-preferred",
+          ),
           profile:
             flagString(parsed.flags, "--profile") === "sandbox-local"
               ? "sandbox-local"

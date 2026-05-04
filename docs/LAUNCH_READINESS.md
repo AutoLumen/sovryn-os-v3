@@ -1,6 +1,6 @@
 # Launch Readiness
 
-Sovryn OS v3 `3.0.0-beta.17` includes launch-readiness commands for local
+Sovryn OS v3 `3.0.0-beta.18` includes launch-readiness commands for local
 public beta or v1.0-RC review:
 
 ```bash
@@ -41,6 +41,14 @@ The v1-RC check requires replay-critical evidence, security and reliability
 audits, public corpus site audit, public hygiene, at least five corpus results,
 three external-domain trial results, at least two custom tools, at least two
 successful Node Alpha executions, and no standalone repo creation.
+
+Beta.18 adds public corpus lifecycle curation as a launch-readiness input.
+`corpus site build` now writes `aggregate/version-groups.json`,
+`aggregate/superseded-map.json`, `aggregate/showcase-results.json`,
+`aggregate/revision-queue.json`, and status reports. The site audit checks that
+`needs_revision`, `blocked`, `demo_pilot`, and `superseded` results are not
+showcase outputs and that `INDEX.json` includes lifecycle fields for every
+result.
 
 Beta.9 writes three pilot release-candidate records under `.sovryn/pilots/`.
 Each pilot includes Factory/Open Invention bindings, quality evaluation,

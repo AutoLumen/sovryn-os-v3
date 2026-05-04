@@ -33,7 +33,8 @@ does not provide legal novelty, patentability, or freedom-to-operate opinions.
 
 ## Beta Operations
 
-`3.0.0-beta.17` adds operational proof commands around the demo:
+`3.0.0-beta.18` includes the operational proof commands and corpus lifecycle
+curation path around the demo:
 
 ```bash
 sovryn autonomy campaign plan --goal "Improve autonomous open-source research agents" --runs 10 --json
@@ -41,6 +42,7 @@ sovryn autonomy campaign run --json
 sovryn publication queue --json
 sovryn benchmark research run --json
 sovryn corpus api export --json
+sovryn corpus site build --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
 sovryn launch check --json
 sovryn pilot run --all --json
 sovryn pilot review --json

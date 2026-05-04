@@ -14,6 +14,7 @@ type ProductFixture = {
 };
 
 let fixturePromise: Promise<ProductFixture> | null = null;
+let lifecycleFixturePromise: Promise<ProductFixture> | null = null;
 
 test("Beta.17 CLI help lists target repo corpus site build", async () => {
   const help = await executeCli(["--help", "--json"]);
@@ -411,13 +412,354 @@ test("corpus site build rejects disallowed remote", async () => {
   assert.equal(response.errors[0]?.code, "PUBLIC_CORPUS_TARGET_BLOCKED");
 });
 
+test("package version is beta.18", async () => {
+  const pkg = JSON.parse(await readFile("package.json", "utf8"));
+  assert.equal(pkg.version, "3.0.0-beta.18");
+});
+
+test("Beta.18 version groups are created", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  await access(join(targetRepo, "aggregate", "version-groups.json"));
+});
+
+test("Beta.18 chemistry versions are grouped", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const groups: any = await readJson(
+    join(targetRepo, "aggregate", "version-groups.json"),
+  );
+  const chemistry = groups.groups.find(
+    (item: any) => item.versionGroup === "chemistry-record-auditor-tool",
+  );
+  assert.deepEqual(chemistry.resultSlugs, [
+    "chemistry-record-auditor-tool",
+    "chemistry-record-auditor-tool-v2",
+    "chemistry-record-auditor-tool-v2-v2",
+  ]);
+});
+
+test("Beta.18 latest chemistry version is deterministic", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const groups: any = await readJson(
+    join(targetRepo, "aggregate", "version-groups.json"),
+  );
+  const chemistry = groups.groups.find(
+    (item: any) => item.versionGroup === "chemistry-record-auditor-tool",
+  );
+  assert.equal(chemistry.latestSlug, "chemistry-record-auditor-tool-v2-v2");
+});
+
+test("Beta.18 superseded map records old versions", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const map: any = await readJson(
+    join(targetRepo, "aggregate", "superseded-map.json"),
+  );
+  assert.equal(
+    map.results.some(
+      (item: any) =>
+        item.slug === "chemistry-record-auditor-tool" &&
+        item.supersededBy === "chemistry-record-auditor-tool-v2-v2",
+    ),
+    true,
+  );
+});
+
+test("Beta.18 old result directories are retained", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  await access(join(targetRepo, "results", "chemistry-record-auditor-tool"));
+});
+
+test("Beta.18 INDEX includes lifecycle fields", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const index: any = await readJson(join(targetRepo, "INDEX.json"));
+  const result = index.results[0];
+  for (const field of [
+    "lifecycleStatus",
+    "versionGroup",
+    "supersedes",
+    "supersededBy",
+    "showcaseEligible",
+    "showcaseRank",
+    "revisionReason",
+    "humanReadableSummary",
+    "domain",
+    "resultKind",
+  ]) {
+    assert.equal(field in result, true, field);
+  }
+});
+
+test("Beta.18 old chemistry result is superseded", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const index: any = await readJson(join(targetRepo, "INDEX.json"));
+  const old = index.results.find(
+    (item: any) => item.slug === "chemistry-record-auditor-tool",
+  );
+  assert.equal(old.lifecycleStatus, "superseded");
+});
+
+test("Beta.18 latest chemistry result is not superseded", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const index: any = await readJson(join(targetRepo, "INDEX.json"));
+  const latest = index.results.find(
+    (item: any) => item.slug === "chemistry-record-auditor-tool-v2-v2",
+  );
+  assert.equal(latest.supersededBy, null);
+});
+
+test("Beta.18 showcase results are generated", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const showcase: any = await readJson(
+    join(targetRepo, "aggregate", "showcase-results.json"),
+  );
+  assert.equal(showcase.results.length, 3);
+});
+
+test("Beta.18 showcase excludes needs_revision", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const showcase: any = await readJson(
+    join(targetRepo, "aggregate", "showcase-results.json"),
+  );
+  assert.equal(
+    showcase.results.some((item: any) => item.slug === "patch-risk-auditor"),
+    false,
+  );
+});
+
+test("Beta.18 weak or template result cannot be showcase", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const index: any = await readJson(join(targetRepo, "INDEX.json"));
+  const weak = index.results.find(
+    (item: any) => item.slug === "template-like-result",
+  );
+  assert.equal(weak.lifecycleStatus, "needs_revision");
+  assert.equal(weak.showcaseRank, null);
+});
+
+test("Beta.18 revision queue includes needs_revision result", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const queue: any = await readJson(
+    join(targetRepo, "aggregate", "revision-queue.json"),
+  );
+  assert.equal(
+    queue.results.some((item: any) => item.slug === "template-like-result"),
+    true,
+  );
+});
+
+test("Beta.18 public API includes lifecycle fields", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const api: any = await readJson(
+    join(targetRepo, "public-corpus", "api", "results.json"),
+  );
+  assert.equal(typeof api.results[0].lifecycleStatus, "string");
+  assert.equal(typeof api.results[0].versionGroup, "string");
+});
+
+test("Beta.18 search index includes lifecycle status", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const search: any = await readJson(
+    join(targetRepo, "public-corpus", "search-index.json"),
+  );
+  assert.equal(
+    search.entries.some((item: any) => item.terms.includes("showcase")),
+    true,
+  );
+});
+
+test("Beta.18 status export includes lifecycle counts", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const status: any = await readJson(
+    join(targetRepo, "public-corpus", "status.json"),
+  );
+  assert.equal(status.lifecycleCounts.showcase, 3);
+});
+
+test("Beta.18 result page shows version and lifecycle", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const html = await readFile(
+    join(
+      targetRepo,
+      "public-corpus",
+      "results",
+      "chemistry-record-auditor-tool-v2-v2.html",
+    ),
+    "utf8",
+  );
+  assert.match(html, /Version group/);
+  assert.match(html, /Showcase rank/);
+});
+
+test("Beta.18 root README explains corpus lifecycle", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const readme = await readFile(join(targetRepo, "README.md"), "utf8");
+  assert.match(readme, /Corpus Lifecycle/);
+});
+
+test("Beta.18 verification explains versioning gates", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const verification = await readFile(
+    join(targetRepo, "VERIFICATION.md"),
+    "utf8",
+  );
+  assert.match(verification, /Versioning And Showcase Gates/);
+});
+
+test("Beta.18 corpus status report is written", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  await access(join(targetRepo, "CORPUS_STATUS.md"));
+});
+
+test("Beta.18 showcase report is written", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  await access(join(targetRepo, "SHOWCASE_RESULTS.md"));
+});
+
+test("Beta.18 revision queue report is written", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  await access(join(targetRepo, "REVISION_QUEUE.md"));
+});
+
+test("Beta.18 versioning report is written", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  await access(join(targetRepo, "VERSIONING.md"));
+});
+
+test("Beta.18 site audit includes version group gate", async () => {
+  const { root, targetRepo } = await lifecycleFixture();
+  const response = await executeCli(
+    ["corpus", "site", "audit", "--target-repo", targetRepo, "--json"],
+    root,
+  );
+  const gate = (response.data as any).audit.gates.find(
+    (item: any) => item.code === "CORPUS_VERSION_GROUPS_PRESENT",
+  );
+  assert.equal(gate.passed, true);
+});
+
+test("Beta.18 site audit blocks needs_revision showcase", async () => {
+  const { root, targetRepo } = await lifecycleFixture();
+  const corpus: any = await readJson(
+    join(targetRepo, "public-corpus", "corpus.json"),
+  );
+  corpus.results[0].lifecycleStatus = "needs_revision";
+  corpus.results[0].showcaseRank = 1;
+  await writeJson(join(targetRepo, "public-corpus", "corpus.json"), corpus);
+  const response = await executeCli(
+    ["corpus", "site", "audit", "--target-repo", targetRepo, "--json"],
+    root,
+  );
+  const gate = (response.data as any).audit.gates.find(
+    (item: any) => item.code === "NEEDS_REVISION_NOT_SHOWCASE",
+  );
+  assert.equal(gate.passed, false);
+});
+
+test("Beta.18 site audit validates INDEX lifecycle fields", async () => {
+  const { root, targetRepo } = await lifecycleFixture();
+  const response = await executeCli(
+    ["corpus", "site", "audit", "--target-repo", targetRepo, "--json"],
+    root,
+  );
+  const gate = (response.data as any).audit.gates.find(
+    (item: any) => item.code === "PUBLIC_CORPUS_INDEX_CONSISTENT",
+  );
+  assert.equal(gate.passed, true);
+});
+
+test("Beta.18 duplicate slugs are versioned without deletion", async () => {
+  const { targetRepo } = await lifecycleFixture();
+  const index: any = await readJson(join(targetRepo, "INDEX.json"));
+  assert.equal(index.resultCount, 8);
+  assert.equal(
+    index.results.some(
+      (item: any) => item.slug === "chemistry-record-auditor-tool-v2-v2",
+    ),
+    true,
+  );
+});
+
 async function productFixture(): Promise<ProductFixture> {
   fixturePromise ??= createProductFixture();
   return fixturePromise;
 }
 
+async function lifecycleFixture(): Promise<ProductFixture> {
+  lifecycleFixturePromise ??= createLifecycleFixture();
+  return lifecycleFixturePromise;
+}
+
 async function createProductFixture(): Promise<ProductFixture> {
   const fixture = await makeInitializedTargetFixture();
+  await executeCli(
+    ["corpus", "site", "build", "--target-repo", fixture.targetRepo, "--json"],
+    fixture.root,
+  );
+  return fixture;
+}
+
+async function createLifecycleFixture(): Promise<ProductFixture> {
+  const fixture = await makeInitializedTargetFixture();
+  await writeResult(fixture.targetRepo, {
+    slug: "chemistry-record-auditor-tool",
+    title: "Chemistry Record Auditor Tool",
+    domainTerms:
+      "molecular property records smiles ethanol water pint mol-record-auditor container-netoff",
+    tool: "mol-record-auditor",
+    packageName: "pint",
+    specificityScore: 68,
+  });
+  await writeResult(fixture.targetRepo, {
+    slug: "chemistry-record-auditor-tool-v2-v2",
+    title: "Chemistry Record Auditor Tool v2 v2",
+    domainTerms:
+      "molecular property records smiles ethanol water pint mol-record-auditor container-netoff",
+    tool: "mol-record-auditor",
+    packageName: "pint",
+    specificityScore: 84,
+  });
+  await writeResult(fixture.targetRepo, {
+    slug: "energy-usage-anomaly-auditor-v2",
+    title: "Energy Usage Anomaly Auditor v2",
+    domainTerms:
+      "energy records kWh seasonal weather baseline pandas energy-record-auditor container-netoff",
+    tool: "energy-record-auditor",
+    packageName: "pandas",
+    specificityScore: 83,
+  });
+  await writeResult(fixture.targetRepo, {
+    slug: "patch-risk-auditor",
+    title: "Patch Risk Auditor",
+    domainTerms:
+      "software supply-chain pull request dependency script acorn patch-risk-auditor container-netoff",
+    tool: "patch-risk-auditor",
+    packageName: "acorn",
+    specificityScore: 55,
+    antiTemplateStatus: "needs_revision",
+  });
+  await writeResult(fixture.targetRepo, {
+    slug: "patch-risk-auditor-v2",
+    title: "Patch Risk Auditor v2",
+    domainTerms:
+      "software supply-chain pull request dependency script acorn patch-risk-auditor container-netoff",
+    tool: "patch-risk-auditor",
+    packageName: "acorn",
+    specificityScore: 81,
+  });
+  await writeResult(fixture.targetRepo, {
+    slug: "template-like-result",
+    title: "Template Like Result",
+    domainTerms: "generic research artifact open invention placeholder",
+    tool: "generic-tool",
+    packageName: "generic-package",
+    qualityLabel: "weak",
+    candidateStatus: "needs_revision",
+    specificityScore: 42,
+    antiTemplateStatus: "needs_revision",
+  });
+  await runCommand(
+    "git add -A && git commit -m lifecycle-results",
+    fixture.targetRepo,
+  );
   await executeCli(
     ["corpus", "site", "build", "--target-repo", fixture.targetRepo, "--json"],
     fixture.root,
@@ -490,22 +832,31 @@ async function writeResult(
     domainTerms: string;
     tool: string;
     packageName: string;
+    qualityLabel?: string;
+    candidateStatus?: string;
+    specificityScore?: number;
+    antiTemplateStatus?: string;
   },
 ): Promise<void> {
   const root = join(targetRepo, "results", input.slug);
+  const qualityLabel = input.qualityLabel ?? "good";
+  const candidateStatus = input.candidateStatus ?? "dry_run_ready";
+  const specificityScore = input.specificityScore ?? 82;
+  const antiTemplateStatus = input.antiTemplateStatus ?? "review_ready";
   await mkdir(join(root, "release"), { recursive: true });
   await writeJson(join(root, "SUMMARY.json"), {
     kind: "autopublished_open_invention_summary",
     resultId: input.slug,
     slug: input.slug,
     title: input.title,
-    qualityLabel: "good",
-    candidateStatus: "dry_run_ready",
+    qualityLabel,
+    candidateStatus,
     releaseReadinessScore: 91,
     evidenceStrengthScore: 88,
     reproducibilityScore: 95,
     publicationSafetyScore: 96,
-    specificityScore: 82,
+    specificityScore,
+    antiTemplateStatus,
     publicHygienePassed: true,
     safetyScanPassed: true,
     reliabilityReplayPassed: true,
@@ -514,14 +865,15 @@ async function writeResult(
     resultId: input.slug,
     slug: input.slug,
     title: input.title,
-    qualityLabel: "good",
-    candidateStatus: "dry_run_ready",
+    qualityLabel,
+    candidateStatus,
     releaseReadinessScore: 91,
     evidenceStrengthScore: 88,
     reproducibilityScore: 95,
     publicationSafetyScore: 96,
     replayCriticalPassRate: 100,
-    specificityScore: 82,
+    specificityScore,
+    antiTemplateStatus,
     publicHygienePassed: true,
     safetyScanPassed: true,
     reliabilityReplayPassed: true,

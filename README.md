@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `3.0.0-beta.17`
+Current version: `3.0.0-beta.18`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -48,7 +48,7 @@ Alpha.26 was the first integrated beta-candidate path: release candidates,
 quality evaluation, security audit, reliability audit, public corpus export, and
 curated beta packaging are all connected.
 
-The current Beta.1-Beta.17 operationalization line builds on Alpha.26:
+The current Beta.1-Beta.18 operationalization line builds on Alpha.26:
 
 | Version         | Focus                         | Result                                                                                                                                                                                   |
 | --------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -69,8 +69,9 @@ The current Beta.1-Beta.17 operationalization line builds on Alpha.26:
 | `3.0.0-beta.15` | Anti-Template Quality Gates   | Adds specificity, readability, counter-evidence, non-trivial-test, and corpus-quality audit checks so generic results are rejected or marked for revision.                               |
 | `3.0.0-beta.16` | Public Corpus Product Layer   | Builds a readable public corpus site/API, result pages, badges, status summaries, graph export, site audit, and result explanation commands for `sovryn-open-inventions`.                |
 | `3.0.0-beta.17` | Overnight External Trial      | Runs a bounded external-domain overnight trial, dry-run or corpus-autopublishes eligible results, and writes a v1-RC gate report.                                                        |
+| `3.0.0-beta.18` | Corpus Lifecycle Curation     | Adds lifecycle status, version groups, superseded maps, showcase selection, revision queue reports, and status-aware public corpus exports without deleting old evidence.                |
 
-At `3.0.0-beta.17`, Sovryn can run local autonomy campaigns, build release
+At `3.0.0-beta.18`, Sovryn can run local autonomy campaigns, build release
 candidates, govern publication queues, execute worker jobs, benchmark research
 quality, export a public corpus API/site shell, and produce launch/pilot
 evidence, then validate the full path through a deterministic fresh-repo E2E
@@ -115,6 +116,12 @@ Beta.17 adds the launch-grade overnight external trial:
 coordinates external opportunities, custom tools, package evidence, Node Alpha
 execution, safety summaries, optional corpus autopublish, and
 `sovryn launch v1-rc-check --json` for a final v1-RC gate report.
+Beta.18 curates the public corpus without deleting prior outputs: every indexed
+result receives a lifecycle status, version group, superseded/supersedes links,
+showcase eligibility, revision rationale, human-readable summary, domain, and
+result kind. `corpus site build` also writes version-group, superseded,
+showcase, and revision-queue aggregates plus `CORPUS_STATUS.md`,
+`SHOWCASE_RESULTS.md`, `REVISION_QUEUE.md`, and `VERSIONING.md`.
 
 The beta operations line preserves the same operating rules:
 
@@ -694,6 +701,21 @@ The trial keeps publication restricted to the existing corpus repo, records
 dangerous-goal blocks, package/tool evidence, worker no-silent-fallback
 evidence, quality and safety summaries, and a morning brief. Real standalone
 GitHub repo creation remains disabled.
+
+Beta.18 adds lifecycle-aware public corpus curation:
+
+```bash
+sovryn corpus site build --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+sovryn corpus site audit --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+```
+
+The build keeps all old result folders, but updates `INDEX.json`,
+`public-corpus/`, and aggregate reports with `demo_pilot`, `draft`,
+`dry_run_ready`, `autopublished`, `showcase`, `needs_revision`, `superseded`,
+and `blocked` lifecycle statuses. The best current results are listed in
+`aggregate/showcase-results.json` and `SHOWCASE_RESULTS.md`; weak or
+template-like results stay visible but move to revision or demo status instead
+of being hidden.
 
 Autopublish writes `.sovryn/corpus-autopublish/` with
 `autopublish-plan.json`, `AUTOPUBLISH_PLAN.md`, `rejected-results.json`, and

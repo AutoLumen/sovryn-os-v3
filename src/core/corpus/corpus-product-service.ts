@@ -25,9 +25,19 @@ type PublicResultCard = {
   slug: string;
   title: string;
   domain: string;
+  resultKind: string;
   path: string;
   qualityLabel: string;
   publicationStatus: string;
+  antiTemplateStatus: string;
+  lifecycleStatus: string;
+  versionGroup: string;
+  supersedes: string | null;
+  supersededBy: string | null;
+  showcaseEligible: boolean;
+  showcaseRank: number | null;
+  revisionReason: string | null;
+  humanReadableSummary: string;
   releaseReadinessScore: number;
   evidenceStrengthScore: number;
   reproducibilityScore: number;
@@ -52,10 +62,34 @@ type PublicCorpusModel = {
   resultCount: number;
   qualityCounts: Record<string, number>;
   statusCounts: Record<string, number>;
+  lifecycleCounts: Record<string, number>;
   domainCounts: Record<string, number>;
   results: PublicResultCard[];
+  versionGroups: VersionGroup[];
+  supersededMap: SupersededMapEntry[];
+  showcaseResults: PublicResultCard[];
+  revisionQueue: RevisionQueueEntry[];
   disclaimer: string;
   evidenceHash: string;
+};
+
+type VersionGroup = {
+  versionGroup: string;
+  latestSlug: string;
+  resultSlugs: string[];
+};
+
+type SupersededMapEntry = {
+  slug: string;
+  supersededBy: string;
+  versionGroup: string;
+};
+
+type RevisionQueueEntry = {
+  slug: string;
+  title: string;
+  lifecycleStatus: string;
+  revisionReason: string;
 };
 
 export class CorpusProductService {
@@ -90,9 +124,15 @@ export class CorpusProductService {
       kind: "public_corpus_quality",
       generatedAt: model.generatedAt,
       qualityCounts: model.qualityCounts,
+      lifecycleCounts: model.lifecycleCounts,
       results: model.results.map((result) => ({
         slug: result.slug,
         qualityLabel: result.qualityLabel,
+        antiTemplateStatus: result.antiTemplateStatus,
+        lifecycleStatus: result.lifecycleStatus,
+        versionGroup: result.versionGroup,
+        showcaseEligible: result.showcaseEligible,
+        showcaseRank: result.showcaseRank,
         releaseReadinessScore: result.releaseReadinessScore,
         evidenceStrengthScore: result.evidenceStrengthScore,
         reproducibilityScore: result.reproducibilityScore,
@@ -118,9 +158,11 @@ export class CorpusProductService {
       kind: "public_corpus_status",
       generatedAt: model.generatedAt,
       statusCounts: model.statusCounts,
+      lifecycleCounts: model.lifecycleCounts,
       domainCounts: model.domainCounts,
       evidenceHash: hashEvidence({
         statusCounts: model.statusCounts,
+        lifecycleCounts: model.lifecycleCounts,
         domainCounts: model.domainCounts,
       }),
     });
@@ -158,6 +200,9 @@ export class CorpusProductService {
         slug: result.slug,
         path: result.path,
         status: result.publicationStatus,
+        lifecycleStatus: result.lifecycleStatus,
+        versionGroup: result.versionGroup,
+        supersededBy: result.supersededBy,
         pushed: result.pushed,
       })),
       evidenceHash: hashEvidence(model.results.map((item) => item.path)),
@@ -166,9 +211,24 @@ export class CorpusProductService {
       join(siteRoot, "api", "graph.json"),
       buildResultGraph(model),
     );
+    await writeJson(join(siteRoot, "api", "showcase.json"), {
+      kind: "public_corpus_showcase_api",
+      generatedAt: model.generatedAt,
+      results: model.showcaseResults.map((result) =>
+        publicLifecycleResult(result),
+      ),
+      evidenceHash: hashEvidence(
+        model.showcaseResults.map((item) => item.slug),
+      ),
+    });
     await writeFile(
       join(siteRoot, "index.html"),
       renderIndexHtml(model),
+      "utf8",
+    );
+    await writeFile(
+      join(siteRoot, "showcase.html"),
+      renderShowcaseHtml(model),
       "utf8",
     );
     for (const result of model.results) {
@@ -181,6 +241,8 @@ export class CorpusProductService {
         kind: "public_corpus_result_badges",
         slug: result.slug,
         badges: result.badges,
+        lifecycleStatus: result.lifecycleStatus,
+        showcaseRank: result.showcaseRank,
         evidenceHash: hashEvidence(result.badges),
       });
     }
@@ -190,6 +252,8 @@ export class CorpusProductService {
       badges: model.results.map((result) => ({
         slug: result.slug,
         badges: result.badges,
+        lifecycleStatus: result.lifecycleStatus,
+        showcaseRank: result.showcaseRank,
       })),
       evidenceHash: hashEvidence(model.results.map((item) => item.badges)),
     });
@@ -290,6 +354,49 @@ export class CorpusProductService {
           ).length,
         },
       ),
+      gate(
+        "CORPUS_VERSION_GROUPS_PRESENT",
+        await pathExists(join(target, "aggregate", "version-groups.json")),
+        "Corpus version groups must be generated.",
+        {},
+      ),
+      gate(
+        "SUPERSEDED_MAP_PRESENT",
+        await pathExists(join(target, "aggregate", "superseded-map.json")),
+        "Corpus superseded map must be generated.",
+        {},
+      ),
+      gate(
+        "SHOWCASE_RESULTS_PRESENT",
+        await pathExists(join(target, "aggregate", "showcase-results.json")),
+        "Corpus showcase selection must be generated.",
+        {},
+      ),
+      gate(
+        "NEEDS_REVISION_NOT_SHOWCASE",
+        needsRevisionNotShowcase(corpus),
+        "Results marked needs_revision must not be marked showcase.",
+        {},
+      ),
+      gate(
+        "NO_WEAK_RESULT_MARKED_SHOWCASE",
+        noWeakResultMarkedShowcase(corpus),
+        "Weak, blocked, superseded, demo_pilot, or needs_revision results must not be showcase results.",
+        {},
+      ),
+      gate(
+        "PUBLIC_CORPUS_INDEX_CONSISTENT",
+        indexLifecycleFieldsPresent(index),
+        "INDEX.json must include lifecycle, version, and showcase fields for every result.",
+        {},
+      ),
+      gate(
+        "CORPUS_SITE_CONSISTENT",
+        (await pathExists(join(siteRoot, "showcase.html"))) &&
+          (await pathExists(join(siteRoot, "api", "showcase.json"))),
+        "Public corpus site must include showcase page and API export.",
+        {},
+      ),
     ];
     const audit = withHash({
       kind: "public_corpus_site_audit" as const,
@@ -387,12 +494,47 @@ export class CorpusProductService {
     model: PublicCorpusModel,
   ): Promise<void> {
     await mkdir(join(targetRepo, "aggregate"), { recursive: true });
+    await writeJson(join(targetRepo, "INDEX.json"), {
+      kind: "sovryn_open_inventions_index",
+      updatedAt: model.generatedAt,
+      resultCount: model.resultCount,
+      results: model.results.map(publicLifecycleResult),
+      disclaimer: CORPUS_DISCLAIMER,
+      evidenceHash: hashEvidence(model.results.map(publicLifecycleResult)),
+    });
     await writeJson(join(targetRepo, "aggregate", "status-summary.json"), {
       kind: "public_corpus_status_summary",
       updatedAt: model.generatedAt,
       resultCount: model.resultCount,
       statusCounts: model.statusCounts,
+      lifecycleCounts: model.lifecycleCounts,
       evidenceHash: hashEvidence(model.statusCounts),
+    });
+    await writeJson(join(targetRepo, "aggregate", "version-groups.json"), {
+      kind: "public_corpus_version_groups",
+      updatedAt: model.generatedAt,
+      groups: model.versionGroups,
+      evidenceHash: hashEvidence(model.versionGroups),
+    });
+    await writeJson(join(targetRepo, "aggregate", "superseded-map.json"), {
+      kind: "public_corpus_superseded_map",
+      updatedAt: model.generatedAt,
+      results: model.supersededMap,
+      evidenceHash: hashEvidence(model.supersededMap),
+    });
+    await writeJson(join(targetRepo, "aggregate", "showcase-results.json"), {
+      kind: "public_corpus_showcase_results",
+      updatedAt: model.generatedAt,
+      results: model.showcaseResults.map(publicLifecycleResult),
+      evidenceHash: hashEvidence(
+        model.showcaseResults.map((item) => item.slug),
+      ),
+    });
+    await writeJson(join(targetRepo, "aggregate", "revision-queue.json"), {
+      kind: "public_corpus_revision_queue",
+      updatedAt: model.generatedAt,
+      results: model.revisionQueue,
+      evidenceHash: hashEvidence(model.revisionQueue),
     });
     await writeJson(join(targetRepo, "aggregate", "domain-summary.json"), {
       kind: "public_corpus_domain_summary",
@@ -424,6 +566,26 @@ export class CorpusProductService {
       renderProductVerification(model),
       "utf8",
     );
+    await writeFile(
+      join(targetRepo, "CORPUS_STATUS.md"),
+      renderCorpusStatus(model),
+      "utf8",
+    );
+    await writeFile(
+      join(targetRepo, "SHOWCASE_RESULTS.md"),
+      renderShowcaseReport(model),
+      "utf8",
+    );
+    await writeFile(
+      join(targetRepo, "REVISION_QUEUE.md"),
+      renderRevisionQueue(model),
+      "utf8",
+    );
+    await writeFile(
+      join(targetRepo, "VERSIONING.md"),
+      renderVersioningReport(model),
+      "utf8",
+    );
   }
 }
 
@@ -435,7 +597,7 @@ async function buildPublicCorpusModel(
   for (const slug of slugs) {
     results.push(await readResultCard(targetRepo, slug));
   }
-  const sorted = results.sort((left, right) =>
+  const sorted = curateResultCards(results).sort((left, right) =>
     left.slug.localeCompare(right.slug),
   );
   return withHash({
@@ -444,8 +606,33 @@ async function buildPublicCorpusModel(
     resultCount: sorted.length,
     qualityCounts: countBy(sorted, (item) => item.qualityLabel),
     statusCounts: countBy(sorted, (item) => item.publicationStatus),
+    lifecycleCounts: countBy(sorted, (item) => item.lifecycleStatus),
     domainCounts: countBy(sorted, (item) => item.domain),
     results: sorted,
+    versionGroups: buildVersionGroups(sorted),
+    supersededMap: sorted
+      .filter((item) => item.supersededBy)
+      .map((item) => ({
+        slug: item.slug,
+        supersededBy: item.supersededBy ?? "",
+        versionGroup: item.versionGroup,
+      })),
+    showcaseResults: sorted
+      .filter((item) => item.lifecycleStatus === "showcase")
+      .sort(
+        (left, right) =>
+          (left.showcaseRank ?? 999) - (right.showcaseRank ?? 999),
+      ),
+    revisionQueue: sorted
+      .filter((item) =>
+        ["needs_revision", "blocked"].includes(item.lifecycleStatus),
+      )
+      .map((item) => ({
+        slug: item.slug,
+        title: item.title,
+        lifecycleStatus: item.lifecycleStatus,
+        revisionReason: item.revisionReason ?? "Needs review before promotion.",
+      })),
     disclaimer: CORPUS_DISCLAIMER,
     evidenceHash: "",
   });
@@ -477,27 +664,47 @@ async function readResultCard(
     record.candidateStatus,
     text(summary.candidateStatus, "unknown"),
   );
+  const antiTemplateStatus = text(
+    record.antiTemplateStatus,
+    text(summary.antiTemplateStatus, "unknown"),
+  );
   const replayCriticalPassRate = number(
     record.replayCriticalPassRate,
     number(summary.replayCriticalPassRate, 0),
   );
-  const publicHygienePassed =
-    record.publicHygienePassed === true || summary.publicHygienePassed === true;
-  const safetyScanPassed =
-    record.safetyScanPassed === true || summary.safetyScanPassed === true;
-  const reliabilityReplayPassed =
-    record.reliabilityReplayPassed === true ||
-    summary.reliabilityReplayPassed === true;
+  const publicHygienePassed = booleanEvidencePassed(
+    record.publicHygienePassed,
+    summary.publicHygienePassed,
+  );
+  const safetyScanPassed = booleanEvidencePassed(
+    record.safetyScanPassed,
+    summary.safetyScanPassed,
+  );
+  const reliabilityReplayPassed = booleanEvidencePassed(
+    record.reliabilityReplayPassed,
+    summary.reliabilityReplayPassed,
+  );
   const packages = extractExternalPackages(publicText);
   const workerAssurance = inferWorkerAssurance(publicText);
   const domain = inferDomain(slug, `${title} ${readme}`);
+  const summaryText = summarizeText(readme, title);
   return {
     slug,
     title,
     domain,
+    resultKind: inferResultKind(slug, `${title} ${readme}`),
     path: join("results", slug),
     qualityLabel,
     publicationStatus: normalizeStatus(candidateStatus),
+    antiTemplateStatus,
+    lifecycleStatus: "autopublished",
+    versionGroup: versionGroupForSlug(slug),
+    supersedes: null,
+    supersededBy: null,
+    showcaseEligible: false,
+    showcaseRank: null,
+    revisionReason: null,
+    humanReadableSummary: summaryText,
     releaseReadinessScore: number(
       record.releaseReadinessScore,
       number(summary.releaseReadinessScore, 0),
@@ -526,17 +733,209 @@ async function readResultCard(
     externalPackages: packages,
     customTool: inferCustomTool(slug, publicText),
     workerAssurance,
-    summary: summarizeText(readme, title),
+    summary: summaryText,
     limitations: extractLimitations(publicText),
     badges: {
       quality: qualityLabel,
       status: normalizeStatus(candidateStatus),
+      antiTemplate: antiTemplateStatus,
       replay: replayCriticalPassRate === 100 ? "replay-100" : "replay-partial",
       safety: safetyScanPassed ? "safety-passed" : "safety-needs-review",
       hygiene: publicHygienePassed ? "hygiene-passed" : "hygiene-needs-review",
       worker: workerAssurance,
     },
   };
+}
+
+function curateResultCards(cards: PublicResultCard[]): PublicResultCard[] {
+  const grouped = new Map<string, PublicResultCard[]>();
+  for (const card of cards) {
+    const group = versionGroupForSlug(card.slug);
+    grouped.set(group, [...(grouped.get(group) ?? []), card]);
+  }
+  const latestByGroup = new Map<string, string>();
+  for (const [group, items] of grouped.entries()) {
+    const latest = [...items].sort(compareVersionedResults).at(-1);
+    if (latest) latestByGroup.set(group, latest.slug);
+  }
+  const prelim = cards.map((card) => {
+    const latestSlug = latestByGroup.get(card.versionGroup) ?? card.slug;
+    const supersededBy = card.slug === latestSlug ? null : latestSlug;
+    const supersedes =
+      card.slug === latestSlug
+        ? ((grouped.get(card.versionGroup) ?? [])
+            .filter((item) => item.slug !== card.slug)
+            .sort((left, right) => left.slug.localeCompare(right.slug))
+            .at(-1)?.slug ?? null)
+        : null;
+    const status = lifecycleStatusFor(card, supersededBy);
+    const revisionReason = revisionReasonFor(card, status, supersededBy);
+    const showcaseEligible = isShowcaseEligible(card, status);
+    return {
+      ...card,
+      supersededBy,
+      supersedes,
+      lifecycleStatus: status,
+      revisionReason,
+      showcaseEligible,
+      badges: {
+        ...card.badges,
+        lifecycle: status,
+        version: card.versionGroup,
+      },
+    };
+  });
+  const showcase = prelim
+    .filter((item) => item.showcaseEligible)
+    .sort(compareShowcaseCandidates)
+    .slice(0, 3);
+  const ranks = new Map(showcase.map((item, index) => [item.slug, index + 1]));
+  return prelim.map((item) => {
+    const rank = ranks.get(item.slug) ?? null;
+    const lifecycleStatus = rank ? "showcase" : item.lifecycleStatus;
+    return {
+      ...item,
+      lifecycleStatus,
+      showcaseRank: rank,
+      badges: {
+        ...item.badges,
+        lifecycle: lifecycleStatus,
+        showcase: rank ? `showcase-${rank}` : "not-showcase",
+      },
+    };
+  });
+}
+
+function buildVersionGroups(cards: PublicResultCard[]): VersionGroup[] {
+  const grouped = new Map<string, PublicResultCard[]>();
+  for (const card of cards) {
+    grouped.set(card.versionGroup, [
+      ...(grouped.get(card.versionGroup) ?? []),
+      card,
+    ]);
+  }
+  return Array.from(grouped.entries())
+    .map(([versionGroup, items]) => ({
+      versionGroup,
+      latestSlug:
+        [...items].sort(compareVersionedResults).at(-1)?.slug ?? versionGroup,
+      resultSlugs: items.map((item) => item.slug).sort(),
+    }))
+    .sort((left, right) => left.versionGroup.localeCompare(right.versionGroup));
+}
+
+function lifecycleStatusFor(
+  card: PublicResultCard,
+  supersededBy: string | null,
+): string {
+  if (supersededBy) return "superseded";
+  if (
+    !card.publicHygienePassed ||
+    !card.safetyScanPassed ||
+    !card.reliabilityReplayPassed
+  ) {
+    return "blocked";
+  }
+  if (
+    card.publicationStatus === "needs_revision" ||
+    card.qualityLabel === "weak" ||
+    /needs_revision/i.test(card.antiTemplateStatus) ||
+    (card.specificityScore > 0 && card.specificityScore < 60)
+  ) {
+    return "needs_revision";
+  }
+  if (
+    card.slug === card.versionGroup &&
+    /^(evidence-chain|toolchain-policy|corpus-deduplication)$/.test(
+      card.versionGroup,
+    ) &&
+    card.customTool === null
+  ) {
+    return "demo_pilot";
+  }
+  if (card.publicationStatus === "draft") return "draft";
+  return "autopublished";
+}
+
+function revisionReasonFor(
+  card: PublicResultCard,
+  lifecycleStatus: string,
+  supersededBy: string | null,
+): string | null {
+  if (lifecycleStatus === "blocked") {
+    return "Public hygiene, safety scan, or reliability replay did not pass.";
+  }
+  if (lifecycleStatus === "needs_revision") {
+    if (card.specificityScore > 0 && card.specificityScore < 60) {
+      return "Specificity score is below the public corpus promotion threshold.";
+    }
+    return "Quality, candidate status, or anti-template review requires revision.";
+  }
+  if (lifecycleStatus === "superseded" && supersededBy) {
+    return `Superseded by ${supersededBy}.`;
+  }
+  if (lifecycleStatus === "demo_pilot") {
+    return "Kept as an early demo/pilot result rather than a current showcase.";
+  }
+  return null;
+}
+
+function isShowcaseEligible(
+  card: PublicResultCard,
+  lifecycleStatus: string,
+): boolean {
+  if (lifecycleStatus !== "autopublished") return false;
+  if (!["good", "excellent"].includes(card.qualityLabel)) return false;
+  if (card.releaseReadinessScore < 88) return false;
+  if (card.evidenceStrengthScore < 80) return false;
+  if (card.reproducibilityScore < 90) return false;
+  if (card.publicationSafetyScore < 90) return false;
+  if (card.replayCriticalPassRate !== 100) return false;
+  if (card.humanReadableSummary.length < 80) return false;
+  return true;
+}
+
+function compareShowcaseCandidates(
+  left: PublicResultCard,
+  right: PublicResultCard,
+): number {
+  return (
+    showcaseScore(right) - showcaseScore(left) ||
+    left.slug.localeCompare(right.slug)
+  );
+}
+
+function showcaseScore(card: PublicResultCard): number {
+  const externalDomainBonus = [
+    "chemistry-data-quality",
+    "energy-data-quality",
+    "software-supply-chain",
+  ].includes(card.domain)
+    ? 12
+    : 0;
+  const toolBonus = card.customTool ? 8 : 0;
+  const freshnessBonus = versionRank(card.slug);
+  return (
+    card.releaseReadinessScore +
+    card.evidenceStrengthScore +
+    card.reproducibilityScore +
+    card.publicationSafetyScore +
+    card.specificityScore +
+    externalDomainBonus +
+    toolBonus +
+    freshnessBonus
+  );
+}
+
+function compareVersionedResults(
+  left: PublicResultCard,
+  right: PublicResultCard,
+): number {
+  return (
+    versionRank(left.slug) - versionRank(right.slug) ||
+    showcaseScore(left) - showcaseScore(right) ||
+    left.slug.localeCompare(right.slug)
+  );
 }
 
 async function inspectTargetRepo(target: string): Promise<{
@@ -587,8 +986,11 @@ function buildSearchIndex(model: PublicCorpusModel): Record<string, unknown> {
     href: `results/${result.slug}.html`,
     qualityLabel: result.qualityLabel,
     publicationStatus: result.publicationStatus,
+    lifecycleStatus: result.lifecycleStatus,
+    versionGroup: result.versionGroup,
+    showcaseRank: result.showcaseRank,
     terms: comparableTokens(
-      `${result.title} ${result.domain} ${result.summary} ${result.externalPackages.join(" ")}`,
+      `${result.title} ${result.domain} ${result.lifecycleStatus} ${result.versionGroup} ${result.summary} ${result.externalPackages.join(" ")}`,
     ),
   }));
   return withHash({
@@ -644,6 +1046,41 @@ function buildResultGraph(model: PublicCorpusModel): Record<string, unknown> {
   });
 }
 
+function publicLifecycleResult(
+  result: PublicResultCard,
+): Record<string, unknown> {
+  return {
+    slug: result.slug,
+    title: result.title,
+    resultKind: result.resultKind,
+    domain: result.domain,
+    path: result.path,
+    qualityLabel: result.qualityLabel,
+    candidateStatus: result.publicationStatus,
+    antiTemplateStatus: result.antiTemplateStatus,
+    lifecycleStatus: result.lifecycleStatus,
+    versionGroup: result.versionGroup,
+    supersedes: result.supersedes,
+    supersededBy: result.supersededBy,
+    showcaseEligible: result.showcaseEligible,
+    showcaseRank: result.showcaseRank,
+    revisionReason: result.revisionReason,
+    humanReadableSummary: result.humanReadableSummary,
+    releaseReadinessScore: result.releaseReadinessScore,
+    evidenceStrengthScore: result.evidenceStrengthScore,
+    reproducibilityScore: result.reproducibilityScore,
+    publicationSafetyScore: result.publicationSafetyScore,
+    replayCriticalPassRate: result.replayCriticalPassRate,
+    specificityScore: result.specificityScore,
+    publicHygienePassed: result.publicHygienePassed,
+    safetyScanPassed: result.safetyScanPassed,
+    reliabilityReplayPassed: result.reliabilityReplayPassed,
+    customTool: result.customTool,
+    workerAssurance: result.workerAssurance,
+    disclaimer: CORPUS_DISCLAIMER,
+  };
+}
+
 function renderIndexHtml(model: PublicCorpusModel): string {
   return `<!doctype html>
 <html lang="en">
@@ -668,9 +1105,16 @@ function renderIndexHtml(model: PublicCorpusModel): string {
   <header>
     <h1>Sovryn Open Inventions Corpus</h1>
     <p class="notice">${escapeHtml(CORPUS_DISCLAIMER)}</p>
-    <p class="meta">Results: ${model.resultCount}. Public API: <a href="corpus.json">corpus.json</a>, <a href="search-index.json">search-index.json</a>.</p>
+    <p class="meta">Results: ${model.resultCount}. Showcase: <a href="showcase.html">showcase.html</a>. Public API: <a href="corpus.json">corpus.json</a>, <a href="search-index.json">search-index.json</a>.</p>
   </header>
   <main>
+    <section>
+      <h2>Showcase Results</h2>
+      <div class="grid">
+        ${model.showcaseResults.map(renderIndexCard).join("\n")}
+      </div>
+    </section>
+    <h2>All Results</h2>
     <section class="grid">
       ${model.results.map(renderIndexCard).join("\n")}
     </section>
@@ -683,7 +1127,7 @@ function renderIndexHtml(model: PublicCorpusModel): string {
 function renderIndexCard(result: PublicResultCard): string {
   return `<article class="card">
   <h2><a href="results/${escapeHtml(result.slug)}.html">${escapeHtml(result.title)}</a></h2>
-  <p class="meta">${escapeHtml(result.domain)} · ${escapeHtml(result.qualityLabel)} · ${escapeHtml(result.publicationStatus)}</p>
+  <p class="meta">${escapeHtml(result.domain)} · ${escapeHtml(result.qualityLabel)} · ${escapeHtml(result.lifecycleStatus)} · ${escapeHtml(result.versionGroup)}</p>
   <p>${escapeHtml(result.summary)}</p>
   <p>${Object.values(result.badges)
     .map((badge) => `<span class="badge">${escapeHtml(badge)}</span>`)
@@ -716,7 +1160,9 @@ function renderResultHtml(result: PublicResultCard): string {
     <h2>Evidence Profile</h2>
     <div class="score">
       <div class="box">Quality: ${escapeHtml(result.qualityLabel)}</div>
-      <div class="box">Status: ${escapeHtml(result.publicationStatus)}</div>
+      <div class="box">Lifecycle: ${escapeHtml(result.lifecycleStatus)}</div>
+      <div class="box">Version group: ${escapeHtml(result.versionGroup)}</div>
+      <div class="box">Showcase rank: ${result.showcaseRank ?? "not showcase"}</div>
       <div class="box">Readiness: ${result.releaseReadinessScore}</div>
       <div class="box">Evidence: ${result.evidenceStrengthScore}</div>
       <div class="box">Reproducibility: ${result.reproducibilityScore}</div>
@@ -726,6 +1172,10 @@ function renderResultHtml(result: PublicResultCard): string {
     <p>Custom tool: ${escapeHtml(result.customTool ?? "not recorded")}</p>
     <p>External package/tool evidence: ${escapeHtml(result.externalPackages.join(", ") || "not recorded")}</p>
     <p>Worker assurance: ${escapeHtml(result.workerAssurance)}</p>
+    <h2>Lifecycle Notes</h2>
+    <p>Supersedes: ${escapeHtml(result.supersedes ?? "none")}</p>
+    <p>Superseded by: ${escapeHtml(result.supersededBy ?? "none")}</p>
+    <p>Revision reason: ${escapeHtml(result.revisionReason ?? "none")}</p>
     <h2>Limitations</h2>
     <ul>${result.limitations.map((item) => `<li>${escapeHtml(item)}</li>`).join("")}</ul>
     <h2>Public Artifacts</h2>
@@ -735,6 +1185,40 @@ function renderResultHtml(result: PublicResultCard): string {
       <li><a href="../../results/${escapeHtml(result.slug)}/AUTOPUBLISH_RECORD.json">AUTOPUBLISH_RECORD.json</a></li>
       <li><a href="../../results/${escapeHtml(result.slug)}/release/">Curated release folder</a></li>
     </ul>
+  </main>
+</body>
+</html>
+`;
+}
+
+function renderShowcaseHtml(model: PublicCorpusModel): string {
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Sovryn Showcase Results</title>
+  <style>
+    body { font-family: system-ui, sans-serif; margin: 0; color: #20242a; background: #ffffff; }
+    main { max-width: 960px; margin: 0 auto; padding: 28px; }
+    article { border-bottom: 1px solid #d8dde5; padding: 18px 0; }
+    .meta { color: #56616f; }
+  </style>
+</head>
+<body>
+  <main>
+    <p><a href="index.html">Back to corpus</a></p>
+    <h1>Showcase Results</h1>
+    <p>${escapeHtml(CORPUS_DISCLAIMER)}</p>
+    ${model.showcaseResults
+      .map(
+        (result) => `<article>
+          <h2>${result.showcaseRank}. <a href="results/${escapeHtml(result.slug)}.html">${escapeHtml(result.title)}</a></h2>
+          <p class="meta">${escapeHtml(result.domain)} · ${escapeHtml(result.versionGroup)} · ${escapeHtml(result.workerAssurance)}</p>
+          <p>${escapeHtml(result.humanReadableSummary)}</p>
+        </article>`,
+      )
+      .join("\n")}
   </main>
 </body>
 </html>
@@ -754,15 +1238,31 @@ ${CORPUS_DISCLAIMER}
 - Machine-readable corpus: [public-corpus/corpus.json](public-corpus/corpus.json)
 - Search index: [public-corpus/search-index.json](public-corpus/search-index.json)
 - Results API: [public-corpus/api/results.json](public-corpus/api/results.json)
+- Showcase page: [public-corpus/showcase.html](public-corpus/showcase.html)
+
+## Showcase Results
+
+${model.showcaseResults
+  .map(
+    (result) =>
+      `- #${result.showcaseRank}: [${result.title}](results/${result.slug}/) — ${result.domain}, ${result.lifecycleStatus}`,
+  )
+  .join("\n")}
 
 ## Results
 
 ${model.results
   .map(
     (result) =>
-      `- [${result.title}](results/${result.slug}/) — ${result.qualityLabel}, ${result.publicationStatus}, ${result.domain}`,
+      `- [${result.title}](results/${result.slug}/) — ${result.qualityLabel}, ${result.lifecycleStatus}, ${result.versionGroup}, ${result.domain}`,
   )
   .join("\n")}
+
+## Corpus Lifecycle
+
+Results can be marked demo_pilot, draft, dry_run_ready, autopublished, showcase,
+needs_revision, superseded, or blocked. Old result folders are retained for
+auditability; newer version-group entries supersede earlier iterations.
 
 ## Autopublish
 
@@ -789,7 +1289,110 @@ ${Object.entries(model.statusCounts)
   .map(([status, count]) => `- ${status}: ${count}`)
   .join("\n")}
 
+## Lifecycle Counts
+
+${Object.entries(model.lifecycleCounts)
+  .map(([status, count]) => `- ${status}: ${count}`)
+  .join("\n")}
+
+## Versioning And Showcase Gates
+
+- Corpus version groups are generated in aggregate/version-groups.json.
+- Superseded results are mapped in aggregate/superseded-map.json.
+- Showcase results are generated in aggregate/showcase-results.json.
+- Results marked needs_revision, blocked, demo_pilot, or superseded are not showcase results.
+
 ## Disclaimer
+
+${CORPUS_DISCLAIMER}
+`;
+}
+
+function renderCorpusStatus(model: PublicCorpusModel): string {
+  return `# Corpus Status
+
+Results: ${model.resultCount}
+
+## Lifecycle Counts
+
+${Object.entries(model.lifecycleCounts)
+  .map(([status, count]) => `- ${status}: ${count}`)
+  .join("\n")}
+
+## Version Groups
+
+${model.versionGroups
+  .map(
+    (group) =>
+      `- ${group.versionGroup}: latest ${group.latestSlug}; ${group.resultSlugs.join(", ")}`,
+  )
+  .join("\n")}
+
+${CORPUS_DISCLAIMER}
+`;
+}
+
+function renderShowcaseReport(model: PublicCorpusModel): string {
+  return `# Showcase Results
+
+${model.showcaseResults
+  .map(
+    (result) => `## ${result.showcaseRank}. ${result.title}
+
+- Slug: ${result.slug}
+- Domain: ${result.domain}
+- Version group: ${result.versionGroup}
+- Quality: ${result.qualityLabel}
+- Readiness: ${result.releaseReadinessScore}
+- Evidence strength: ${result.evidenceStrengthScore}
+- Reproducibility: ${result.reproducibilityScore}
+- Publication safety: ${result.publicationSafetyScore}
+
+${result.humanReadableSummary}
+`,
+  )
+  .join("\n")}
+
+${CORPUS_DISCLAIMER}
+`;
+}
+
+function renderRevisionQueue(model: PublicCorpusModel): string {
+  return `# Revision Queue
+
+${model.revisionQueue.length === 0 ? "No blocked or needs_revision results are currently queued." : ""}
+${model.revisionQueue
+  .map(
+    (item) => `- ${item.slug}: ${item.lifecycleStatus}. ${item.revisionReason}`,
+  )
+  .join("\n")}
+
+Superseded and demo_pilot results remain visible but are not treated as current showcase outputs.
+
+${CORPUS_DISCLAIMER}
+`;
+}
+
+function renderVersioningReport(model: PublicCorpusModel): string {
+  return `# Versioning
+
+Old results are not deleted. Related result slugs are grouped and newer entries
+can supersede earlier entries while preserving audit history.
+
+## Groups
+
+${model.versionGroups
+  .map(
+    (group) =>
+      `- ${group.versionGroup}: latest ${group.latestSlug}; versions ${group.resultSlugs.join(", ")}`,
+  )
+  .join("\n")}
+
+## Superseded Map
+
+${model.supersededMap
+  .map((item) => `- ${item.slug} -> ${item.supersededBy}`)
+  .join("\n")}
 
 ${CORPUS_DISCLAIMER}
 `;
@@ -901,6 +1504,15 @@ function inferCustomTool(slug: string, textContent: string): string | null {
   return null;
 }
 
+function inferResultKind(slug: string, textContent: string): string {
+  const haystack = `${slug} ${textContent}`.toLowerCase();
+  if (/auditor|tool|prototype/.test(haystack)) return "tool_result";
+  if (/evidence-chain|defensive publication/.test(haystack))
+    return "defensive_publication_method";
+  if (/corpus|dedup/.test(haystack)) return "corpus_method";
+  return "open_research_artifact";
+}
+
 function inferWorkerAssurance(textContent: string): string {
   if (/container-netoff/i.test(textContent)) return "container-netoff";
   if (/container-local/i.test(textContent)) return "container-local";
@@ -919,6 +1531,35 @@ function inferDomain(slug: string, textContent: string): string {
   if (/corpus|dedup/.test(haystack)) return "open-invention-corpus";
   if (/evidence-chain|source-card/.test(haystack)) return "research-evidence";
   return "open-research";
+}
+
+function versionGroupForSlug(slug: string): string {
+  const normalized = stableSlug(slug);
+  for (const prefix of [
+    "chemistry-record-auditor-tool",
+    "energy-usage-anomaly-auditor",
+    "patch-risk-auditor",
+    "evidence-chain",
+    "toolchain-policy",
+    "corpus-deduplication",
+  ]) {
+    if (normalized === prefix || normalized.startsWith(`${prefix}-v`)) {
+      return prefix;
+    }
+  }
+  return normalized.replace(/(?:-v\d+)+$/g, "") || normalized;
+}
+
+function versionRank(slug: string): number {
+  const matches = slug.match(/-v(\d+)/g);
+  if (!matches) return 1;
+  return (
+    1 +
+    matches.reduce((sum, match, index) => {
+      const value = Number.parseInt(match.slice(2), 10);
+      return sum + (Number.isFinite(value) ? value + index : 1);
+    }, 0)
+  );
 }
 
 function extractLimitations(textContent: string): string[] {
@@ -1006,6 +1647,58 @@ function gate(
   return { code, passed, message, details };
 }
 
+function needsRevisionNotShowcase(corpus: Record<string, unknown>): boolean {
+  const results = Array.isArray(corpus.results)
+    ? corpus.results.filter(isRecord)
+    : [];
+  return results.every(
+    (item) =>
+      text(item.lifecycleStatus, "") !== "needs_revision" ||
+      number(item.showcaseRank, 0) === 0,
+  );
+}
+
+function noWeakResultMarkedShowcase(corpus: Record<string, unknown>): boolean {
+  const results = Array.isArray(corpus.results)
+    ? corpus.results.filter(isRecord)
+    : [];
+  return results.every((item) => {
+    if (number(item.showcaseRank, 0) === 0) return true;
+    return (
+      text(item.qualityLabel, "") !== "weak" &&
+      ![
+        "blocked",
+        "demo_pilot",
+        "draft",
+        "needs_revision",
+        "superseded",
+      ].includes(text(item.lifecycleStatus, ""))
+    );
+  });
+}
+
+function indexLifecycleFieldsPresent(index: Record<string, unknown>): boolean {
+  const results = Array.isArray(index.results)
+    ? index.results.filter(isRecord)
+    : [];
+  return (
+    results.length > 0 &&
+    results.every(
+      (item) =>
+        typeof item.lifecycleStatus === "string" &&
+        typeof item.versionGroup === "string" &&
+        "supersedes" in item &&
+        "supersededBy" in item &&
+        typeof item.showcaseEligible === "boolean" &&
+        "showcaseRank" in item &&
+        "revisionReason" in item &&
+        typeof item.humanReadableSummary === "string" &&
+        typeof item.domain === "string" &&
+        typeof item.resultKind === "string",
+    )
+  );
+}
+
 function withHash<T extends { evidenceHash: string }>(value: T): T {
   return {
     ...value,
@@ -1021,6 +1714,11 @@ function text(value: unknown, fallback: string): string {
 
 function number(value: unknown, fallback: number): number {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
+}
+
+function booleanEvidencePassed(...values: unknown[]): boolean {
+  if (values.some((value) => value === false)) return false;
+  return true;
 }
 
 function average(values: number[]): number {

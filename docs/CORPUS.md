@@ -181,3 +181,42 @@ sovryn launch v1-rc-check --json
 Eligible outputs are still published only to the existing
 `sovryn-open-inventions` corpus repo. Weak, unsafe, non-specific, or leaky
 outputs remain rejected or marked for revision.
+
+## Beta.18 Corpus Lifecycle Curation
+
+Beta.18 makes the public corpus status-aware without deleting old evidence.
+`corpus site build` now regenerates `INDEX.json`, `public-corpus/`, and
+aggregate reports with lifecycle and version metadata for every result.
+
+Each indexed result includes:
+
+- `lifecycleStatus`
+- `versionGroup`
+- `supersedes`
+- `supersededBy`
+- `showcaseEligible`
+- `showcaseRank`
+- `revisionReason`
+- `humanReadableSummary`
+- `domain`
+- `resultKind`
+
+Generated aggregate files:
+
+```text
+aggregate/version-groups.json
+aggregate/superseded-map.json
+aggregate/showcase-results.json
+aggregate/revision-queue.json
+CORPUS_STATUS.md
+SHOWCASE_RESULTS.md
+REVISION_QUEUE.md
+VERSIONING.md
+```
+
+Lifecycle values are explicit: `demo_pilot`, `draft`, `dry_run_ready`,
+`autopublished`, `showcase`, `needs_revision`, `superseded`, and `blocked`.
+Results marked `needs_revision`, `blocked`, `demo_pilot`, or `superseded` cannot
+be showcase results. The audit verifies version groups, superseded maps,
+showcase output, lifecycle fields in `INDEX.json`, and consistency between the
+index and public site.

@@ -22,9 +22,9 @@ let patchFixturePromise: Promise<ExternalResearchFixture> | null = null;
 let campaignFixturePromise: Promise<{ root: string; campaign: any }> | null =
   null;
 
-test("package version is beta.17", async () => {
+test("package version is beta.18", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  assert.equal(pkg.version, "3.0.0-beta.17");
+  assert.equal(pkg.version, "3.0.0-beta.18");
 });
 
 test("CLI help lists external research command", async () => {

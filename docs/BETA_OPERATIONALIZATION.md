@@ -1,6 +1,6 @@
 # Beta Operationalization
 
-Sovryn OS v3 `3.0.0-beta.17` adds an operational proof layer above the Alpha
+Sovryn OS v3 `3.0.0-beta.18` adds an operational proof layer above the Alpha
 Factory. The goal is to show that Sovryn can run bounded autonomous research
 workflows, measure quality, keep publication governed, execute worker jobs
 without silent fallback, export a public corpus, and produce three
@@ -32,6 +32,10 @@ Beta.17 adds the bounded overnight external trial and v1-RC gate path. Operators
 can run a safe external-domain trial with corpus autopublish enabled, then run
 `sovryn launch v1-rc-check --json` to verify replay, security, public hygiene,
 corpus-site, custom-tool, and Node Alpha execution gates.
+Beta.18 adds corpus lifecycle curation on top of that proof: the public corpus
+keeps every old result folder, but `corpus site build` now groups versions,
+maps superseded entries, selects showcase results, records revision queues, and
+exports lifecycle fields in `INDEX.json`, the public API, and the static site.
 
 Sovryn produces Open Inventions, Defensive Publications, and Open Source
 Research Artifacts. It does not file legal patents and does not provide legal

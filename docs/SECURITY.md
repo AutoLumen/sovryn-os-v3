@@ -229,6 +229,12 @@ Beta.17 uses the same restrictions during the overnight external trial and
 corpus repo, dangerous goals are blocked, worker no-silent-fallback evidence is
 required, and the trial must not create standalone GitHub repositories.
 
+Beta.18 keeps those restrictions while curating the public corpus. Lifecycle
+and showcase metadata are generated from curated public result summaries only;
+weak, blocked, superseded, or needs-revision outputs remain visible but cannot
+be promoted as showcase results. Site audit continues to block raw logs,
+secrets, local paths, unsafe content, and fake legal claims.
+
 Alpha.25 adds security, reliability, and abuse audit commands:
 
 ```bash

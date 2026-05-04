@@ -895,3 +895,6 @@ strong no-network isolation, run Sovryn inside a container, network namespace, o
 CI/runtime environment with networking disabled.
 
 See `docs/SECURITY.md`.
+
+Launch readiness and pilot flows are documented in
+`docs/LAUNCH_READINESS.md` and `examples/launch-demo/`.

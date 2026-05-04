@@ -330,6 +330,17 @@ test("corpus graph explain remains available through beta API path", async () =>
   assert.equal(explained.ok, true);
 });
 
+test("launch readiness docs exist", async () => {
+  await access(join(process.cwd(), "docs", "LAUNCH_READINESS.md"));
+});
+
+test("launch demo example exists", async () => {
+  await access(join(process.cwd(), "examples", "launch-demo", "README.md"));
+  await access(
+    join(process.cwd(), "examples", "launch-demo", "DEMO_SCRIPT.md"),
+  );
+});
+
 async function operationsFixture(): Promise<OperationsFixture> {
   fixturePromise ??= createOperationsFixture();
   return fixturePromise;

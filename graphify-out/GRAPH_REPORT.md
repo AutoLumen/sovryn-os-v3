@@ -1,7 +1,7 @@
 # Graph Report - /Users/sovryn/Desktop/sovryn-os-v3  (2026-05-04)
 
 ## Corpus Check
-- 97 files · ~225,614 words
+- 97 files · ~236,038 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
@@ -172,11 +172,11 @@ Nodes (0):
 _Questions this graph is uniquely positioned to answer:_
 
 - **Why does `nowIso()` connect `Community 7` to `Community 0`, `Community 1`, `Community 2`, `Community 3`, `Community 6`, `Community 9`, `Community 10`, `Community 11`, `Community 12`, `Community 13`, `Community 14`, `Community 15`, `Community 16`, `Community 18`?**
-  _High betweenness centrality (0.118) - this node is a cross-community bridge._
+  _High betweenness centrality (0.125) - this node is a cross-community bridge._
 - **Why does `writeJson()` connect `Community 6` to `Community 0`, `Community 2`, `Community 3`, `Community 7`, `Community 9`, `Community 10`, `Community 11`, `Community 12`, `Community 13`, `Community 14`, `Community 15`, `Community 16`, `Community 18`?**
-  _High betweenness centrality (0.067) - this node is a cross-community bridge._
+  _High betweenness centrality (0.082) - this node is a cross-community bridge._
 - **Why does `executeCli()` connect `Community 1` to `Community 0`, `Community 2`, `Community 3`, `Community 4`, `Community 6`, `Community 7`, `Community 11`, `Community 12`, `Community 15`, `Community 22`?**
-  _High betweenness centrality (0.065) - this node is a cross-community bridge._
+  _High betweenness centrality (0.066) - this node is a cross-community bridge._
 - **Are the 107 inferred relationships involving `nowIso()` (e.g. with `.check()` and `.demo()`) actually correct?**
   _`nowIso()` has 107 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 96 inferred relationships involving `writeJson()` (e.g. with `initConfig()` and `.check()`) actually correct?**

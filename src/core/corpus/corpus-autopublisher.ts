@@ -499,14 +499,24 @@ export class CorpusAutopublisher {
       allowNetwork: true,
     });
     const pushed = push.exitCode === 0;
+    const pushedAt = pushed ? nowIso() : null;
+    const statusCommitHash = pushed
+      ? await this.writePushedStatusCommit({
+          targetRepo: target,
+          decisions: eligible,
+          commitHash,
+          pushedAt,
+        })
+      : null;
     const result = withHash({
       kind: "corpus_autopublish_result" as const,
       publishedAt: nowIso(),
       targetRepo: target,
       commitHash,
+      statusCommitHash,
       pushed,
       pushExitCode: push.exitCode,
-      pushedAt: pushed ? nowIso() : null,
+      pushedAt,
       eligibleResults: eligible.map(publicDecision),
       rejectedResults: rejected.map(publicDecision),
       gates: [
@@ -549,11 +559,122 @@ export class CorpusAutopublisher {
       pushed: true,
       commitHash,
       targetRepoCommitHash: commitHash,
+      statusCommitHash,
       artifactRefs: [
         ...plan.artifactRefs,
         autopublishRef("autopublish-result.json"),
       ],
     };
+  }
+
+  private async writePushedStatusCommit(input: {
+    targetRepo: string;
+    decisions: AutopublishDecision[];
+    commitHash: string;
+    pushedAt: string | null;
+  }): Promise<string | null> {
+    for (const decision of input.decisions) {
+      const recordPath = join(
+        input.targetRepo,
+        "results",
+        decision.targetSlug,
+        "AUTOPUBLISH_RECORD.json",
+      );
+      const record = await readJson<Record<string, unknown>>(recordPath).catch(
+        () => null,
+      );
+      if (!record) continue;
+      record.commitHash = input.commitHash;
+      record.pushed = true;
+      record.pushedAt = input.pushedAt;
+      record.evidenceHash = "";
+      record.evidenceHash = hashEvidence(record);
+      await writeJson(recordPath, record);
+    }
+    for (const ledgerFile of [
+      "autopublish-ledger.json",
+      "publication-ledger.json",
+    ]) {
+      const ledgerPath = join(input.targetRepo, "aggregate", ledgerFile);
+      const ledger = await readJson<Record<string, unknown>>(ledgerPath).catch(
+        () => null,
+      );
+      if (!ledger || !Array.isArray(ledger.entries)) continue;
+      for (const entry of ledger.entries.filter(isRecord)) {
+        if (
+          input.decisions.some(
+            (decision) => decision.targetSlug === text(entry.slug, ""),
+          )
+        ) {
+          entry.commitHash = input.commitHash;
+          entry.pushed = true;
+          entry.pushedAt = input.pushedAt;
+        }
+      }
+      ledger.updatedAt = nowIso();
+      ledger.evidenceHash = "";
+      ledger.evidenceHash = hashEvidence(ledger);
+      await writeJson(ledgerPath, ledger);
+    }
+    const add = await runCommand(
+      "git add aggregate/autopublish-ledger.json aggregate/publication-ledger.json results",
+      input.targetRepo,
+      { allowNetwork: false },
+    );
+    if (add.exitCode !== 0) {
+      throw new AppError(
+        "CORPUS_AUTOPUBLISH_STATUS_GIT_ADD_FAILED",
+        add.stderr || add.stdout,
+      );
+    }
+    const diff = await runCommand(
+      "git diff --cached --name-only",
+      input.targetRepo,
+      {
+        allowNetwork: false,
+      },
+    );
+    if (diff.stdout.trim().length === 0) return null;
+    const diffCheck = await runCommand(
+      "git diff --cached --check",
+      input.targetRepo,
+      {
+        allowNetwork: false,
+      },
+    );
+    if (diffCheck.exitCode !== 0) {
+      throw new AppError(
+        "CORPUS_AUTOPUBLISH_STATUS_DIFF_CHECK_FAILED",
+        diffCheck.stderr || diffCheck.stdout,
+      );
+    }
+    const commit = await runCommand(
+      `git commit -m "Record corpus autopublish status: ${input.decisions.length} result(s)"`,
+      input.targetRepo,
+      { allowNetwork: false },
+    );
+    if (commit.exitCode !== 0) {
+      throw new AppError(
+        "CORPUS_AUTOPUBLISH_STATUS_COMMIT_FAILED",
+        commit.stderr || commit.stdout,
+      );
+    }
+    const statusCommitHash = (
+      await runCommand("git rev-parse HEAD", input.targetRepo, {
+        allowNetwork: false,
+      })
+    ).stdout.trim();
+    const push = await runCommand("git push origin main", input.targetRepo, {
+      allowNetwork: true,
+    });
+    if (push.exitCode !== 0) {
+      throw new AppError(
+        "CORPUS_AUTOPUBLISH_STATUS_PUSH_FAILED",
+        push.stderr || push.stdout,
+        { statusCommitHash },
+      );
+    }
+    return statusCommitHash;
   }
 
   private async discoverCandidates(): Promise<CorpusAutopublishCandidate[]> {

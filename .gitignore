@@ -30,3 +30,4 @@ graphify-out/graph.json
 .sovryn/launch/
 .sovryn/e2e/
 public-corpus/
+.sovryn/pilots/

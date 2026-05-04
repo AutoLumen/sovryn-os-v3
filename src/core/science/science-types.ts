@@ -35,7 +35,15 @@ export type ScienceGateCode =
   | "SENSITIVITY_PRESENT"
   | "ERROR_ANALYSIS_PRESENT"
   | "NO_UNSUPPORTED_CAUSAL_CLAIMS"
-  | "RESULT_LABEL_EVIDENCE_BOUND";
+  | "RESULT_LABEL_EVIDENCE_BOUND"
+  | "REPLICATION_PRESENT"
+  | "REPLICATION_RUN_COUNT_MINIMUM"
+  | "REPLICATION_STABILITY_RECORDED"
+  | "FALSIFICATION_PRESENT"
+  | "NEGATIVE_TESTS_PRESENT"
+  | "HYPOTHESIS_STATUS_UPDATED"
+  | "UNSUPPORTED_RESULTS_NOT_PUBLISHED"
+  | "FAILURE_CASES_DOCUMENTED";
 
 export type SafetyScope = {
   domain: string;
@@ -392,5 +400,76 @@ export type ScienceErrorAnalysis = {
   }>;
   errorSummary: string;
   resultLabel: ScienceResultLabel;
+  evidenceHash: string;
+};
+
+export type ScienceReplicationRun = {
+  replicationRunId: string;
+  studyId: string;
+  experimentId: string;
+  seed: number;
+  datasetHash: string;
+  baselineFalsePositiveRate: number;
+  candidateFalsePositiveRate: number;
+  candidateRecall: number;
+  falsePositiveReduction: number;
+  passed: boolean;
+  evidenceHash: string;
+};
+
+export type ScienceReplicationSummary = {
+  replicationId: string;
+  studyId: string;
+  experimentId: string;
+  requestedRuns: number;
+  completedRuns: number;
+  seeds: number[];
+  metricVariance: number;
+  materiallyUnstable: boolean;
+  stabilitySummary: string;
+  resultLabel: ScienceResultLabel;
+  evidenceHash: string;
+};
+
+export type ScienceNegativeTests = {
+  negativeTestId: string;
+  studyId: string;
+  tests: Array<{
+    caseId: string;
+    description: string;
+    expectedBehavior: string;
+    safeSyntheticOnly: boolean;
+  }>;
+  evidenceHash: string;
+};
+
+export type ScienceFalsificationReport = {
+  falsificationId: string;
+  studyId: string;
+  hypothesisId: string;
+  cases: Array<{
+    caseId: string;
+    description: string;
+    expectedOutcome: string;
+    observedOutcome: string;
+    passed: boolean;
+    materialFailure: boolean;
+  }>;
+  materialFailures: number;
+  hypothesisImpact: ScienceResultLabel;
+  failureCasesDocumented: boolean;
+  limitations: string[];
+  evidenceHash: string;
+};
+
+export type ScienceHypothesisStatus = {
+  statusId: string;
+  studyId: string;
+  hypothesisId: string;
+  status: ScienceResultLabel;
+  replicationStable: boolean;
+  falsificationPassed: boolean;
+  blockingReasons: string[];
+  evidenceSummary: string;
   evidenceHash: string;
 };

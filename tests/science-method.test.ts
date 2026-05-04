@@ -67,6 +67,9 @@ let runtimeFixturePromise:
 let analysisFixturePromise:
   | Promise<Awaited<ReturnType<typeof createAnalyzedStudy>>>
   | undefined;
+let replicationFixturePromise:
+  | Promise<Awaited<ReturnType<typeof createReplicatedStudy>>>
+  | undefined;
 
 async function runtimeFixture() {
   runtimeFixturePromise ??= createRuntimeStudy();
@@ -76,6 +79,11 @@ async function runtimeFixture() {
 async function analysisFixture() {
   analysisFixturePromise ??= createAnalyzedStudy();
   return analysisFixturePromise;
+}
+
+async function replicationFixture() {
+  replicationFixturePromise ??= createReplicatedStudy();
+  return replicationFixturePromise;
 }
 
 async function createRuntimeStudy() {
@@ -160,13 +168,71 @@ async function createAnalyzedStudy() {
   };
 }
 
+async function createReplicatedStudy() {
+  const context = await createAnalyzedStudy();
+  const replicate = await executeCli(
+    [
+      "science",
+      "replicate",
+      context.experimentDesign.experimentId,
+      "--runs",
+      "3",
+      "--json",
+    ],
+    context.repo.root,
+  );
+  assert.equal(replicate.ok, true, JSON.stringify(replicate.errors, null, 2));
+  const negativeTests = await executeCli(
+    ["science", "negative-tests", context.study.studyId, "--json"],
+    context.repo.root,
+  );
+  assert.equal(
+    negativeTests.ok,
+    true,
+    JSON.stringify(negativeTests.errors, null, 2),
+  );
+  const falsify = await executeCli(
+    [
+      "science",
+      "falsify",
+      context.hypotheses.hypotheses[0].hypothesisId,
+      "--json",
+    ],
+    context.repo.root,
+  );
+  assert.equal(falsify.ok, true, JSON.stringify(falsify.errors, null, 2));
+  const hypothesisStatus = await executeCli(
+    [
+      "science",
+      "hypothesis",
+      "status",
+      context.hypotheses.hypotheses[0].hypothesisId,
+      "--json",
+    ],
+    context.repo.root,
+  );
+  assert.equal(
+    hypothesisStatus.ok,
+    true,
+    JSON.stringify(hypothesisStatus.errors, null, 2),
+  );
+  return {
+    ...context,
+    replicationSummary: (replicate.data as any).replicationSummary,
+    replicationRuns: (replicate.data as any).replicationRuns,
+    negativeTests: (negativeTests.data as any).negativeTests,
+    falsificationReport: (falsify.data as any).falsificationReport,
+    hypothesisStatus: (hypothesisStatus.data as any).hypothesisStatus,
+  };
+}
+
 function studyPath(root: string, slug: string, file: string): string {
   return join(root, ".sovryn", "science", "studies", slug, file);
 }
 
 test("v1.1 alpha package version is set", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  assert.equal(pkg.version, "3.1.0-alpha.3");
+  assert.equal(pkg.version, "3.1.0-alpha.4");
 });
 
 test("init ignores science runtime artifacts", async () => {
@@ -1449,4 +1515,587 @@ test("analysis markdown avoids fake statistical guarantees", async () => {
     "utf8",
   );
   assert.doesNotMatch(report, /\bguarantees\b|\bproduction-ready\b/i);
+});
+
+test("alpha.4 replication and falsification commands are listed in help", async () => {
+  const response = await executeCli(["--help"], process.cwd());
+  const help = (response.data as any).help;
+  assert.match(help, /sovryn science replicate/);
+  assert.match(help, /sovryn science falsify/);
+  assert.match(help, /sovryn science negative-tests/);
+  assert.match(help, /sovryn science hypothesis status/);
+});
+
+test("science replicate requires experiment runs", async () => {
+  const { repo, experimentDesign } = await createDesignedStudy();
+  const response = await executeCli(
+    ["science", "replicate", experimentDesign.experimentId, "--json"],
+    repo.root,
+  );
+  assert.equal(response.ok, false);
+  assert.equal(response.errors[0].code, "SCIENCE_EXPERIMENT_RUN_REQUIRED");
+});
+
+test("science replicate creates three runs", async () => {
+  const { replicationRuns } = await replicationFixture();
+  assert.equal(replicationRuns.length, 3);
+});
+
+test("science replicate records seeds", async () => {
+  const { replicationSummary } = await replicationFixture();
+  assert.deepEqual(replicationSummary.seeds, [1, 2, 3]);
+});
+
+test("science replicate writes seed directories", async () => {
+  const { repo, study } = await replicationFixture();
+  await access(
+    studyPath(
+      repo.root,
+      study.slug,
+      "replication-runs/seed-1/replication-run.json",
+    ),
+  );
+  await access(
+    studyPath(
+      repo.root,
+      study.slug,
+      "replication-runs/seed-2/replication-run.json",
+    ),
+  );
+  await access(
+    studyPath(
+      repo.root,
+      study.slug,
+      "replication-runs/seed-3/replication-run.json",
+    ),
+  );
+});
+
+test("science replicate writes summary and markdown", async () => {
+  const { repo, study } = await replicationFixture();
+  await access(studyPath(repo.root, study.slug, "replication-summary.json"));
+  const report = await readFile(
+    studyPath(repo.root, study.slug, "REPLICATION.md"),
+    "utf8",
+  );
+  assert.match(report, /Replication/);
+});
+
+test("replication records dataset hashes", async () => {
+  const { replicationRuns } = await replicationFixture();
+  assert.ok(
+    replicationRuns.every(
+      (run: any) =>
+        typeof run.datasetHash === "string" && run.datasetHash.length > 10,
+    ),
+  );
+});
+
+test("replication records metric variance", async () => {
+  const { replicationSummary } = await replicationFixture();
+  assert.equal(typeof replicationSummary.metricVariance, "number");
+});
+
+test("replication stability is explicitly recorded", async () => {
+  const { replicationSummary } = await replicationFixture();
+  assert.equal(typeof replicationSummary.materiallyUnstable, "boolean");
+});
+
+test("stable fixture replication is not materially unstable", async () => {
+  const { replicationSummary } = await replicationFixture();
+  assert.equal(replicationSummary.materiallyUnstable, false);
+});
+
+test("replication result label remains bounded before hypothesis status", async () => {
+  const { replicationSummary } = await replicationFixture();
+  assert.notEqual(replicationSummary.resultLabel, "supported");
+});
+
+test("replication --runs clamps safely", async () => {
+  const context = await createAnalyzedStudy();
+  const response = await executeCli(
+    [
+      "science",
+      "replicate",
+      context.experimentDesign.experimentId,
+      "--runs",
+      "100",
+      "--json",
+    ],
+    context.repo.root,
+  );
+  assert.equal(response.ok, true);
+  assert.equal((response.data as any).replicationSummary.requestedRuns, 10);
+  assert.equal((response.data as any).replicationSummary.completedRuns, 3);
+});
+
+test("negative tests are generated", async () => {
+  const { negativeTests } = await replicationFixture();
+  assert.ok(negativeTests.tests.length >= 4);
+});
+
+test("negative tests are safe synthetic only", async () => {
+  const { negativeTests } = await replicationFixture();
+  assert.ok(negativeTests.tests.every((item: any) => item.safeSyntheticOnly));
+});
+
+test("negative tests include normal weather high usage", async () => {
+  const { negativeTests } = await replicationFixture();
+  assert.ok(
+    negativeTests.tests.some(
+      (item: any) => item.caseId === "normal-cold-weather-high-usage",
+    ),
+  );
+});
+
+test("negative tests include weak provenance normal value", async () => {
+  const { negativeTests } = await replicationFixture();
+  assert.ok(
+    negativeTests.tests.some(
+      (item: any) => item.caseId === "weak-provenance-normal-value",
+    ),
+  );
+});
+
+test("negative tests include true spike with trusted provenance", async () => {
+  const { negativeTests } = await replicationFixture();
+  assert.ok(
+    negativeTests.tests.some(
+      (item: any) => item.caseId === "strong-provenance-true-spike",
+    ),
+  );
+});
+
+test("negative tests include missing interval independent case", async () => {
+  const { negativeTests } = await replicationFixture();
+  assert.ok(
+    negativeTests.tests.some(
+      (item: any) => item.caseId === "missing-interval-independent",
+    ),
+  );
+});
+
+test("negative test markdown is written", async () => {
+  const { repo, study } = await replicationFixture();
+  const report = await readFile(
+    studyPath(repo.root, study.slug, "NEGATIVE_TESTS.md"),
+    "utf8",
+  );
+  assert.match(report, /safe synthetic computational checks/i);
+});
+
+test("science falsify requires existing hypothesis", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    ["science", "falsify", "missing-hypothesis", "--json"],
+    repo.root,
+  );
+  assert.equal(response.ok, false);
+  assert.equal(response.errors[0].code, "SCIENCE_HYPOTHESIS_NOT_FOUND");
+});
+
+test("falsification report is generated", async () => {
+  const { repo, study, falsificationReport } = await replicationFixture();
+  assert.ok(falsificationReport.cases.length >= 4);
+  await access(studyPath(repo.root, study.slug, "falsification-report.json"));
+});
+
+test("falsification markdown is generated", async () => {
+  const { repo, study } = await replicationFixture();
+  const report = await readFile(
+    studyPath(repo.root, study.slug, "FALSIFICATION.md"),
+    "utf8",
+  );
+  assert.match(report, /attempted to weaken/i);
+});
+
+test("falsification generates counterexamples", async () => {
+  const { falsificationReport } = await replicationFixture();
+  assert.ok(
+    falsificationReport.cases.some((item: any) =>
+      item.caseId.includes("counterexample"),
+    ),
+  );
+});
+
+test("falsification records material failure count", async () => {
+  const { falsificationReport } = await replicationFixture();
+  assert.equal(typeof falsificationReport.materialFailures, "number");
+});
+
+test("falsification can preserve hypothesis when no material failure appears", async () => {
+  const { falsificationReport } = await replicationFixture();
+  assert.equal(falsificationReport.materialFailures, 0);
+  assert.equal(falsificationReport.hypothesisImpact, "partially_supported");
+});
+
+test("falsification documents failure cases", async () => {
+  const { falsificationReport } = await replicationFixture();
+  assert.equal(falsificationReport.failureCasesDocumented, true);
+});
+
+test("falsification limitations are explicit", async () => {
+  const { falsificationReport } = await replicationFixture();
+  assert.ok(
+    falsificationReport.limitations.some((item: string) =>
+      item.includes("safe synthetic"),
+    ),
+  );
+});
+
+test("hypothesis status requires existing hypothesis", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    ["science", "hypothesis", "status", "missing-hypothesis", "--json"],
+    repo.root,
+  );
+  assert.equal(response.ok, false);
+  assert.equal(response.errors[0].code, "SCIENCE_HYPOTHESIS_NOT_FOUND");
+});
+
+test("hypothesis status is updated", async () => {
+  const { repo, study, hypothesisStatus } = await replicationFixture();
+  assert.equal(hypothesisStatus.status, "supported");
+  await access(studyPath(repo.root, study.slug, "hypothesis-status.json"));
+});
+
+test("hypothesis status records stable replication", async () => {
+  const { hypothesisStatus } = await replicationFixture();
+  assert.equal(hypothesisStatus.replicationStable, true);
+});
+
+test("hypothesis status records passed falsification", async () => {
+  const { hypothesisStatus } = await replicationFixture();
+  assert.equal(hypothesisStatus.falsificationPassed, true);
+});
+
+test("hypothesis status has no blockers after full evidence", async () => {
+  const { hypothesisStatus } = await replicationFixture();
+  assert.deepEqual(hypothesisStatus.blockingReasons, []);
+});
+
+test("hypothesis status markdown is generated", async () => {
+  const { repo, study } = await replicationFixture();
+  const report = await readFile(
+    studyPath(repo.root, study.slug, "HYPOTHESIS_STATUS.md"),
+    "utf8",
+  );
+  assert.match(report, /Status: supported/);
+});
+
+test("hypothesis remains inconclusive without replication", async () => {
+  const context = await createAnalyzedStudy();
+  await executeCli(
+    [
+      "science",
+      "falsify",
+      context.hypotheses.hypotheses[0].hypothesisId,
+      "--json",
+    ],
+    context.repo.root,
+  );
+  const response = await executeCli(
+    [
+      "science",
+      "hypothesis",
+      "status",
+      context.hypotheses.hypotheses[0].hypothesisId,
+      "--json",
+    ],
+    context.repo.root,
+  );
+  assert.equal((response.data as any).hypothesisStatus.status, "inconclusive");
+});
+
+test("hypothesis remains inconclusive without falsification", async () => {
+  const context = await createAnalyzedStudy();
+  await executeCli(
+    [
+      "science",
+      "replicate",
+      context.experimentDesign.experimentId,
+      "--runs",
+      "3",
+      "--json",
+    ],
+    context.repo.root,
+  );
+  const response = await executeCli(
+    [
+      "science",
+      "hypothesis",
+      "status",
+      context.hypotheses.hypotheses[0].hypothesisId,
+      "--json",
+    ],
+    context.repo.root,
+  );
+  assert.equal((response.data as any).hypothesisStatus.status, "inconclusive");
+});
+
+test("replication instability can make hypothesis inconclusive", async () => {
+  const context = await createAnalyzedStudy();
+  await executeCli(
+    [
+      "science",
+      "replicate",
+      context.experimentDesign.experimentId,
+      "--runs",
+      "3",
+      "--json",
+    ],
+    context.repo.root,
+  );
+  const path = studyPath(
+    context.repo.root,
+    context.study.slug,
+    "replication-summary.json",
+  );
+  const summary = await readJson<any>(path);
+  summary.materiallyUnstable = true;
+  await writeFile(path, JSON.stringify(summary, null, 2), "utf8");
+  await executeCli(
+    [
+      "science",
+      "falsify",
+      context.hypotheses.hypotheses[0].hypothesisId,
+      "--json",
+    ],
+    context.repo.root,
+  );
+  const response = await executeCli(
+    [
+      "science",
+      "hypothesis",
+      "status",
+      context.hypotheses.hypotheses[0].hypothesisId,
+      "--json",
+    ],
+    context.repo.root,
+  );
+  assert.equal((response.data as any).hypothesisStatus.status, "inconclusive");
+});
+
+test("falsification material failure can weaken hypothesis", async () => {
+  const context = await createAnalyzedStudy();
+  await executeCli(
+    [
+      "science",
+      "replicate",
+      context.experimentDesign.experimentId,
+      "--runs",
+      "3",
+      "--json",
+    ],
+    context.repo.root,
+  );
+  await executeCli(
+    [
+      "science",
+      "falsify",
+      context.hypotheses.hypotheses[0].hypothesisId,
+      "--json",
+    ],
+    context.repo.root,
+  );
+  const path = studyPath(
+    context.repo.root,
+    context.study.slug,
+    "falsification-report.json",
+  );
+  const report = await readJson<any>(path);
+  report.materialFailures = 1;
+  report.cases[0].materialFailure = true;
+  await writeFile(path, JSON.stringify(report, null, 2), "utf8");
+  const response = await executeCli(
+    [
+      "science",
+      "hypothesis",
+      "status",
+      context.hypotheses.hypotheses[0].hypothesisId,
+      "--json",
+    ],
+    context.repo.root,
+  );
+  assert.equal((response.data as any).hypothesisStatus.status, "weakened");
+});
+
+test("review includes alpha.4 replication gates", async () => {
+  const { repo, study } = await replicationFixture();
+  const response = await executeCli(
+    ["science", "review", study.studyId, "--json"],
+    repo.root,
+  );
+  const codes = (response.data as any).gates.map((gate: any) => gate.code);
+  for (const code of [
+    "REPLICATION_PRESENT",
+    "REPLICATION_RUN_COUNT_MINIMUM",
+    "REPLICATION_STABILITY_RECORDED",
+    "FALSIFICATION_PRESENT",
+    "NEGATIVE_TESTS_PRESENT",
+    "HYPOTHESIS_STATUS_UPDATED",
+    "UNSUPPORTED_RESULTS_NOT_PUBLISHED",
+    "FAILURE_CASES_DOCUMENTED",
+  ]) {
+    assert.ok(codes.includes(code), code);
+  }
+});
+
+test("review passes after replication and falsification evidence exists", async () => {
+  const { repo, study } = await replicationFixture();
+  const response = await executeCli(
+    ["science", "review", study.studyId, "--json"],
+    repo.root,
+  );
+  assert.equal((response.data as any).status, "passed");
+});
+
+test("review blocks missing falsification report", async () => {
+  const context = await createAnalyzedStudy();
+  await executeCli(
+    [
+      "science",
+      "replicate",
+      context.experimentDesign.experimentId,
+      "--runs",
+      "3",
+      "--json",
+    ],
+    context.repo.root,
+  );
+  const response = await executeCli(
+    ["science", "review", context.study.studyId, "--json"],
+    context.repo.root,
+  );
+  const gate = (response.data as any).gates.find(
+    (item: any) => item.code === "FALSIFICATION_PRESENT",
+  );
+  assert.equal(gate.passed, false);
+});
+
+test("review blocks missing negative tests", async () => {
+  const context = await createAnalyzedStudy();
+  await executeCli(
+    [
+      "science",
+      "replicate",
+      context.experimentDesign.experimentId,
+      "--runs",
+      "3",
+      "--json",
+    ],
+    context.repo.root,
+  );
+  const path = studyPath(
+    context.repo.root,
+    context.study.slug,
+    "negative-tests.json",
+  );
+  await writeFile(path, JSON.stringify({ tests: [] }, null, 2), "utf8");
+  const response = await executeCli(
+    ["science", "review", context.study.studyId, "--json"],
+    context.repo.root,
+  );
+  const gate = (response.data as any).gates.find(
+    (item: any) => item.code === "NEGATIVE_TESTS_PRESENT",
+  );
+  assert.equal(gate.passed, false);
+});
+
+test("review blocks supported status with unstable replication", async () => {
+  const context = await replicationFixture();
+  const path = studyPath(
+    context.repo.root,
+    context.study.slug,
+    "replication-summary.json",
+  );
+  const summary = await readJson<any>(path);
+  summary.materiallyUnstable = true;
+  await writeFile(path, JSON.stringify(summary, null, 2), "utf8");
+  const response = await executeCli(
+    ["science", "review", context.study.studyId, "--json"],
+    context.repo.root,
+  );
+  const gate = (response.data as any).gates.find(
+    (item: any) => item.code === "UNSUPPORTED_RESULTS_NOT_PUBLISHED",
+  );
+  assert.equal(gate.passed, false);
+});
+
+test("falsification report avoids legal claims", async () => {
+  const { repo, study } = await replicationFixture();
+  const report = await readFile(
+    studyPath(repo.root, study.slug, "FALSIFICATION.md"),
+    "utf8",
+  );
+  assert.doesNotMatch(
+    report,
+    /\bpatentable\b|\blegally novel\b|\bfreedom to operate\b/i,
+  );
+});
+
+test("replication report avoids fake guarantees", async () => {
+  const { repo, study } = await replicationFixture();
+  const report = await readFile(
+    studyPath(repo.root, study.slug, "REPLICATION.md"),
+    "utf8",
+  );
+  assert.doesNotMatch(report, /\bguarantees\b|\bproduction-ready\b/i);
+});
+
+test("failure cases are documented in falsification markdown", async () => {
+  const { repo, study } = await replicationFixture();
+  const report = await readFile(
+    studyPath(repo.root, study.slug, "FALSIFICATION.md"),
+    "utf8",
+  );
+  assert.match(report, /Failure Cases/);
+});
+
+test("replication artifacts are added to study refs", async () => {
+  const { repo, study } = await replicationFixture();
+  const current = await readJson<any>(
+    studyPath(repo.root, study.slug, "study.json"),
+  );
+  assert.ok(
+    current.artifactRefs.some((ref: string) =>
+      ref.endsWith("replication-summary.json"),
+    ),
+  );
+});
+
+test("falsification artifacts are added to study refs", async () => {
+  const { repo, study } = await replicationFixture();
+  const current = await readJson<any>(
+    studyPath(repo.root, study.slug, "study.json"),
+  );
+  assert.ok(
+    current.artifactRefs.some((ref: string) =>
+      ref.endsWith("falsification-report.json"),
+    ),
+  );
+});
+
+test("hypothesis status artifact is hash-bound", async () => {
+  const { hypothesisStatus } = await replicationFixture();
+  assert.equal(typeof hypothesisStatus.evidenceHash, "string");
+  assert.equal(hypothesisStatus.evidenceHash.length, 64);
+});
+
+test("negative tests artifact is hash-bound", async () => {
+  const { negativeTests } = await replicationFixture();
+  assert.equal(typeof negativeTests.evidenceHash, "string");
+  assert.equal(negativeTests.evidenceHash.length, 64);
+});
+
+test("falsification artifact is hash-bound", async () => {
+  const { falsificationReport } = await replicationFixture();
+  assert.equal(typeof falsificationReport.evidenceHash, "string");
+  assert.equal(falsificationReport.evidenceHash.length, 64);
+});
+
+test("replication summary artifact is hash-bound", async () => {
+  const { replicationSummary } = await replicationFixture();
+  assert.equal(typeof replicationSummary.evidenceHash, "string");
+  assert.equal(replicationSummary.evidenceHash.length, 64);
 });

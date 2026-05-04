@@ -1,9 +1,9 @@
 # Scientific Method Core
 
-Sovryn OS `3.1.0-alpha.3` includes the first autonomous
+Sovryn OS `3.1.0-alpha.4` includes the first autonomous
 computational-science layer, a deterministic experiment/data/instrument
-runtime, and bounded statistical analysis for safe synthetic energy-data
-studies.
+runtime, bounded statistical analysis, replication, and falsification for safe
+synthetic energy-data studies.
 
 The core flow is:
 
@@ -15,8 +15,11 @@ The core flow is:
 6. Run deterministic experiment seeds through Node Alpha evidence.
 7. Analyze confusion metrics and compare against the baseline.
 8. Run ablations, sensitivity sweeps, and error analysis.
-9. Review the study against scientific-method, runtime, analysis, and safety
-   gates.
+9. Replicate the experiment across deterministic seeds.
+10. Generate negative tests and attempt falsification.
+11. Update hypothesis status.
+12. Review the study against scientific-method, runtime, analysis,
+    replication, falsification, and safety gates.
 
 ```bash
 sovryn science question "Do provenance-aware anomaly scoring methods reduce false positives in synthetic energy-usage datasets compared with simple threshold baselines?" --json
@@ -30,6 +33,10 @@ sovryn science analyze <experiment-id> --json
 sovryn science compare-baseline <experiment-id> --json
 sovryn science ablate <experiment-id> --json
 sovryn science sensitivity <experiment-id> --json
+sovryn science replicate <experiment-id> --runs 3 --json
+sovryn science negative-tests <study-id> --json
+sovryn science falsify <hypothesis-id> --json
+sovryn science hypothesis status <hypothesis-id> --json
 sovryn science review <study-id> --json
 ```
 
@@ -55,6 +62,11 @@ Study artifacts are written under:
   ablation-analysis.json
   sensitivity-analysis.json
   error-analysis.json
+  replication-runs/
+  replication-summary.json
+  negative-tests.json
+  falsification-report.json
+  hypothesis-status.json
   safety-scope.json
   SCIENCE_PLAN.md
   STUDY_STATUS.md
@@ -64,6 +76,10 @@ Study artifacts are written under:
   ABLATION_REPORT.md
   SENSITIVITY_ANALYSIS.md
   ERROR_ANALYSIS.md
+  REPLICATION.md
+  NEGATIVE_TESTS.md
+  FALSIFICATION.md
+  HYPOTHESIS_STATUS.md
   science-review.json
   SCIENCE_REVIEW.md
 ```
@@ -76,12 +92,15 @@ instrument tests, toolchain policy review, Node Alpha execution evidence,
 no-silent-fallback evidence, and deterministic experiment runs. Analysis gates
 require statistical analysis, baseline comparison, confusion metrics, ablations,
 sensitivity sweeps, error analysis, evidence-bound result labels, and no
-unsupported causal claims.
+unsupported causal claims. Replication/falsification gates require at least
+three replication runs, explicit stability recording, safe negative tests,
+falsification evidence, hypothesis status, documented failure cases, and no
+unsupported publication of results.
 
-Alpha.3 result labels remain conservative. A study may report a bounded
-`partially_supported`, `inconclusive`, `weakened`, or `rejected` analysis label,
-but it is not treated as fully supported until later replication and
-falsification phases exist.
+Alpha.4 can mark a hypothesis `supported` only within the bounded synthetic
+study when replication is stable and falsification has no material failures.
+Otherwise the status remains `partially_supported`, `inconclusive`, `weakened`,
+or `rejected`.
 
 Hard safety boundaries remain in force:
 

@@ -201,6 +201,10 @@ Commands:
   sovryn science ablate <experiment-id> [--json]
   sovryn science sensitivity <experiment-id> [--json]
   sovryn science compare-baseline <experiment-id> [--json]
+  sovryn science replicate <experiment-id> [--runs 3] [--json]
+  sovryn science falsify <hypothesis-id> [--json]
+  sovryn science negative-tests <study-id> [--json]
+  sovryn science hypothesis status <hypothesis-id> [--json]
   sovryn science study status <study-id> [--json]
   sovryn science review <study-id> [--json]
   sovryn invention status <mission-id> [--json]
@@ -1361,6 +1365,50 @@ async function scienceCommand(
       }
       return service.compareBaseline(experimentId);
     }
+    case "replicate": {
+      const experimentId = parsed.positionals[1];
+      if (!experimentId) {
+        throw new AppError(
+          "SCIENCE_REPLICATE_USAGE",
+          "Use: sovryn science replicate <experiment-id> --runs 3.",
+        );
+      }
+      return service.replicate(
+        experimentId,
+        flagInt(parsed.flags, "--runs", 3),
+      );
+    }
+    case "falsify": {
+      const hypothesisId = parsed.positionals[1];
+      if (!hypothesisId) {
+        throw new AppError(
+          "SCIENCE_FALSIFY_USAGE",
+          "Use: sovryn science falsify <hypothesis-id>.",
+        );
+      }
+      return service.falsify(hypothesisId);
+    }
+    case "negative-tests": {
+      const studyId = parsed.positionals[1];
+      if (!studyId) {
+        throw new AppError(
+          "SCIENCE_NEGATIVE_TESTS_USAGE",
+          "Use: sovryn science negative-tests <study-id>.",
+        );
+      }
+      return service.negativeTests(studyId);
+    }
+    case "hypothesis": {
+      const action = parsed.positionals[1];
+      const hypothesisId = parsed.positionals[2];
+      if (action !== "status" || !hypothesisId) {
+        throw new AppError(
+          "SCIENCE_HYPOTHESIS_USAGE",
+          "Use: sovryn science hypothesis status <hypothesis-id>.",
+        );
+      }
+      return service.hypothesisStatus(hypothesisId);
+    }
     case "study": {
       const action = parsed.positionals[1];
       const studyId = parsed.positionals[2];
@@ -1385,7 +1433,7 @@ async function scienceCommand(
     default:
       throw new AppError(
         "SCIENCE_COMMAND_REQUIRED",
-        "Use: sovryn science <question|hypothesize|data generate|instrument build|experiment design|experiment run|experiment status|analyze|ablate|sensitivity|compare-baseline|study status|review>.",
+        "Use: sovryn science <question|hypothesize|data generate|instrument build|experiment design|experiment run|experiment status|analyze|ablate|sensitivity|compare-baseline|replicate|falsify|negative-tests|hypothesis status|study status|review>.",
       );
   }
 }

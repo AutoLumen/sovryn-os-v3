@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `3.1.0-alpha.3`
+Current version: `3.1.0-alpha.4`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -34,16 +34,17 @@ to autonomous computational scientist. Alpha.1 added the formal study
 structure: question, hypothesis, null hypothesis, experiment design, baseline,
 metrics, falsification criteria, replication plan, and safety scope. Alpha.2
 added the first deterministic data/instrument/runtime path for safe synthetic
-computational experiments. Alpha.3 adds bounded statistical analysis, baseline
-comparison, ablations, sensitivity sweeps, and error analysis. It still does not
-claim full scientific support until later replication and falsification phases
-exist.
+computational experiments. Alpha.3 added bounded statistical analysis, baseline
+comparison, ablations, sensitivity sweeps, and error analysis. Alpha.4 adds
+replication, negative tests, falsification reports, and hypothesis status
+updates. Scientific support remains bounded to the evidence actually produced.
 
-| Version         | Focus                       | Result                                                                                                                                                     |
-| --------------- | --------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `3.1.0-alpha.1` | Scientific Method Core      | Adds `sovryn science` commands for safe computational questions, hypotheses with null hypotheses, experiment designs, study status, and gate reviews.      |
-| `3.1.0-alpha.2` | Data and Instrument Runtime | Adds synthetic dataset generation, generated baseline/candidate/runner instruments, Node Alpha execution evidence, and deterministic experiment run gates. |
-| `3.1.0-alpha.3` | Statistics and Ablations    | Adds evidence-bound confusion metrics, baseline comparison, ablation reports, sensitivity sweeps, and false-positive/false-negative error analysis.        |
+| Version         | Focus                         | Result                                                                                                                                                     |
+| --------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `3.1.0-alpha.1` | Scientific Method Core        | Adds `sovryn science` commands for safe computational questions, hypotheses with null hypotheses, experiment designs, study status, and gate reviews.      |
+| `3.1.0-alpha.2` | Data and Instrument Runtime   | Adds synthetic dataset generation, generated baseline/candidate/runner instruments, Node Alpha execution evidence, and deterministic experiment run gates. |
+| `3.1.0-alpha.3` | Statistics and Ablations      | Adds evidence-bound confusion metrics, baseline comparison, ablation reports, sensitivity sweeps, and false-positive/false-negative error analysis.        |
+| `3.1.0-alpha.4` | Replication and Falsification | Adds deterministic replication summaries, negative tests, falsification reports, and hypothesis status updates.                                            |
 
 New science commands:
 
@@ -59,6 +60,10 @@ sovryn science analyze <experiment-id> --json
 sovryn science ablate <experiment-id> --json
 sovryn science sensitivity <experiment-id> --json
 sovryn science compare-baseline <experiment-id> --json
+sovryn science replicate <experiment-id> --runs 3 --json
+sovryn science falsify <hypothesis-id> --json
+sovryn science negative-tests <study-id> --json
+sovryn science hypothesis status <hypothesis-id> --json
 sovryn science study status <study-id> --json
 sovryn science review <study-id> --json
 ```

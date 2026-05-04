@@ -97,7 +97,8 @@ const DANGEROUS_GOAL_PATTERNS = [
   { name: "botnet", regex: /\bbotnet\b/i },
   {
     name: "exploit-operationalization",
-    regex: /\b(?:operationalize an exploit|unauthorized intrusion)\b/i,
+    regex:
+      /\b(?:operationalize an exploit|exploit live systems|unauthorized intrusion|publish attack tools|attack tools)\b/i,
   },
   {
     name: "weaponization",

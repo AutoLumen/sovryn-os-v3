@@ -3,10 +3,13 @@ export type ReleaseCandidateScore = {
   publicEvidenceScore: number;
   reproducibilityScore: number;
   sourceStrengthScore: number;
+  evidenceStrengthScore: number;
   noveltyRiskScore: number;
   safetyRiskScore: number;
+  publicationSafetyScore: number;
   corpusDuplicateRisk: number;
   humanReviewPriority: "low" | "medium" | "high";
+  qualityLabel: "unacceptable" | "weak" | "acceptable" | "good" | "excellent";
 };
 
 export type ReleaseCandidateGate = {
@@ -25,6 +28,12 @@ export type ReleaseCandidate = {
   inventionMissionId: string;
   inventionSlug: string;
   readinessLabel: string;
+  candidateStatus:
+    | "publish_blocked"
+    | "needs_revision"
+    | "review_ready"
+    | "dry_run_ready";
+  qualityLabel: "unacceptable" | "weak" | "acceptable" | "good" | "excellent";
   score: ReleaseCandidateScore;
   gates: ReleaseCandidateGate[];
   releasePath: string;

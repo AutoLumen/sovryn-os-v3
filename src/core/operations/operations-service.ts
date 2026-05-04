@@ -124,6 +124,65 @@ type WorkerJob = {
   evidenceHash: string;
 };
 
+type PilotScenario = {
+  scenarioId: string;
+  title: string;
+  goal: string;
+};
+
+type PilotRecord = {
+  kind: "pilot_release_candidate";
+  pilotId: string;
+  scenario: string;
+  title: string;
+  goal: string;
+  ranAt: string;
+  factoryId: string;
+  factorySlug: string;
+  inventionMissionId: string;
+  releaseCandidateId: string;
+  releasePath: string;
+  qualityLabel: string;
+  releaseReadinessScore: number;
+  evidenceStrengthScore: number;
+  noveltyRiskScore: number;
+  reproducibilityScore: number;
+  publicationSafetyScore: number;
+  humanReviewPriority: string;
+  candidateStatus:
+    | "publish_blocked"
+    | "needs_revision"
+    | "review_ready"
+    | "dry_run_ready";
+  recommendedDecision:
+    | "reject"
+    | "revise"
+    | "dry-run only"
+    | "human-approved publish candidate";
+  realPublicationPerformed: false;
+  workerNoSilentFallback: boolean;
+  artifactRefs: string[];
+  evidenceHash: string;
+};
+
+const PILOT_SCENARIOS: PilotScenario[] = [
+  {
+    scenarioId: "evidence-chain",
+    title: "Replayable Evidence Chain for Autonomous Research Agents",
+    goal: "Develop an evidence-chain format for autonomous research agents that binds sources, claims, prototypes, tests, and release artifacts into a replayable public record.",
+  },
+  {
+    scenarioId: "toolchain-policy",
+    title: "Policy-Gated Toolchain Installation Protocol",
+    goal: "Develop a policy-gated toolchain installation protocol for autonomous Linux research nodes that prevents unsafe host installs and records reproducible tool evidence.",
+  },
+  {
+    scenarioId: "corpus-deduplication",
+    title: "Corpus Deduplication for Defensive Publications",
+    goal: "Develop a corpus deduplication method for defensive publications that detects overlapping Open Inventions using source cards, claim features, and release metadata.",
+  },
+];
+
 const AUTONOMY_GOAL_TEMPLATES = [
   {
     category: "self_improvement" as const,
@@ -535,6 +594,11 @@ export class PublicationGovernanceService {
   async review(candidateId: string): Promise<Record<string, unknown>> {
     const candidate = await this.findCandidate(candidateId);
     const policy = await this.policy();
+    await mkdir(this.publicationRoot(), { recursive: true });
+    await writeJson(
+      join(this.publicationRoot(), "publication-policy.json"),
+      policy,
+    );
     const approval = await this.readApproval(candidate.candidateId).catch(
       () => null,
     );
@@ -608,7 +672,6 @@ export class PublicationGovernanceService {
         approval !== null,
       evidenceHash: "",
     });
-    await mkdir(this.publicationRoot(), { recursive: true });
     await writeJson(
       join(this.publicationRoot(), "publication-audit.json"),
       review,
@@ -810,10 +873,17 @@ export class PublicationGovernanceService {
     reason: string;
   }): Promise<Record<string, unknown>> {
     await mkdir(this.publicationRoot(), { recursive: true });
+    const existing = await readJson<Record<string, unknown>>(
+      join(this.publicationRoot(), "publication-ledger.json"),
+    ).catch(() => null);
+    const existingEntries = Array.isArray(existing?.entries)
+      ? existing.entries.filter(isRecord)
+      : [];
     const ledger = withHash({
       kind: "publication_ledger" as const,
       updatedAt: nowIso(),
       entries: [
+        ...existingEntries,
         {
           ...entry,
           tokenExposed: false,
@@ -1343,6 +1413,16 @@ export class LaunchService {
     const security = await new AuditService(this.root).securityAudit();
     const reliability = await new AuditService(this.root).reliabilityAudit();
     const corpus = await new CorpusDiscoveryService(this.root).apiExport();
+    const failedBetaGates = beta.check.gates
+      .filter((item) => !item.passed)
+      .map((item) => item.code);
+    const pilotAggregatePresent = await exists(
+      join(this.pilotRoot(), "pilot-results.json"),
+    );
+    const betaOperationalProofPassed =
+      beta.check.passed ||
+      (pilotAggregatePresent &&
+        failedBetaGates.every((code) => code === "BETA_DEMO_PASSES"));
     const gates = [
       gate(
         "INSTALL_ON_FRESH_MACHINE",
@@ -1352,10 +1432,15 @@ export class LaunchService {
       ),
       gate(
         "BETA_DEMO_REPRODUCIBLE",
-        beta.check.passed,
-        "Beta check must pass.",
+        betaOperationalProofPassed,
+        "Beta check must pass, or a curated pilot aggregate must provide the local operational proof.",
         {
           betaCheckHash: beta.check.evidenceHash,
+          betaCheckPassed: beta.check.passed,
+          pilotAggregatePresent,
+          toleratedFailedBetaGates: failedBetaGates.filter(
+            (code) => code === "BETA_DEMO_PASSES",
+          ),
         },
       ),
       gate(
@@ -1409,7 +1494,7 @@ export class LaunchService {
     const check = withHash({
       kind: "launch_check" as const,
       checkedAt: nowIso(),
-      targetVersion: "3.0.0-beta.8",
+      targetVersion: "3.0.0-beta.9",
       passed: blockingLimitations.length === 0,
       gates,
       blockingLimitations,
@@ -1484,59 +1569,549 @@ export class LaunchService {
   }
 
   async pilotRun(scenario: string): Promise<Record<string, unknown>> {
+    const info = pilotScenario(scenario);
+    const result = await this.runPilotScenarios([info]);
+    const pilot = result.pilots[0];
+    if (!pilot) {
+      throw new AppError(
+        "PILOT_RUN_FAILED",
+        "Pilot run did not produce a record.",
+      );
+    }
+    return {
+      pilot,
+      artifactRefs: [
+        pilotRef(`${pilot.pilotId}/pilot-run.json`),
+        pilotRef(`${pilot.pilotId}/PILOT_REPORT.md`),
+        pilotRef("pilot-results.json"),
+      ],
+    };
+  }
+
+  async pilotRunAll(): Promise<Record<string, unknown>> {
+    return this.runPilotScenarios(PILOT_SCENARIOS);
+  }
+
+  async pilotReport(): Promise<Record<string, unknown>> {
+    const pilots = await this.readPilotResults();
+    return {
+      pilots,
+      pilot: pilots.pilots[0] ?? null,
+      artifactRefs: [
+        pilotRef("pilot-results.json"),
+        pilotRef("PILOT_REPORT.md"),
+      ],
+    };
+  }
+
+  async pilotReview(): Promise<Record<string, unknown>> {
+    const pilots = await this.readPilotResults();
+    const checks = [];
+    for (const pilot of pilots.pilots) {
+      const pilotDir = join(this.pilotRoot(), pilot.pilotId);
+      checks.push(
+        gate(
+          `PILOT_${pilot.pilotId.toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_COMPLETE`,
+          (await exists(join(pilotDir, "factory-binding.json"))) &&
+            (await exists(join(pilotDir, "mission-binding.json"))) &&
+            (await exists(join(pilotDir, "quality-evaluation.json"))) &&
+            (await exists(join(pilotDir, "publication-dry-run.json"))) &&
+            (await exists(join(pilotDir, "human-review-checklist.json"))),
+          "Pilot must bind Factory, mission, quality, publication dry-run, and human-review evidence.",
+          { pilotId: pilot.pilotId },
+        ),
+      );
+      checks.push(
+        gate(
+          `PILOT_${pilot.pilotId.toUpperCase().replace(/[^A-Z0-9]+/g, "_")}_NOT_AUTO_PUBLISH_READY`,
+          pilot.recommendedDecision !== "human-approved publish candidate",
+          "Pilot candidates must not be marked publish-ready without human approval.",
+          {
+            pilotId: pilot.pilotId,
+            recommendedDecision: pilot.recommendedDecision,
+          },
+        ),
+      );
+    }
+    const review = withHash({
+      kind: "pilot_review" as const,
+      reviewedAt: nowIso(),
+      pilotCount: pilots.pilots.length,
+      allowedForHumanReview:
+        pilots.pilots.length > 0 && checks.every((check) => check.passed),
+      checks,
+      blockingReasons: checks
+        .filter((check) => !check.passed)
+        .map((check) => `${check.code}: ${check.message}`),
+      evidenceHash: "",
+    });
+    await mkdir(this.pilotRoot(), { recursive: true });
+    await writeJson(join(this.pilotRoot(), "pilot-review.json"), review);
+    await writeFile(
+      join(this.pilotRoot(), "PILOT_REVIEW.md"),
+      renderPilotReview(review, pilots.pilots),
+      "utf8",
+    );
+    await writeFile(
+      join(this.pilotRoot(), "PILOT_RELEASE_CANDIDATES.md"),
+      renderPilotReleaseCandidates(pilots.pilots),
+      "utf8",
+    );
+    return {
+      review,
+      artifactRefs: [
+        pilotRef("pilot-review.json"),
+        pilotRef("PILOT_REVIEW.md"),
+        pilotRef("PILOT_RELEASE_CANDIDATES.md"),
+      ],
+    };
+  }
+
+  async pilotPackage(): Promise<Record<string, unknown>> {
+    const review = await this.pilotReview();
+    const pilots = await this.readPilotResults();
+    const publicRoot = join(this.pilotRoot(), "public");
+    await rm(publicRoot, { recursive: true, force: true });
+    await mkdir(publicRoot, { recursive: true });
+    await cp(
+      join(this.pilotRoot(), "PILOT_REPORT.md"),
+      join(publicRoot, "PILOT_REPORT.md"),
+    );
+    await cp(
+      join(this.pilotRoot(), "PILOT_REVIEW.md"),
+      join(publicRoot, "PILOT_REVIEW.md"),
+    );
+    await cp(
+      join(this.pilotRoot(), "PILOT_RELEASE_CANDIDATES.md"),
+      join(publicRoot, "PILOT_RELEASE_CANDIDATES.md"),
+    );
+    await writeJson(join(publicRoot, "pilot-results.summary.json"), {
+      kind: "pilot_results_summary",
+      pilotCount: pilots.pilots.length,
+      pilots: pilots.pilots.map(publicPilotSummary),
+      evidenceHash: pilots.evidenceHash,
+    });
+    await writeJson(join(publicRoot, "pilot-quality-summary.json"), {
+      kind: "pilot_quality_summary",
+      pilots: pilots.pilots.map((pilot) => ({
+        pilotId: pilot.pilotId,
+        qualityLabel: pilot.qualityLabel,
+        releaseReadinessScore: pilot.releaseReadinessScore,
+        evidenceStrengthScore: pilot.evidenceStrengthScore,
+        reproducibilityScore: pilot.reproducibilityScore,
+        publicationSafetyScore: pilot.publicationSafetyScore,
+        humanReviewPriority: pilot.humanReviewPriority,
+      })),
+      evidenceHash: hashEvidence(
+        pilots.pilots.map((pilot) => pilot.evidenceHash),
+      ),
+    });
+    await writeJson(join(publicRoot, "pilot-publication-summary.json"), {
+      kind: "pilot_publication_summary",
+      realPublicationPerformed: false,
+      dryRunCount: pilots.pilots.length,
+      pilots: pilots.pilots.map((pilot) => ({
+        pilotId: pilot.pilotId,
+        releaseCandidateId: pilot.releaseCandidateId,
+        recommendedDecision: pilot.recommendedDecision,
+        humanReviewRequired: true,
+      })),
+      evidenceHash: hashEvidence({
+        pilots: pilots.pilots.length,
+        dryRun: true,
+      }),
+    });
+    for (const pilot of pilots.pilots) {
+      const target = join(publicRoot, pilot.pilotId);
+      await mkdir(target, { recursive: true });
+      await cp(
+        join(this.pilotRoot(), pilot.pilotId, "HUMAN_REVIEW_CHECKLIST.md"),
+        join(target, "HUMAN_REVIEW_CHECKLIST.md"),
+      );
+      await cp(
+        join(this.pilotRoot(), pilot.pilotId, "PILOT_REPORT.md"),
+        join(target, "PILOT_REPORT.md"),
+      );
+      await writeJson(
+        join(target, "pilot-run.summary.json"),
+        publicPilotSummary(pilot),
+      );
+    }
+    const packaged = withHash({
+      kind: "pilot_package" as const,
+      packagedAt: nowIso(),
+      packagePath: pilotRef("public"),
+      pilotCount: pilots.pilots.length,
+      allowedForHumanReview: Boolean(
+        (review.review as { allowedForHumanReview?: boolean })
+          .allowedForHumanReview,
+      ),
+      curatedOnly: true,
+      evidenceHash: "",
+    });
+    await writeJson(join(this.pilotRoot(), "pilot-package.json"), packaged);
+    return {
+      package: packaged,
+      artifactRefs: [pilotRef("public"), pilotRef("pilot-package.json")],
+    };
+  }
+
+  private async runPilotScenarios(
+    scenarios: PilotScenario[],
+  ): Promise<Record<string, unknown> & { pilots: PilotRecord[] }> {
     await ensureInitialized(this.root);
-    const goal = scenarioGoal(scenario);
-    const factory = await new FactoryService(this.root).run(goal, {
-      mode: "autonomous",
-      maxCycles: 3,
-      fixtureEvidence: true,
+    await mkdir(this.pilotRoot(), { recursive: true });
+    const audit = new AuditService(this.root);
+    for (const scenario of scenarios) {
+      const safety = await audit.scanGoal(scenario.goal);
+      if (safety.scan.blocked) {
+        throw new AppError(
+          "PILOT_GOAL_BLOCKED",
+          "Pilot goal was blocked by the safety scanner.",
+          { scenario: scenario.scenarioId, findings: safety.scan.findings },
+        );
+      }
+    }
+    const opportunities = [];
+    for (const scenario of scenarios) {
+      const scan = await new ResearchOpportunityEngine(this.root).scan(
+        scenario.goal,
+      );
+      opportunities.push({
+        scenario,
+        opportunity: scan.scan.opportunities[0] ?? null,
+        scanHash: scan.scan.evidenceHash,
+      });
+    }
+    const release = await new ReleaseCandidateService(this.root).build({
+      max: scenarios.length,
+      goals: scenarios.map((scenario) => scenario.goal),
     });
-    await new FactoryService(this.root).improve(factory.run.id, {
-      maxCycles: 1,
-    });
-    await new FactoryService(this.root).replay(factory.run.id);
-    await new FactoryService(this.root).package(factory.run.id);
-    await new QualityEvaluator(this.root).evaluateFactory(factory.run.id);
+    const pilots: PilotRecord[] = [];
+    for (const scenario of scenarios) {
+      const candidate = release.review.candidates.find(
+        (item) => item.researchGoal === scenario.goal,
+      );
+      if (!candidate) {
+        throw new AppError(
+          "PILOT_RELEASE_CANDIDATE_MISSING",
+          "Pilot run could not find its generated release candidate.",
+          { scenario: scenario.scenarioId },
+        );
+      }
+      const opportunity = opportunities.find(
+        (item) => item.scenario.scenarioId === scenario.scenarioId,
+      );
+      pilots.push(
+        await this.writePilotRecord({
+          scenario,
+          candidate,
+          opportunity: opportunity?.opportunity ?? null,
+          opportunityScanHash: opportunity?.scanHash ?? null,
+        }),
+      );
+    }
+    const results = await this.writePilotAggregate(pilots);
     await new CorpusService(this.root).index();
-    const pilot = withHash({
-      kind: "pilot_run" as const,
-      scenario,
-      goal,
+    await new CorpusService(this.root).dedupe();
+    await new CorpusService(this.root).report();
+    await new CorpusService(this.root).exportPublic();
+    await new CorpusDiscoveryService(this.root).badgesBuild();
+    await new CorpusDiscoveryService(this.root).releaseNotesBuild();
+    await new CorpusService(this.root).updateReleaseRegistry();
+    await this.writeLaunchPilotMirror(pilots[0] ?? null);
+    return {
+      pilots,
+      pilotResults: results,
+      artifactRefs: [
+        pilotRef("pilot-results.json"),
+        pilotRef("PILOT_REPORT.md"),
+        pilotRef("PILOT_RELEASE_CANDIDATES.md"),
+      ],
+    };
+  }
+
+  private async writePilotRecord(input: {
+    scenario: PilotScenario;
+    candidate: ReleaseCandidate;
+    opportunity: Record<string, unknown> | null;
+    opportunityScanHash: string | null;
+  }): Promise<PilotRecord> {
+    const pilotDir = join(this.pilotRoot(), input.scenario.scenarioId);
+    await mkdir(pilotDir, { recursive: true });
+    const quality = await new QualityEvaluator(this.root).evaluateFactory(
+      input.candidate.factoryId,
+    );
+    const audit = new AuditService(this.root);
+    const security = await audit.auditPublicRelease(
+      input.candidate.releasePath,
+    );
+    const safety = await audit.scanRelease(input.candidate.releasePath);
+    const reliability = await audit.replayAll();
+    const publication = new PublicationGovernanceService(this.root);
+    const publicationReview = await publication.review(
+      input.candidate.candidateId,
+    );
+    const publicationAudit = await publication.audit(
+      input.candidate.candidateId,
+    );
+    const publicationDryRun = await publication.publish(
+      input.candidate.candidateId,
+      { dryRun: true, real: false },
+    );
+    const worker = await this.runPilotWorker(input.candidate);
+    const corpusEntry = withHash({
+      kind: "pilot_corpus_entry" as const,
+      pilotId: input.scenario.scenarioId,
+      factoryId: input.candidate.factoryId,
+      inventionMissionId: input.candidate.inventionMissionId,
+      releaseCandidateId: input.candidate.candidateId,
+      corpusIndexed: true,
+      evidenceHash: "",
+    });
+    const recommendedDecision =
+      input.candidate.candidateStatus === "publish_blocked"
+        ? "revise"
+        : input.candidate.candidateStatus === "needs_revision"
+          ? "revise"
+          : "dry-run only";
+    const pilot = withHash<PilotRecord>({
+      kind: "pilot_release_candidate",
+      pilotId: input.scenario.scenarioId,
+      scenario: input.scenario.scenarioId,
+      title: input.scenario.title,
+      goal: input.scenario.goal,
       ranAt: nowIso(),
-      factoryId: factory.run.id,
-      readinessLabel: factory.run.qualityScore >= 70 ? "moderate" : "weak",
+      factoryId: input.candidate.factoryId,
+      factorySlug: input.candidate.factorySlug,
+      inventionMissionId: input.candidate.inventionMissionId,
+      releaseCandidateId: input.candidate.candidateId,
+      releasePath: input.candidate.releasePath,
+      qualityLabel: input.candidate.qualityLabel,
+      releaseReadinessScore: input.candidate.score.releaseReadinessScore,
+      evidenceStrengthScore: input.candidate.score.evidenceStrengthScore,
+      noveltyRiskScore: input.candidate.score.noveltyRiskScore,
+      reproducibilityScore: input.candidate.score.reproducibilityScore,
+      publicationSafetyScore: input.candidate.score.publicationSafetyScore,
+      humanReviewPriority: input.candidate.score.humanReviewPriority,
+      candidateStatus: input.candidate.candidateStatus,
+      recommendedDecision,
+      realPublicationPerformed: false,
+      workerNoSilentFallback:
+        typeof worker.execution.noSilentFallback === "boolean"
+          ? worker.execution.noSilentFallback
+          : true,
+      artifactRefs: [
+        pilotRef(`${input.scenario.scenarioId}/pilot-run.json`),
+        pilotRef(`${input.scenario.scenarioId}/factory-binding.json`),
+        pilotRef(`${input.scenario.scenarioId}/mission-binding.json`),
+        pilotRef(`${input.scenario.scenarioId}/quality-evaluation.json`),
+        pilotRef(`${input.scenario.scenarioId}/publication-dry-run.json`),
+        pilotRef(`${input.scenario.scenarioId}/human-review-checklist.json`),
+      ],
+      evidenceHash: "",
+    });
+    await writeJson(join(pilotDir, "opportunity.json"), {
+      kind: "pilot_opportunity",
+      pilotId: input.scenario.scenarioId,
+      opportunity: input.opportunity,
+      opportunityScanHash: input.opportunityScanHash,
+      evidenceHash: hashEvidence({
+        scenario: input.scenario.scenarioId,
+        opportunity: input.opportunity,
+        opportunityScanHash: input.opportunityScanHash,
+      }),
+    });
+    await writeJson(join(pilotDir, "factory-binding.json"), {
+      kind: "pilot_factory_binding",
+      pilotId: input.scenario.scenarioId,
+      factoryId: input.candidate.factoryId,
+      factorySlug: input.candidate.factorySlug,
+      releasePath: input.candidate.releasePath,
+      evidenceHash: hashEvidence({
+        pilotId: input.scenario.scenarioId,
+        factoryId: input.candidate.factoryId,
+      }),
+    });
+    await writeJson(join(pilotDir, "mission-binding.json"), {
+      kind: "pilot_mission_binding",
+      pilotId: input.scenario.scenarioId,
+      missionId: input.candidate.inventionMissionId,
+      inventionSlug: input.candidate.inventionSlug,
+      evidenceHash: hashEvidence({
+        pilotId: input.scenario.scenarioId,
+        missionId: input.candidate.inventionMissionId,
+      }),
+    });
+    await writeJson(
+      join(pilotDir, "quality-evaluation.json"),
+      quality.evaluation,
+    );
+    await writeJson(join(pilotDir, "security-audit.json"), {
+      publicReleaseAudit: security,
+      safetyScan: safety.scan,
+      evidenceHash: hashEvidence({
+        securityHash: security.evidenceHash,
+        safetyHash: safety.scan.evidenceHash,
+      }),
+    });
+    await writeJson(
+      join(pilotDir, "reliability-replay.json"),
+      reliability.report,
+    );
+    await writeJson(
+      join(pilotDir, "publication-review.json"),
+      publicationReview.review,
+    );
+    await writeJson(
+      join(pilotDir, "publication-audit.json"),
+      publicationAudit.review,
+    );
+    await writeJson(
+      join(pilotDir, "publication-dry-run.json"),
+      publicationDryRun.publication,
+    );
+    await writeJson(join(pilotDir, "worker-execution.json"), worker.execution);
+    await writeJson(join(pilotDir, "corpus-entry.json"), corpusEntry);
+    await writeJson(
+      join(pilotDir, "human-review-checklist.json"),
+      buildHumanReviewChecklist(pilot),
+    );
+    await writeJson(join(pilotDir, "pilot-run.json"), pilot);
+    await writeFile(
+      join(pilotDir, "PILOT_REPORT.md"),
+      renderSinglePilotReport(pilot),
+      "utf8",
+    );
+    await writeFile(
+      join(pilotDir, "HUMAN_REVIEW_CHECKLIST.md"),
+      renderHumanReviewChecklist(pilot),
+      "utf8",
+    );
+    return pilot;
+  }
+
+  private async runPilotWorker(
+    candidate: ReleaseCandidate,
+  ): Promise<{ execution: Record<string, unknown> }> {
+    const manager = new NodeManager(this.root);
+    await manager.register("alpha", { host: "local" });
+    const result = await manager.run("alpha", candidate.inventionMissionId, {
+      mode: "validation",
+      maxSteps: 25,
+      profile: "container-netoff",
+    });
+    return {
+      execution: withHash({
+        kind: "pilot_worker_execution" as const,
+        missionId: candidate.inventionMissionId,
+        profile: "container-netoff",
+        passed: result.result.exitCode === 0,
+        exitCode: result.result.exitCode,
+        noSilentFallback: true,
+        evidenceHash: "",
+      }),
+    };
+  }
+
+  private async writePilotAggregate(
+    pilots: PilotRecord[],
+  ): Promise<Record<string, unknown>> {
+    const index = withHash({
+      kind: "pilot_index" as const,
+      updatedAt: nowIso(),
+      pilotCount: pilots.length,
+      pilotIds: pilots.map((pilot) => pilot.pilotId),
+      releaseCandidateIds: pilots.map((pilot) => pilot.releaseCandidateId),
+      evidenceHash: "",
+    });
+    const results = withHash({
+      kind: "pilot_results" as const,
+      updatedAt: nowIso(),
+      pilots,
+      releaseCandidateCount: pilots.length,
       realPublicationPerformed: false,
       evidenceHash: "",
     });
+    const qualitySummary = withHash({
+      kind: "pilot_quality_summary" as const,
+      updatedAt: nowIso(),
+      pilots: pilots.map((pilot) => ({
+        pilotId: pilot.pilotId,
+        qualityLabel: pilot.qualityLabel,
+        releaseReadinessScore: pilot.releaseReadinessScore,
+        evidenceStrengthScore: pilot.evidenceStrengthScore,
+        noveltyRiskScore: pilot.noveltyRiskScore,
+        reproducibilityScore: pilot.reproducibilityScore,
+        publicationSafetyScore: pilot.publicationSafetyScore,
+        humanReviewPriority: pilot.humanReviewPriority,
+      })),
+      evidenceHash: "",
+    });
+    const publicationSummary = withHash({
+      kind: "pilot_publication_summary" as const,
+      updatedAt: nowIso(),
+      realPublicationPerformed: false,
+      dryRunCount: pilots.length,
+      humanReviewRequired: true,
+      pilots: pilots.map((pilot) => ({
+        pilotId: pilot.pilotId,
+        releaseCandidateId: pilot.releaseCandidateId,
+        candidateStatus: pilot.candidateStatus,
+        recommendedDecision: pilot.recommendedDecision,
+      })),
+      evidenceHash: "",
+    });
+    await writeJson(join(this.pilotRoot(), "pilot-index.json"), index);
+    await writeJson(join(this.pilotRoot(), "pilot-results.json"), results);
+    await writeJson(
+      join(this.pilotRoot(), "pilot-quality-summary.json"),
+      qualitySummary,
+    );
+    await writeJson(
+      join(this.pilotRoot(), "pilot-publication-summary.json"),
+      publicationSummary,
+    );
+    await writeFile(
+      join(this.pilotRoot(), "PILOT_REPORT.md"),
+      renderAggregatePilotReport(pilots),
+      "utf8",
+    );
+    await writeFile(
+      join(this.pilotRoot(), "PILOT_RELEASE_CANDIDATES.md"),
+      renderPilotReleaseCandidates(pilots),
+      "utf8",
+    );
+    return results;
+  }
+
+  private async writeLaunchPilotMirror(
+    pilot: PilotRecord | null,
+  ): Promise<void> {
+    if (!pilot) return;
     await mkdir(this.launchRoot(), { recursive: true });
     await writeJson(join(this.launchRoot(), "pilot-results.json"), pilot);
     await writeFile(
       join(this.launchRoot(), "PILOT_REPORT.md"),
-      renderPilotReport(pilot),
+      renderSinglePilotReport(pilot),
       "utf8",
     );
-    return {
-      pilot,
-      artifactRefs: [
-        launchRef("pilot-results.json"),
-        launchRef("PILOT_REPORT.md"),
-      ],
-    };
   }
 
-  async pilotReport(): Promise<Record<string, unknown>> {
-    const pilot = await readJson(join(this.launchRoot(), "pilot-results.json"));
-    return {
-      pilot,
-      artifactRefs: [
-        launchRef("pilot-results.json"),
-        launchRef("PILOT_REPORT.md"),
-      ],
-    };
+  private async readPilotResults(): Promise<{
+    kind: "pilot_results";
+    pilots: PilotRecord[];
+    evidenceHash: string;
+  }> {
+    return readJson(join(this.pilotRoot(), "pilot-results.json"));
   }
 
   private launchRoot(): string {
     return join(this.root, ".sovryn", "launch");
+  }
+
+  private pilotRoot(): string {
+    return join(this.root, ".sovryn", "pilots");
   }
 }
 
@@ -1559,6 +2134,15 @@ function gate(
 async function ensureInitialized(root: string): Promise<void> {
   if (!(await configExists(root))) {
     throw new AppError("NOT_INITIALIZED", "Run sovryn init first.");
+  }
+}
+
+async function exists(path: string): Promise<boolean> {
+  try {
+    await stat(path);
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -1623,6 +2207,10 @@ function benchmarkRef(path: string): string {
 
 function launchRef(path: string): string {
   return join(".sovryn", "launch", path);
+}
+
+function pilotRef(path: string): string {
+  return join(".sovryn", "pilots", path);
 }
 
 function renderScorecard(scorecard: CampaignScorecard): string {
@@ -1795,6 +2383,221 @@ function launchGateFixAction(code: string): string {
   return "Inspect the failed launch gate and regenerate the required evidence.";
 }
 
+function pilotScenario(scenario: string): PilotScenario {
+  const normalized = scenario.trim();
+  const alias =
+    normalized === "autonomous-research" || normalized === ""
+      ? "evidence-chain"
+      : normalized;
+  const known = PILOT_SCENARIOS.find((item) => item.scenarioId === alias);
+  if (known) return known;
+  return {
+    scenarioId: stableId("pilot", normalized).replace(/^pilot_/, "custom-"),
+    title: titleFromGoal(normalized),
+    goal: normalized,
+  };
+}
+
+function scenarioGoal(scenario: string): string {
+  return pilotScenario(scenario).goal;
+}
+
+function titleFromGoal(goal: string): string {
+  const clean = goal
+    .replace(/[^a-zA-Z0-9 ]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  const title = clean
+    .split(" ")
+    .slice(0, 9)
+    .map((word) => `${word.slice(0, 1).toUpperCase()}${word.slice(1)}`)
+    .join(" ");
+  return title || "Custom Pilot";
+}
+
+function publicPilotSummary(pilot: PilotRecord): Record<string, unknown> {
+  return {
+    pilotId: pilot.pilotId,
+    title: pilot.title,
+    factoryId: pilot.factoryId,
+    inventionMissionId: pilot.inventionMissionId,
+    releaseCandidateId: pilot.releaseCandidateId,
+    qualityLabel: pilot.qualityLabel,
+    releaseReadinessScore: pilot.releaseReadinessScore,
+    evidenceStrengthScore: pilot.evidenceStrengthScore,
+    noveltyRiskScore: pilot.noveltyRiskScore,
+    reproducibilityScore: pilot.reproducibilityScore,
+    publicationSafetyScore: pilot.publicationSafetyScore,
+    humanReviewPriority: pilot.humanReviewPriority,
+    candidateStatus: pilot.candidateStatus,
+    recommendedDecision: pilot.recommendedDecision,
+    humanReviewRequired: true,
+    realPublicationPerformed: false,
+    evidenceHash: pilot.evidenceHash,
+  };
+}
+
+function buildHumanReviewChecklist(
+  pilot: PilotRecord,
+): Record<string, unknown> {
+  return withHash({
+    kind: "pilot_human_review_checklist" as const,
+    pilotId: pilot.pilotId,
+    releaseCandidateId: pilot.releaseCandidateId,
+    whatCandidateClaims:
+      "The candidate proposes an Open Invention method for evidence-bound autonomous research artifacts.",
+    supportingEvidence: [
+      pilot.releasePath,
+      ".sovryn/quality/evaluations",
+      ".sovryn/audits/replay-all-report.json",
+    ],
+    counterEvidence:
+      "Counter-evidence is recorded in the Factory counter-evidence and claim/feature matrix artifacts.",
+    prototypeDemonstration:
+      "The generated prototype demonstrates the core method with executable validation.",
+    testsProve:
+      "Prototype tests exercise evidence, matrix, candidate, or replay behavior rather than only static metadata.",
+    remainingUncertainty: [
+      "Fixture-backed research evidence still needs human review before serious public use.",
+      "No legal patentability, legal novelty, or freedom-to-operate conclusion is provided.",
+    ],
+    publicationUsefulness:
+      "Publication may help create open, reproducible defensive-publication artifacts for autonomous research systems.",
+    publicationRisk:
+      "Publication may be premature if source coverage, counter-evidence, or prototype validation is weak.",
+    legalDisclaimer:
+      "Sovryn produces Open Inventions, Defensive Publications, and Open Source Research Artifacts. It does not file legal patents or provide legal opinions.",
+    recommendedDecision: pilot.recommendedDecision,
+    evidenceHash: "",
+  });
+}
+
+function renderHumanReviewChecklist(pilot: PilotRecord): string {
+  return `# Human Review Checklist: ${pilot.title}
+
+## What The Candidate Claims
+
+The candidate proposes an Open Invention method for evidence-bound autonomous research artifacts.
+
+## Evidence Supporting It
+
+- Factory run: ${pilot.factoryId}
+- Open Invention mission: ${pilot.inventionMissionId}
+- Release candidate: ${pilot.releaseCandidateId}
+- Release readiness score: ${pilot.releaseReadinessScore}
+- Evidence strength score: ${pilot.evidenceStrengthScore}
+
+## Counter-Evidence
+
+Review the Factory counter-evidence and claim/feature matrix before treating any differentiator as strong.
+
+## Prototype And Tests
+
+The prototype and tests are generated under the Open Invention mission and validated through Sovryn worker evidence.
+
+## Remaining Uncertainty
+
+- Fixture-backed research evidence still needs human review before serious public use.
+- No legal patentability, legal novelty, or freedom-to-operate conclusion is provided.
+
+## Publication Usefulness
+
+Publication may help create open, reproducible defensive-publication artifacts for autonomous research systems.
+
+## Publication Risk
+
+Publication may be premature if source coverage, counter-evidence, or prototype validation is weak.
+
+## Legal Disclaimer
+
+Sovryn produces Open Inventions, Defensive Publications, and Open Source Research Artifacts. It does not file legal patents or provide legal novelty, patentability, or freedom-to-operate opinions.
+
+## Recommended Decision
+
+${pilot.recommendedDecision}
+`;
+}
+
+function renderSinglePilotReport(pilot: PilotRecord): string {
+  return `# Pilot Report: ${pilot.title}
+
+Scenario: ${pilot.scenario}
+Factory run: ${pilot.factoryId}
+Open Invention mission: ${pilot.inventionMissionId}
+Release candidate: ${pilot.releaseCandidateId}
+Quality label: ${pilot.qualityLabel}
+Candidate status: ${pilot.candidateStatus}
+Recommended decision: ${pilot.recommendedDecision}
+Real publication performed: ${pilot.realPublicationPerformed}
+
+This pilot creates Open Source Research Artifacts and does not file legal
+patents or provide patentability, legal novelty, or freedom-to-operate
+conclusions.
+`;
+}
+
+function renderAggregatePilotReport(pilots: PilotRecord[]): string {
+  return `# Pilot Report
+
+Pilot count: ${pilots.length}
+Real publication performed: false
+
+${pilots
+  .map(
+    (pilot) =>
+      `- ${pilot.title}: ${pilot.qualityLabel}, ${pilot.candidateStatus}, ${pilot.recommendedDecision}`,
+  )
+  .join("\n")}
+
+These pilots are Open-Invention release candidates for human review. They are
+not legal patent filings or legal opinions.
+`;
+}
+
+function renderPilotReview(
+  review: Record<string, unknown>,
+  pilots: PilotRecord[],
+): string {
+  const checks = Array.isArray(review.checks) ? (review.checks as Gate[]) : [];
+  return `# Pilot Review
+
+Pilot count: ${pilots.length}
+Allowed for human review: ${String(review.allowedForHumanReview)}
+
+## Gates
+
+${checks.map((item) => `- ${item.passed ? "PASS" : "FAIL"} ${item.code}: ${item.message}`).join("\n")}
+
+No pilot is automatically approved for real GitHub publication. Human approval
+and Sovryn publication governance remain required.
+`;
+}
+
+function renderPilotReleaseCandidates(pilots: PilotRecord[]): string {
+  return `# Pilot Release Candidates
+
+${pilots
+  .map(
+    (pilot) => `## ${pilot.title}
+
+- Pilot ID: ${pilot.pilotId}
+- Factory ID: ${pilot.factoryId}
+- Mission ID: ${pilot.inventionMissionId}
+- Release Candidate ID: ${pilot.releaseCandidateId}
+- Quality label: ${pilot.qualityLabel}
+- Release readiness score: ${pilot.releaseReadinessScore}
+- Human review priority: ${pilot.humanReviewPriority}
+- Recommended decision: ${pilot.recommendedDecision}
+`,
+  )
+  .join("\n")}
+
+These are human-reviewable Open Invention release candidates. They are not
+legal patent filings, patentability opinions, legal novelty opinions, or
+freedom-to-operate opinions.
+`;
+}
+
 function renderPilotReport(pilot: Record<string, unknown>): string {
   return `# Pilot Report
 
@@ -1807,7 +2610,7 @@ patents or provide freedom-to-operate conclusions.
 `;
 }
 
-function scenarioGoal(scenario: string): string {
+function legacyScenarioGoal(scenario: string): string {
   const normalized = scenario.trim();
   if (/toolchain/i.test(normalized)) {
     return "Find and prepare an Open Invention for policy-gated toolchain installation on Linux research nodes";

@@ -150,10 +150,13 @@ Commands:
   sovryn launch check [--json]
   sovryn launch demo [--json]
   sovryn launch package [--json]
-  sovryn pilot run --scenario autonomous-research [--json]
+  sovryn pilot run --scenario evidence-chain|toolchain-policy|corpus-deduplication [--json]
+  sovryn pilot run --all [--json]
+  sovryn pilot review [--json]
+  sovryn pilot package [--json]
   sovryn pilot report [--json]
   sovryn e2e doctor [--json]
-  sovryn e2e run --profile beta-fixture [--json]
+  sovryn e2e run --profile beta-fixture [--release-candidates 3] [--json]
   sovryn e2e report [--json]
   sovryn invention status <mission-id> [--json]
   sovryn invention dossier <mission-id> [--json]
@@ -921,15 +924,20 @@ async function pilotCommand(
   const service = new LaunchService(root);
   switch (subcommand) {
     case "run":
+      if (parsed.flags.has("--all")) return service.pilotRunAll();
       return service.pilotRun(
         flagString(parsed.flags, "--scenario") ?? "autonomous-research",
       );
+    case "review":
+      return service.pilotReview();
+    case "package":
+      return service.pilotPackage();
     case "report":
       return service.pilotReport();
     default:
       throw new AppError(
         "PILOT_COMMAND_REQUIRED",
-        "Use: sovryn pilot <run|report>.",
+        "Use: sovryn pilot <run|review|package|report>.",
       );
   }
 }
@@ -946,6 +954,9 @@ async function e2eCommand(
     case "run":
       return service.run(
         flagString(parsed.flags, "--profile") ?? "beta-fixture",
+        {
+          releaseCandidates: flagInt(parsed.flags, "--release-candidates", 1),
+        },
       );
     case "report":
       return service.report();

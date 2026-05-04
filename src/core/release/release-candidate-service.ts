@@ -34,23 +34,27 @@ import type {
 } from "./release-candidate-types.js";
 
 const DEFAULT_RELEASE_GOALS = [
-  "Develop a method for verifiable autonomous research agents",
-  "Develop evidence-bound source-card trust scoring for open research factories",
-  "Develop container-isolated prototype validation for autonomous research agents",
+  "Develop a method for verifiable autonomous research agents.",
+  "Develop evidence-bound source-card trust scoring for autonomous research agents.",
+  "Develop container-isolated prototype validation for autonomous research agents.",
 ];
 
 export class ReleaseCandidateService {
   constructor(private readonly root: string) {}
 
-  async build(options: { max?: number } = {}): Promise<{
+  async build(options: { max?: number; goals?: string[] } = {}): Promise<{
     build: ReleaseCandidateBuild;
     review: ReleaseCandidateReview;
     queue: PublicationQueue;
     artifactRefs: string[];
   }> {
     await this.ensureInitialized();
-    const max = clampInt(options.max ?? 3, 1, 3);
-    const goals = DEFAULT_RELEASE_GOALS.slice(0, max);
+    const requestedGoals =
+      options.goals && options.goals.length > 0
+        ? options.goals.map((goal) => goal.trim()).filter(Boolean)
+        : DEFAULT_RELEASE_GOALS;
+    const max = clampInt(options.max ?? requestedGoals.length, 1, 3);
+    const goals = requestedGoals.slice(0, max);
     const candidates: ReleaseCandidate[] = [];
     const factoryService = new FactoryService(this.root);
     const inventionService = new InventionService(this.root);
@@ -174,6 +178,8 @@ export class ReleaseCandidateService {
         factoryId: candidate.factoryId,
         inventionMissionId: candidate.inventionMissionId,
         score: candidate.score,
+        candidateStatus: candidate.candidateStatus,
+        qualityLabel: candidate.qualityLabel,
         readinessLabel: candidate.readinessLabel,
         humanReviewRequired: true,
         evidenceHash: candidate.evidenceHash,
@@ -220,6 +226,8 @@ export class ReleaseCandidateService {
       inventionMissionId: input.mission.id,
       inventionSlug: input.mission.slug,
       readinessLabel: String(input.score.readinessLabel ?? "weak"),
+      candidateStatus: "needs_revision",
+      qualityLabel: score.qualityLabel,
       score,
       gates: [],
       releasePath,
@@ -234,6 +242,7 @@ export class ReleaseCandidateService {
       evidenceHash: "",
     };
     candidateBase.gates = await this.evaluateCandidateGates(candidateBase);
+    candidateBase.candidateStatus = statusForCandidate(candidateBase);
     candidateBase.evidenceHash = hashEvidence({
       ...candidateBase,
       evidenceHash: "",
@@ -479,6 +488,8 @@ export class ReleaseCandidateService {
   ): Promise<ReleaseCandidate> {
     const gates = await this.evaluateCandidateGates(candidate);
     const refreshed = { ...candidate, gates, evidenceHash: "" };
+    refreshed.candidateStatus = statusForCandidate(refreshed);
+    refreshed.qualityLabel = refreshed.score.qualityLabel;
     refreshed.evidenceHash = hashEvidence(refreshed);
     return refreshed;
   }
@@ -502,14 +513,18 @@ function scoreCandidate(score: FactoryScore): ReleaseCandidateScore {
       safetyRiskScore) /
       5,
   );
+  const qualityLabel = qualityLabelFor(releaseReadinessScore);
   return {
     releaseReadinessScore,
     publicEvidenceScore,
     reproducibilityScore,
     sourceStrengthScore,
+    evidenceStrengthScore: sourceStrengthScore,
     noveltyRiskScore,
     safetyRiskScore,
+    publicationSafetyScore: safetyRiskScore,
     corpusDuplicateRisk: 0,
+    qualityLabel,
     humanReviewPriority:
       releaseReadinessScore >= 80
         ? "medium"
@@ -517,6 +532,23 @@ function scoreCandidate(score: FactoryScore): ReleaseCandidateScore {
           ? "high"
           : "high",
   };
+}
+
+function statusForCandidate(
+  candidate: ReleaseCandidate,
+): ReleaseCandidate["candidateStatus"] {
+  if (!candidate.gates.every((gate) => gate.passed)) return "publish_blocked";
+  if (candidate.score.releaseReadinessScore >= 80) return "dry_run_ready";
+  if (candidate.score.releaseReadinessScore >= 70) return "review_ready";
+  return "needs_revision";
+}
+
+function qualityLabelFor(score: number): ReleaseCandidateScore["qualityLabel"] {
+  if (score >= 90) return "excellent";
+  if (score >= 75) return "good";
+  if (score >= 60) return "acceptable";
+  if (score >= 40) return "weak";
+  return "unacceptable";
 }
 
 function gate(
@@ -607,6 +639,8 @@ function renderReleaseCandidates(build: ReleaseCandidateBuild): string {
       `- Factory ID: ${candidate.factoryId}`,
       `- Invention mission: ${candidate.inventionMissionId}`,
       `- Release readiness score: ${candidate.score.releaseReadinessScore}`,
+      `- Quality label: ${candidate.qualityLabel}`,
+      `- Candidate status: ${candidate.candidateStatus}`,
       `- Human review priority: ${candidate.score.humanReviewPriority}`,
       `- Human review required: ${String(candidate.humanReviewRequired)}`,
       "",

@@ -1,5 +1,25 @@
 # Changelog
 
+## 3.0.0-beta.9
+
+- Added the Real Pilot Release Candidates workflow with
+  `sovryn pilot run --all`, `sovryn pilot review`, and `sovryn pilot package`.
+- Added three built-in pilot scenarios for evidence-chain records,
+  policy-gated Linux toolchain installation, and corpus deduplication of
+  defensive publications.
+- Added `.sovryn/pilots/` artifacts for pilot runs, opportunity bindings,
+  Factory/Open Invention mission bindings, quality/security/reliability
+  evidence, publication dry-run intents, corpus entries, and human review
+  checklists.
+- Updated the E2E harness with
+  `sovryn e2e run --profile beta-fixture --release-candidates 3` so the
+  fixture proof can validate multiple release candidates without real GitHub
+  publication.
+- Updated release-candidate scoring with evidence-strength, publication-safety,
+  quality-label, and candidate-status fields for honest human review routing.
+- Updated publication ledger behavior so pilot dry-runs append audit records
+  instead of overwriting previous candidates.
+
 ## 3.0.0-beta.8
 
 - Stabilized the Beta E2E replay path by running Factory improvement cycles for

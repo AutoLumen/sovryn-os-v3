@@ -39,7 +39,7 @@ test("E2E doctor checks dist CLI and command groups", async () => {
   const response = await executeCli(["e2e", "doctor", "--json"], repo.root);
   assert.equal(response.ok, true, JSON.stringify(response.errors, null, 2));
   const doctor = (response.data as any).doctor;
-  assert.equal(doctor.targetVersion, "3.0.0-beta.8");
+  assert.equal(doctor.targetVersion, "3.0.0-beta.9");
   assert.equal(doctor.ready, true);
 });
 
@@ -234,6 +234,54 @@ test("E2E scorecard strong-passes above strong replay threshold with two candida
     silentHostFallback: false,
   });
   assert.equal(scorecard.readinessLabel, "strong-pass");
+});
+
+test("E2E scorecard strong-passes with three pilot release candidates", () => {
+  const scorecard = buildE2EScorecard({
+    phases: happyPhases(),
+    publicLeakCount: 0,
+    releaseCandidateCount: 3,
+    factoryRunCount: 3,
+    workerExecutionCount: 1,
+    replayPassRate: 100,
+    replayCriticalPassRate: 100,
+    qualityLabelDistribution: { good: 3 },
+    unexpectedRealPublish: false,
+    silentHostFallback: false,
+  });
+  assert.equal(scorecard.readinessLabel, "strong-pass");
+});
+
+test("E2E scorecard does not strong-pass with one release candidate", () => {
+  const scorecard = buildE2EScorecard({
+    phases: happyPhases(),
+    publicLeakCount: 0,
+    releaseCandidateCount: 1,
+    factoryRunCount: 1,
+    workerExecutionCount: 1,
+    replayPassRate: 100,
+    replayCriticalPassRate: 100,
+    qualityLabelDistribution: { good: 1 },
+    unexpectedRealPublish: false,
+    silentHostFallback: false,
+  });
+  assert.equal(scorecard.readinessLabel, "pass");
+});
+
+test("E2E scorecard does not strong-pass when one critical leak exists", () => {
+  const scorecard = buildE2EScorecard({
+    phases: happyPhases(),
+    publicLeakCount: 1,
+    releaseCandidateCount: 3,
+    factoryRunCount: 3,
+    workerExecutionCount: 1,
+    replayPassRate: 100,
+    replayCriticalPassRate: 100,
+    qualityLabelDistribution: { good: 3 },
+    unexpectedRealPublish: false,
+    silentHostFallback: false,
+  });
+  assert.equal(scorecard.readinessLabel, "failed");
 });
 
 test("E2E scorecard fails on blocking launch limitation", () => {

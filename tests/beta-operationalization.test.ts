@@ -27,7 +27,18 @@ type OperationsFixture = {
   pilot: any;
 };
 
+type PilotAllFixture = {
+  root: string;
+  run: any;
+  review: any;
+  packageResult: any;
+  replay: any;
+  launch: any;
+  corpusExport: any;
+};
+
 let fixturePromise: Promise<OperationsFixture> | null = null;
+let pilotAllPromise: Promise<PilotAllFixture> | null = null;
 
 test("CLI help lists Beta operationalization commands", async () => {
   const help = await executeCli(["--help", "--json"]);
@@ -45,9 +56,9 @@ test("CLI help lists Beta operationalization commands", async () => {
   }
 });
 
-test("package version is beta.8", async () => {
+test("package version is beta.9", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  assert.equal(pkg.version, "3.0.0-beta.8");
+  assert.equal(pkg.version, "3.0.0-beta.9");
 });
 
 test("init ignores new operational evidence directories", async () => {
@@ -59,6 +70,7 @@ test("init ignores new operational evidence directories", async () => {
     ".sovryn/publication/",
     ".sovryn/benchmarks/",
     ".sovryn/launch/",
+    ".sovryn/pilots/",
     ".sovryn/e2e/",
     "public-corpus/",
   ]) {
@@ -315,6 +327,295 @@ test("pilot run does not publish", async () => {
   assert.equal(pilot.pilot.realPublicationPerformed, false);
 });
 
+test("pilot all creates three pilot records", async () => {
+  const { run } = await pilotAllFixture();
+  assert.equal(run.pilots.length, 3);
+});
+
+test("pilot all includes required scenario ids", async () => {
+  const { run } = await pilotAllFixture();
+  const ids = new Set(run.pilots.map((pilot: any) => pilot.pilotId));
+  assert.equal(ids.has("evidence-chain"), true);
+  assert.equal(ids.has("toolchain-policy"), true);
+  assert.equal(ids.has("corpus-deduplication"), true);
+});
+
+test("each pilot binds to a factory run", async () => {
+  const { run } = await pilotAllFixture();
+  assert.equal(
+    run.pilots.every((pilot: any) => /^fac_/.test(pilot.factoryId)),
+    true,
+  );
+});
+
+test("each pilot binds to an Open Invention mission", async () => {
+  const { run } = await pilotAllFixture();
+  assert.equal(
+    run.pilots.every((pilot: any) => /^mis_/.test(pilot.inventionMissionId)),
+    true,
+  );
+});
+
+test("each pilot writes factory and mission binding artifacts", async () => {
+  const { root, run } = await pilotAllFixture();
+  for (const pilot of run.pilots) {
+    await access(
+      join(root, ".sovryn", "pilots", pilot.pilotId, "factory-binding.json"),
+    );
+    await access(
+      join(root, ".sovryn", "pilots", pilot.pilotId, "mission-binding.json"),
+    );
+  }
+});
+
+test("each pilot creates quality evaluation", async () => {
+  const { root, run } = await pilotAllFixture();
+  for (const pilot of run.pilots) {
+    await access(
+      join(root, ".sovryn", "pilots", pilot.pilotId, "quality-evaluation.json"),
+    );
+  }
+});
+
+test("each pilot creates security audit evidence", async () => {
+  const { root, run } = await pilotAllFixture();
+  for (const pilot of run.pilots) {
+    const audit = JSON.parse(
+      await readFile(
+        join(root, ".sovryn", "pilots", pilot.pilotId, "security-audit.json"),
+        "utf8",
+      ),
+    );
+    assert.equal(audit.publicReleaseAudit.passed, true);
+    assert.equal(audit.safetyScan.blocked, false);
+  }
+});
+
+test("each pilot creates reliability replay evidence", async () => {
+  const { root, run } = await pilotAllFixture();
+  for (const pilot of run.pilots) {
+    const replay = JSON.parse(
+      await readFile(
+        join(
+          root,
+          ".sovryn",
+          "pilots",
+          pilot.pilotId,
+          "reliability-replay.json",
+        ),
+        "utf8",
+      ),
+    );
+    assert.equal(replay.replayCriticalPassRate >= 95, true);
+  }
+});
+
+test("each pilot creates publication dry-run intent evidence", async () => {
+  const { root, run } = await pilotAllFixture();
+  for (const pilot of run.pilots) {
+    await access(
+      join(
+        root,
+        ".sovryn",
+        "pilots",
+        pilot.pilotId,
+        "publication-dry-run.json",
+      ),
+    );
+  }
+});
+
+test("pilot package excludes raw logs", async () => {
+  const { root } = await pilotAllFixture();
+  const text = await readAllText(join(root, ".sovryn", "pilots", "public"));
+  assert.doesNotMatch(text, /command-journal|stdout|stderr|raw command log/i);
+});
+
+test("pilot package excludes secrets", async () => {
+  const { root } = await pilotAllFixture();
+  const text = await readAllText(join(root, ".sovryn", "pilots", "public"));
+  assert.doesNotMatch(
+    text,
+    /ghp_[A-Za-z0-9_]{20,}|github_pat_|AKIA[0-9A-Z]{16}/i,
+  );
+});
+
+test("pilot package excludes local absolute paths", async () => {
+  const { root } = await pilotAllFixture();
+  const text = await readAllText(join(root, ".sovryn", "pilots", "public"));
+  assert.doesNotMatch(text, /\/Users\/|\/home\/|\/private\/tmp\//);
+});
+
+test("weak or reviewable pilot candidates are not marked publish-ready", async () => {
+  const { run } = await pilotAllFixture();
+  assert.equal(
+    run.pilots.every(
+      (pilot: any) =>
+        pilot.recommendedDecision !== "human-approved publish candidate",
+    ),
+    true,
+  );
+});
+
+test("human review checklist is generated for each pilot", async () => {
+  const { root, run } = await pilotAllFixture();
+  for (const pilot of run.pilots) {
+    await access(
+      join(
+        root,
+        ".sovryn",
+        "pilots",
+        pilot.pilotId,
+        "HUMAN_REVIEW_CHECKLIST.md",
+      ),
+    );
+  }
+});
+
+test("human review checklist includes legal disclaimer", async () => {
+  const { root, run } = await pilotAllFixture();
+  const text = await readFile(
+    join(
+      root,
+      ".sovryn",
+      "pilots",
+      run.pilots[0].pilotId,
+      "HUMAN_REVIEW_CHECKLIST.md",
+    ),
+    "utf8",
+  );
+  assert.match(text, /does not file legal patents/i);
+  assert.match(text, /freedom-to-operate opinions/i);
+});
+
+test("publication ledger records dry-run only entries", async () => {
+  const { root } = await pilotAllFixture();
+  const ledger = JSON.parse(
+    await readFile(
+      join(root, ".sovryn", "publication", "publication-ledger.json"),
+      "utf8",
+    ),
+  );
+  const entries = ledger.entries.filter(
+    (entry: any) => entry.mode === "dry-run",
+  );
+  assert.equal(entries.length, 3);
+  assert.equal(
+    entries.every((entry: any) => entry.status === "dry_run_prepared"),
+    true,
+  );
+});
+
+test("real publish remains disabled by default for pilot candidates", async () => {
+  const { root } = await pilotAllFixture();
+  const policy = JSON.parse(
+    await readFile(
+      join(root, ".sovryn", "publication", "publication-policy.json"),
+      "utf8",
+    ),
+  );
+  assert.equal(policy.allowAutonomousPublish, false);
+});
+
+test("corpus registry includes pilot release candidates", async () => {
+  const { root } = await pilotAllFixture();
+  const exported = JSON.parse(
+    await readFile(
+      join(root, ".sovryn", "corpus", "public", "release-candidates.json"),
+      "utf8",
+    ),
+  );
+  assert.equal(exported.releaseCandidates.length >= 3, true);
+});
+
+test("dedupe runs across pilot candidates", async () => {
+  const { root } = await pilotAllFixture();
+  await access(join(root, ".sovryn", "corpus", "duplicate-map.json"));
+});
+
+test("safety scan blocks dangerous pilot goal", async () => {
+  const repo = await makeTempRepo();
+  await executeCli(["init", "--json"], repo.root);
+  const response = await executeCli(
+    [
+      "pilot",
+      "run",
+      "--scenario",
+      "Autonomously exploit live systems and publish attack tools",
+      "--json",
+    ],
+    repo.root,
+  );
+  assert.equal(response.ok, false);
+});
+
+test("quality labels are deterministic in fixture pilot mode", async () => {
+  const { run } = await pilotAllFixture();
+  assert.deepEqual(
+    run.pilots.map((pilot: any) => pilot.qualityLabel),
+    run.pilots.map((pilot: any) => pilot.qualityLabel),
+  );
+});
+
+test("pilot replayCriticalPassRate remains above strong-pass target", async () => {
+  const { replay } = await pilotAllFixture();
+  assert.equal(replay.report.replayCriticalPassRate >= 95, true);
+});
+
+test("launch check still passes after pilots", async () => {
+  const { launch } = await pilotAllFixture();
+  assert.equal(launch.check.passed, true);
+});
+
+test("public corpus export includes pilot candidates", async () => {
+  const { corpusExport } = await pilotAllFixture();
+  assert.equal(
+    corpusExport.export.publicIndex.releaseCandidateCount >= 3,
+    true,
+  );
+});
+
+test("public corpus export excludes private internals after pilots", async () => {
+  const { root } = await pilotAllFixture();
+  const text = await readAllText(join(root, ".sovryn", "corpus", "public"));
+  assert.doesNotMatch(
+    text,
+    /command-journal|stdout|stderr|\/Users\/|\/private\/tmp/i,
+  );
+});
+
+test("worker execution evidence is hash-bound for pilots", async () => {
+  const { root, run } = await pilotAllFixture();
+  for (const pilot of run.pilots) {
+    const execution = JSON.parse(
+      await readFile(
+        join(root, ".sovryn", "pilots", pilot.pilotId, "worker-execution.json"),
+        "utf8",
+      ),
+    );
+    assert.equal(typeof execution.evidenceHash, "string");
+    assert.equal(execution.evidenceHash.length > 20, true);
+  }
+});
+
+test("no silent fallback evidence is preserved for pilots", async () => {
+  const { run } = await pilotAllFixture();
+  assert.equal(
+    run.pilots.every((pilot: any) => pilot.workerNoSilentFallback),
+    true,
+  );
+});
+
+test("README documents pilot flow", async () => {
+  const text = await readFile(join(process.cwd(), "README.md"), "utf8");
+  assert.match(text, /pilot run --all/);
+});
+
+test("CLI help lists pilot all workflow", async () => {
+  const help = await executeCli(["--help", "--json"]);
+  assert.match((help.data as any).help, /pilot run --all/);
+});
+
 test("public outputs exclude raw command logs", async () => {
   const { root } = await operationsFixture();
   const text = await readAllText(join(root, ".sovryn", "publication"));
@@ -366,6 +667,43 @@ test("launch demo example exists", async () => {
 async function operationsFixture(): Promise<OperationsFixture> {
   fixturePromise ??= createOperationsFixture();
   return fixturePromise;
+}
+
+async function pilotAllFixture(): Promise<PilotAllFixture> {
+  pilotAllPromise ??= createPilotAllFixture();
+  return pilotAllPromise;
+}
+
+async function createPilotAllFixture(): Promise<PilotAllFixture> {
+  const repo = await makeTempRepo();
+  await executeCli(["init", "--json"], repo.root);
+  const run = await must(
+    executeCli(["pilot", "run", "--all", "--json"], repo.root),
+  );
+  const review = await must(
+    executeCli(["pilot", "review", "--json"], repo.root),
+  );
+  const packageResult = await must(
+    executeCli(["pilot", "package", "--json"], repo.root),
+  );
+  const replay = await must(
+    executeCli(["reliability", "replay-all", "--json"], repo.root),
+  );
+  const launch = await must(
+    executeCli(["launch", "check", "--json"], repo.root),
+  );
+  const corpusExport = await must(
+    executeCli(["corpus", "export-public", "--json"], repo.root),
+  );
+  return {
+    root: repo.root,
+    run,
+    review,
+    packageResult,
+    replay,
+    launch,
+    corpusExport,
+  };
 }
 
 async function createOperationsFixture(): Promise<OperationsFixture> {

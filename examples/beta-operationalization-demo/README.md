@@ -1,6 +1,6 @@
 # Beta Operationalization Demo
 
-This example shows the `3.0.0-beta.8` operations path after Alpha.26.
+This example shows the `3.0.0-beta.9` operations path after Alpha.26.
 
 ```bash
 npm install
@@ -16,6 +16,10 @@ node /Users/sovryn/Desktop/sovryn-os-v3/dist/cli.js publication queue --json
 node /Users/sovryn/Desktop/sovryn-os-v3/dist/cli.js benchmark research run --json
 node /Users/sovryn/Desktop/sovryn-os-v3/dist/cli.js corpus api export --json
 node /Users/sovryn/Desktop/sovryn-os-v3/dist/cli.js launch check --json
+node /Users/sovryn/Desktop/sovryn-os-v3/dist/cli.js pilot run --all --json
+node /Users/sovryn/Desktop/sovryn-os-v3/dist/cli.js pilot review --json
+node /Users/sovryn/Desktop/sovryn-os-v3/dist/cli.js pilot package --json
+node /Users/sovryn/Desktop/sovryn-os-v3/dist/cli.js e2e run --profile beta-fixture --release-candidates 3 --json
 ```
 
 Expected artifact roots:
@@ -26,6 +30,8 @@ Expected artifact roots:
 .sovryn/workers/alpha/
 .sovryn/benchmarks/
 .sovryn/launch/
+.sovryn/pilots/
+.sovryn/e2e/
 public-corpus/api/
 ```
 

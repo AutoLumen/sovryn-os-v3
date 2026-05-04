@@ -202,6 +202,7 @@ type CommandContext = {
   toolRoot: string;
   freshRepo: string;
   cliPath: string;
+  releaseCandidateTarget: number;
 };
 
 type E2EPhaseInput = {
@@ -214,7 +215,7 @@ type E2EPhaseInput = {
   degradedReasons?: string[];
 };
 
-const TARGET_VERSION = "3.0.0-beta.8";
+const TARGET_VERSION = "3.0.0-beta.9";
 const MAX_OUTPUT_CHARS = 6000;
 const MAX_PARSE_OUTPUT_CHARS = 2_000_000;
 
@@ -261,7 +262,10 @@ export class E2EService {
     };
   }
 
-  async run(profile: string): Promise<Record<string, unknown>> {
+  async run(
+    profile: string,
+    options: { releaseCandidates?: number } = {},
+  ): Promise<Record<string, unknown>> {
     if (profile !== "beta-fixture") {
       throw new AppError(
         "E2E_PROFILE_UNSUPPORTED",
@@ -273,17 +277,20 @@ export class E2EService {
     await rm(this.e2eRoot(), { recursive: true, force: true });
     await mkdir(this.e2eRoot(), { recursive: true });
     const toolRoot = this.toolRoot();
-    const freshRepo = await mkdtemp(join(tmpdir(), "sovryn-beta8-e2e-"));
+    const freshRepo = await mkdtemp(join(tmpdir(), "sovryn-beta9-e2e-"));
     const cliPath = await this.findCliPath();
+    const releaseCandidateTarget = clampInt(options.releaseCandidates, 1, 1, 3);
     const context: CommandContext = {
       results: [],
       toolRoot,
       freshRepo,
       cliPath,
+      releaseCandidateTarget,
     };
     await this.event({
       event: "e2e_started",
       profile,
+      releaseCandidateTarget,
       toolRoot: "<tool-root>",
       freshRepo: "<fresh-repo>",
     });
@@ -443,7 +450,7 @@ export class E2EService {
     const help = context.results[indexes[0]];
     const commandGroups = requiredCommandGroups(help.stdoutRedacted);
     const checks = [
-      check("PACKAGE_VERSION_BETA8", pkg.version === TARGET_VERSION, {
+      check("PACKAGE_VERSION_BETA9", pkg.version === TARGET_VERSION, {
         version: pkg.version,
       }),
       check("CLI_HELP_WORKS", help.exitCode === 0, {}),
@@ -1086,14 +1093,20 @@ export class E2EService {
     let candidateId = publicationCandidateId(
       context.results[indexes[0]].parsedJson,
     );
-    if (!candidateId) {
+    let queuedCandidateIds = publicationCandidateIds(
+      context.results[indexes[0]].parsedJson,
+    );
+    if (
+      !candidateId ||
+      queuedCandidateIds.length < context.releaseCandidateTarget
+    ) {
       indexes.push(
         await this.runCli(context, phase, [
           "release",
           "candidates",
           "build",
           "--max",
-          "1",
+          String(context.releaseCandidateTarget),
           "--json",
         ]),
       );
@@ -1103,15 +1116,24 @@ export class E2EService {
       candidateId = publicationCandidateId(
         context.results[indexes[indexes.length - 1]].parsedJson,
       );
+      queuedCandidateIds = publicationCandidateIds(
+        context.results[indexes[indexes.length - 1]].parsedJson,
+      );
     }
+    const candidateIds =
+      context.releaseCandidateTarget > 1
+        ? queuedCandidateIds.slice(0, context.releaseCandidateTarget)
+        : candidateId
+          ? [candidateId]
+          : [];
     let dryRunIndex: number | null = null;
     let realIndex: number | null = null;
-    if (candidateId) {
+    for (const id of candidateIds) {
       indexes.push(
         await this.runCli(context, phase, [
           "publication",
           "review",
-          candidateId,
+          id,
           "--json",
         ]),
       );
@@ -1119,18 +1141,20 @@ export class E2EService {
         await this.runCli(context, phase, [
           "publication",
           "audit",
-          candidateId,
+          id,
           "--json",
         ]),
       );
       dryRunIndex = await this.runCli(context, phase, [
         "publication",
         "publish",
-        candidateId,
+        id,
         "--dry-run",
         "--json",
       ]);
       indexes.push(dryRunIndex);
+    }
+    if (candidateId) {
       realIndex = await this.runCli(context, phase, [
         "publication",
         "publish",
@@ -1151,6 +1175,7 @@ export class E2EService {
     const dryRunPrepared = publicationEntries(dryRunPublication).some(
       (entry) => entry.status === "dry_run_prepared",
     );
+    const dryRunCount = await publicationDryRunCount(context.freshRepo);
     const realBlocked = publicationEntries(realPublication).some(
       (entry) => entry.mode === "real" && entry.status === "blocked",
     );
@@ -1169,6 +1194,7 @@ export class E2EService {
       ),
       check("PUBLICATION_CANDIDATE_FOUND", typeof candidateId === "string", {
         candidateId,
+        candidateIds,
       }),
       check(
         "PUBLICATION_REVIEW_EXISTS",
@@ -1194,7 +1220,17 @@ export class E2EService {
         ),
         {},
       ),
-      check("PUBLICATION_DRY_RUN_PREPARED", dryRunPrepared, {}),
+      check("PUBLICATION_DRY_RUN_PREPARED", dryRunPrepared, {
+        dryRunCount,
+      }),
+      check(
+        "PUBLICATION_DRY_RUNS_FOR_RELEASE_CANDIDATES",
+        dryRunCount >= context.releaseCandidateTarget,
+        {
+          dryRunCount,
+          releaseCandidateTarget: context.releaseCandidateTarget,
+        },
+      ),
       check(
         "REAL_PUBLISH_DISABLED_BY_DEFAULT",
         realBlocked || !(await realPublishOccurred(context.freshRepo)),
@@ -1226,7 +1262,12 @@ export class E2EService {
       discoveredIds: {
         factoryIds: [],
         missionIds: [],
-        candidateIds: candidateId ? [candidateId] : [],
+        candidateIds:
+          candidateIds.length > 0
+            ? candidateIds
+            : candidateId
+              ? [candidateId]
+              : [],
       },
       artifactRefs: [e2eRef("publication-flow.json")],
     });
@@ -1421,15 +1462,31 @@ export class E2EService {
       await this.runCli(context, phase, ["launch", "check", "--json"]),
       await this.runCli(context, phase, ["launch", "demo", "--json"]),
       await this.runCli(context, phase, ["launch", "package", "--json"]),
-      await this.runCli(context, phase, [
-        "pilot",
-        "run",
-        "--scenario",
-        "autonomous-research",
-        "--json",
-      ]),
-      await this.runCli(context, phase, ["pilot", "report", "--json"]),
     ];
+    if (context.releaseCandidateTarget > 1) {
+      indexes.push(
+        await this.runCli(context, phase, ["pilot", "run", "--all", "--json"]),
+      );
+      indexes.push(
+        await this.runCli(context, phase, ["pilot", "review", "--json"]),
+      );
+      indexes.push(
+        await this.runCli(context, phase, ["pilot", "package", "--json"]),
+      );
+    } else {
+      indexes.push(
+        await this.runCli(context, phase, [
+          "pilot",
+          "run",
+          "--scenario",
+          "autonomous-research",
+          "--json",
+        ]),
+      );
+      indexes.push(
+        await this.runCli(context, phase, ["pilot", "report", "--json"]),
+      );
+    }
     const launchPackage = join(
       context.freshRepo,
       ".sovryn",
@@ -1453,10 +1510,23 @@ export class E2EService {
       check("LAUNCH_PACKAGE_EXISTS", await exists(launchPackage), {}),
       check(
         "PILOT_REPORT_EXISTS",
-        await exists(
+        (await exists(
           join(context.freshRepo, ".sovryn", "launch", "PILOT_REPORT.md"),
-        ),
+        )) ||
+          (await exists(
+            join(context.freshRepo, ".sovryn", "pilots", "PILOT_REPORT.md"),
+          )),
         {},
+      ),
+      check(
+        "PILOT_RELEASE_CANDIDATES_RECORDED",
+        context.releaseCandidateTarget <= 1 ||
+          (await pilotCount(context.freshRepo)) >=
+            context.releaseCandidateTarget,
+        {
+          pilotCount: await pilotCount(context.freshRepo),
+          releaseCandidateTarget: context.releaseCandidateTarget,
+        },
       ),
       check(
         "LAUNCH_EVIDENCE_LINKED",
@@ -2052,6 +2122,7 @@ export async function scanE2EPublicArtifacts(
     join(root, ".sovryn", "corpus", "public"),
     join(root, "public-corpus"),
     join(root, ".sovryn", "launch", "package"),
+    join(root, ".sovryn", "pilots", "public"),
     ...(await nestedFactoryPublicRoots(root)),
   ];
   const scanRoots = roots ?? defaultRoots;
@@ -2325,21 +2396,35 @@ function firstId(value: unknown, pattern: RegExp): string | null {
 }
 
 function publicationCandidateId(value: unknown): string | null {
+  return publicationCandidateIds(value)[0] ?? null;
+}
+
+function publicationCandidateIds(value: unknown): string[] {
   const root = isRecord(value) ? value : {};
   const data = isRecord(root.data) ? root.data : root;
   const queue = isRecord(data.queue) ? data.queue : null;
   const candidates = Array.isArray(queue?.candidates) ? queue.candidates : [];
-  const first = candidates.find(
-    (candidate) =>
-      isRecord(candidate) && typeof candidate.candidateId === "string",
-  );
-  return isRecord(first) ? first.candidateId : null;
+  return candidates
+    .filter(
+      (candidate): candidate is Record<string, unknown> =>
+        isRecord(candidate) && typeof candidate.candidateId === "string",
+    )
+    .map((candidate) => String(candidate.candidateId));
 }
 
 function publicationEntries(
   value: Record<string, any> | null,
 ): Array<Record<string, any>> {
   return Array.isArray(value?.entries) ? value.entries.filter(isRecord) : [];
+}
+
+async function publicationDryRunCount(root: string): Promise<number> {
+  const ledger = await readJson<Record<string, any>>(
+    join(root, ".sovryn", "publication", "publication-ledger.json"),
+  ).catch(() => null);
+  return publicationEntries(ledger).filter(
+    (entry) => entry.mode === "dry-run" && entry.status === "dry_run_prepared",
+  ).length;
 }
 
 async function latestFactoryId(root: string): Promise<string | null> {
@@ -2419,6 +2504,15 @@ async function countReleaseCandidates(root: string): Promise<number> {
     ),
   ).catch(() => null);
   return Array.isArray(review?.candidates) ? review.candidates.length : 0;
+}
+
+async function pilotCount(root: string): Promise<number> {
+  const results = await readJson<{ pilots?: unknown[]; pilotCount?: number }>(
+    join(root, ".sovryn", "pilots", "pilot-results.json"),
+  ).catch(() => null);
+  if (Array.isArray(results?.pilots)) return results.pilots.length;
+  if (typeof results?.pilotCount === "number") return results.pilotCount;
+  return 0;
 }
 
 async function countWorkerExecutions(root: string): Promise<number> {
@@ -2564,6 +2658,17 @@ async function exists(path: string): Promise<boolean> {
 
 function unique(values: string[]): string[] {
   return Array.from(new Set(values)).sort();
+}
+
+function clampInt(
+  value: unknown,
+  fallback: number,
+  min: number,
+  max: number,
+): number {
+  const candidate = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(candidate)) return fallback;
+  return Math.max(min, Math.min(max, Math.trunc(candidate)));
 }
 
 function withHash<T extends { evidenceHash: string }>(value: T): T {

@@ -33,7 +33,7 @@ does not provide legal novelty, patentability, or freedom-to-operate opinions.
 
 ## Beta Operations
 
-`3.0.0-beta.8` adds operational proof commands around the demo:
+`3.0.0-beta.9` adds operational proof commands around the demo:
 
 ```bash
 sovryn autonomy campaign plan --goal "Improve autonomous open-source research agents" --runs 10 --json
@@ -42,10 +42,14 @@ sovryn publication queue --json
 sovryn benchmark research run --json
 sovryn corpus api export --json
 sovryn launch check --json
-sovryn e2e run --profile beta-fixture --json
+sovryn pilot run --all --json
+sovryn pilot review --json
+sovryn pilot package --json
+sovryn e2e run --profile beta-fixture --release-candidates 3 --json
 ```
 
 These commands write autonomy, publication-governance, benchmark, public corpus
-API, launch, and E2E validation evidence. They prove repeatability and
-operational safety before any real publication. Real GitHub publication remains
-disabled by default and requires Sovryn publication gates plus human approval.
+API, launch, pilot-release-candidate, and E2E validation evidence. They prove
+repeatability and operational safety before any real publication. Real GitHub
+publication remains disabled by default and requires Sovryn publication gates
+plus human approval.

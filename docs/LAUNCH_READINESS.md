@@ -1,14 +1,15 @@
 # Launch Readiness
 
-Sovryn OS v3 `3.0.0-beta.8` includes launch-readiness commands for local
+Sovryn OS v3 `3.0.0-beta.9` includes launch-readiness commands for local
 public beta or v1.0-RC review:
 
 ```bash
 sovryn launch check --json
 sovryn launch demo --json
 sovryn launch package --json
-sovryn pilot run --scenario autonomous-research --json
-sovryn pilot report --json
+sovryn pilot run --all --json
+sovryn pilot review --json
+sovryn pilot package --json
 ```
 
 Launch readiness is not a publication command. It aggregates beta evidence,
@@ -16,7 +17,13 @@ security audit evidence, reliability replay evidence, public corpus export
 evidence, and pilot results. Real GitHub publication remains governed by Sovryn
 publication gates and human approval.
 
-Beta.8 launch checks separate:
+Beta.9 writes three pilot release-candidate records under `.sovryn/pilots/`.
+Each pilot includes Factory/Open Invention bindings, quality evaluation,
+security audit, reliability replay, publication review/audit, publication
+dry-run intent, corpus entry, release registry update, and human review
+checklist. Pilot packaging copies only curated summaries and reports.
+
+Beta.9 launch checks separate:
 
 - blocking limitations, which fail launch readiness;
 - accepted beta limitations, which are documented for human review;
@@ -46,9 +53,9 @@ real-world pilot quality before tagging a release candidate.
 
 ## Pilot Scenarios
 
-Recommended pilot scenarios:
+Built-in pilot scenarios:
 
-1. Evidence chains in autonomous research agents.
+1. Evidence-chain format for replayable autonomous research-agent records.
 2. Policy-gated toolchain installation on Linux research nodes.
 3. Corpus deduplication of defensive publications.
 

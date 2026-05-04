@@ -1,10 +1,10 @@
 # Beta Operationalization
 
-Sovryn OS v3 `3.0.0-beta.8` adds an operational proof layer above the Alpha
+Sovryn OS v3 `3.0.0-beta.9` adds an operational proof layer above the Alpha
 Factory. The goal is to show that Sovryn can run bounded autonomous research
 workflows, measure quality, keep publication governed, execute worker jobs
-without silent fallback, export a public corpus, and produce launch/pilot
-evidence.
+without silent fallback, export a public corpus, and produce three
+human-reviewable pilot Open Invention release candidates.
 
 Sovryn produces Open Inventions, Defensive Publications, and Open Source
 Research Artifacts. It does not file legal patents and does not provide legal
@@ -113,20 +113,27 @@ journals, and full raw source dumps.
 sovryn launch check --json
 sovryn launch demo --json
 sovryn launch package --json
-sovryn pilot run --scenario autonomous-research --json
-sovryn pilot report --json
+sovryn pilot run --all --json
+sovryn pilot review --json
+sovryn pilot package --json
 ```
 
 Launch checks aggregate beta, audit, reliability, public corpus, and no-leak
-signals. Pilot runs create end-to-end evidence for real-world scenarios while
-keeping real publication disabled unless a later operator explicitly approves a
-strict gated publish.
+signals. Pilot runs create end-to-end evidence for the built-in evidence-chain,
+toolchain-policy, and corpus-deduplication scenarios while keeping real
+publication disabled unless a later operator explicitly approves a strict gated
+publish.
 
-## Beta.8 E2E Validation
+Pilot artifacts are written under `.sovryn/pilots/`, including per-pilot
+Factory/Open Invention bindings, quality evaluations, security audits,
+reliability replays, publication dry-run intents, corpus entries, and human
+review checklists.
+
+## Beta.9 E2E Validation
 
 ```bash
 sovryn e2e doctor --json
-sovryn e2e run --profile beta-fixture --json
+sovryn e2e run --profile beta-fixture --release-candidates 3 --json
 sovryn e2e report --json
 ```
 
@@ -135,9 +142,10 @@ The E2E harness creates a fresh temporary Git repository and invokes the built
 Factory/Open-Invention packaging, worker validation, benchmarks, publication
 dry-run governance, audits, corpus export, launch, and pilot evidence.
 
-Artifacts are written under `.sovryn/e2e/`. Beta.8 adds
+Artifacts are written under `.sovryn/e2e/`. Beta.8 added
 `replay-contract.json`, `replay-diagnostics.json`, and
 `launch-limitations.json` so the scorecard can distinguish replay-critical
 evidence from volatile observations and blocking launch limitations from
-accepted beta notes. The harness is fixture-backed and deterministic by
-default. It never performs real GitHub publication.
+accepted beta notes. Beta.9 adds multi-candidate validation for three pilot
+release candidates. The harness is fixture-backed and deterministic by default.
+It never performs real GitHub publication.

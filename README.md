@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `3.0.0-beta.8`
+Current version: `3.0.0-beta.9`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -47,26 +47,30 @@ Alpha.26 was the first integrated beta-candidate path: release candidates,
 quality evaluation, security audit, reliability audit, public corpus export, and
 curated beta packaging are all connected.
 
-The current Beta.1-Beta.8 operationalization line builds on Alpha.26:
+The current Beta.1-Beta.9 operationalization line builds on Alpha.26:
 
-| Version        | Focus                         | Result                                                                                                                                      |
-| -------------- | ----------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| `3.0.0-beta.1` | Real Autonomy Validation      | Runs bounded autonomy campaigns, measures success/block/replay/quality rates, and writes autonomy scorecards without real publication.      |
-| `3.0.0-beta.2` | GitHub Publication Governance | Adds publication queue, approval ledger, strict real-publish policy, org/token-scope checks, and dry-run-first release operations.          |
-| `3.0.0-beta.3` | Persistent Node Alpha Worker  | Adds opt-in worker registration, job queues, heartbeat, toolchain policy enforcement, controlled execution, evidence upload, and cleanup.   |
-| `3.0.0-beta.4` | Research Quality Benchmarking | Adds a curated benchmark suite for source quality, claim mapping, counter-evidence, prototypes, tests, reproducibility, and safety.         |
-| `3.0.0-beta.5` | Public Corpus Discovery/API   | Exports a public corpus site/API with inventions, sources, quality labels, duplicate clusters, release readiness, and explanation reports.  |
-| `3.0.0-beta.6` | Launch Readiness              | Adds launch check/demo/package and pilot run/report flows for public beta or v1.0-RC readiness decisions.                                   |
-| `3.0.0-beta.7` | E2E Validation Harness        | Runs a fresh-repo fixture proof from init through beta, autonomy, Factory, worker, publication dry-run, audits, corpus, launch, and report. |
-| `3.0.0-beta.8` | Replay/Launch Stabilization   | Stabilizes replay-critical evidence, separates launch limitations, writes diagnostics, and raises fixture E2E readiness out of degraded.    |
+| Version        | Focus                         | Result                                                                                                                                                          |
+| -------------- | ----------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `3.0.0-beta.1` | Real Autonomy Validation      | Runs bounded autonomy campaigns, measures success/block/replay/quality rates, and writes autonomy scorecards without real publication.                          |
+| `3.0.0-beta.2` | GitHub Publication Governance | Adds publication queue, approval ledger, strict real-publish policy, org/token-scope checks, and dry-run-first release operations.                              |
+| `3.0.0-beta.3` | Persistent Node Alpha Worker  | Adds opt-in worker registration, job queues, heartbeat, toolchain policy enforcement, controlled execution, evidence upload, and cleanup.                       |
+| `3.0.0-beta.4` | Research Quality Benchmarking | Adds a curated benchmark suite for source quality, claim mapping, counter-evidence, prototypes, tests, reproducibility, and safety.                             |
+| `3.0.0-beta.5` | Public Corpus Discovery/API   | Exports a public corpus site/API with inventions, sources, quality labels, duplicate clusters, release readiness, and explanation reports.                      |
+| `3.0.0-beta.6` | Launch Readiness              | Adds launch check/demo/package and pilot run/report flows for public beta or v1.0-RC readiness decisions.                                                       |
+| `3.0.0-beta.7` | E2E Validation Harness        | Runs a fresh-repo fixture proof from init through beta, autonomy, Factory, worker, publication dry-run, audits, corpus, launch, and report.                     |
+| `3.0.0-beta.8` | Replay/Launch Stabilization   | Stabilizes replay-critical evidence, separates launch limitations, writes diagnostics, and raises fixture E2E readiness out of degraded.                        |
+| `3.0.0-beta.9` | Real Pilot Release Candidates | Builds three human-reviewable Open Invention pilot candidates and validates them through quality, security, replay, corpus, and publication dry-run governance. |
 
-At `3.0.0-beta.8`, Sovryn can run local autonomy campaigns, build release
+At `3.0.0-beta.9`, Sovryn can run local autonomy campaigns, build release
 candidates, govern publication queues, execute worker jobs, benchmark research
 quality, export a public corpus API/site shell, and produce launch/pilot
 evidence, then validate the full path through a deterministic fresh-repo E2E
-harness. Beta.8 adds a replay contract and launch-limitation model so the E2E
-scorecard distinguishes replay-critical evidence from volatile observations
-without weakening gates. It still deliberately avoids real autonomous
+harness. Beta.8 added the replay contract and launch-limitation model. Beta.9
+adds a three-pilot release-candidate workflow for evidence-chain, toolchain
+policy, and corpus-deduplication Open Inventions. Each pilot is bound to a
+Factory run, Open Invention mission, quality evaluation, public-release audit,
+reliability replay, publication dry-run intent, corpus entry, release registry
+entry, and human review checklist. It still deliberately avoids real autonomous
 publication by default.
 
 The beta operations line preserves the same operating rules:
@@ -83,14 +87,14 @@ The beta operations line preserves the same operating rules:
 - write evidence for every autonomous workflow;
 - keep tests, docs, smoke flows, and reports attached to each milestone.
 
-### What Beta.8 Is And Is Not
+### What Beta.9 Is And Is Not
 
-Beta.8 is a local, reproducible operating proof for the Sovryn research factory.
+Beta.9 is a local, reproducible operating proof for the Sovryn research factory.
 It is meant to show that the factory can coordinate bounded research runs,
 evaluate quality, audit outputs, replay critical evidence, resolve launch
-blockers, and prepare public review packages.
+blockers, and prepare three public-reviewable Open Invention release candidates.
 
-Beta.8 is not an autonomous legal-patent system, not a guarantee of novelty, not
+Beta.9 is not an autonomous legal-patent system, not a guarantee of novelty, not
 a freedom-to-operate opinion, and not a permissionless autopublisher. Real
 GitHub publication remains disabled unless explicit strict policy, approval
 evidence, and existing Sovryn publication gates allow it.
@@ -227,10 +231,12 @@ sovryn beta package --json
 sovryn launch check --json
 sovryn launch demo --json
 sovryn launch package --json
-sovryn pilot run --scenario autonomous-research --json
-sovryn pilot report --json
+sovryn pilot run --scenario evidence-chain --json
+sovryn pilot run --all --json
+sovryn pilot review --json
+sovryn pilot package --json
 sovryn e2e doctor --json
-sovryn e2e run --profile beta-fixture --json
+sovryn e2e run --profile beta-fixture --release-candidates 3 --json
 sovryn e2e report --json
 sovryn worker doctor --profile container-local --json
 sovryn worker doctor --profile container-netoff --json
@@ -559,7 +565,7 @@ novelty, patentability, or freedom-to-operate opinions.
 
 ## Beta Operations
 
-Beta.1 through Beta.8 add operational proof workflows around the Alpha factory.
+Beta.1 through Beta.9 add operational proof workflows around the Alpha factory.
 They are local Evidence workflows: they measure autonomy, govern publication
 queues, coordinate worker jobs, benchmark research quality, export a public
 corpus API, package launch/pilot evidence, and validate the whole path with a
@@ -575,8 +581,10 @@ sovryn worker jobs list --json
 sovryn benchmark research run --json
 sovryn corpus api export --json
 sovryn launch check --json
-sovryn pilot run --scenario autonomous-research --json
-sovryn e2e run --profile beta-fixture --json
+sovryn pilot run --all --json
+sovryn pilot review --json
+sovryn pilot package --json
+sovryn e2e run --profile beta-fixture --release-candidates 3 --json
 ```
 
 Operational artifacts are written under:
@@ -587,6 +595,7 @@ Operational artifacts are written under:
 .sovryn/workers/alpha/
 .sovryn/benchmarks/
 .sovryn/launch/
+.sovryn/pilots/
 .sovryn/e2e/
 public-corpus/api/
 ```
@@ -599,17 +608,20 @@ remain controller-owned and are never written to public artifacts.
 
 ## Launch And Pilot Readiness
 
-Beta.6 adds the launch-readiness layer for public beta or v1.0-RC review:
+Beta.6 added the launch-readiness layer for public beta or v1.0-RC review.
+Beta.9 adds the three-pilot release-candidate proof on top of that launch path:
 
 ```bash
 sovryn launch check --json
 sovryn launch demo --json
 sovryn launch package --json
-sovryn pilot run --scenario autonomous-research --json
-sovryn pilot report --json
+sovryn pilot run --all --json
+sovryn pilot review --json
+sovryn pilot package --json
 ```
 
-Launch evidence is written under `.sovryn/launch/`:
+Launch evidence is written under `.sovryn/launch/`; pilot release-candidate
+evidence is written under `.sovryn/pilots/`:
 
 ```text
 .sovryn/launch/
@@ -619,6 +631,29 @@ Launch evidence is written under `.sovryn/launch/`:
   pilot-results.json
   LAUNCH_READINESS.md
   PILOT_REPORT.md
+
+.sovryn/pilots/
+  pilot-index.json
+  pilot-results.json
+  pilot-quality-summary.json
+  pilot-publication-summary.json
+  PILOT_REPORT.md
+  PILOT_REVIEW.md
+  PILOT_RELEASE_CANDIDATES.md
+  <pilot-id>/
+    pilot-run.json
+    opportunity.json
+    factory-binding.json
+    mission-binding.json
+    quality-evaluation.json
+    security-audit.json
+    reliability-replay.json
+    publication-review.json
+    publication-dry-run.json
+    corpus-entry.json
+    human-review-checklist.json
+    HUMAN_REVIEW_CHECKLIST.md
+  public/
 ```
 
 The launch flow aggregates beta demo evidence, release-candidate evidence,
@@ -626,11 +661,11 @@ security audit evidence, reliability replay evidence, public corpus export
 evidence, and pilot results. It does not publish to GitHub. It is a readiness
 decision workflow for humans and policy, not an automatic release switch.
 
-The recommended pilot scenarios are:
+The built-in Beta.9 pilot scenarios are:
 
-- evidence chains in autonomous research agents;
+- evidence-chain format for replayable autonomous research-agent records;
 - policy-gated toolchain installation on Linux research nodes;
-- corpus deduplication of defensive publications.
+- corpus deduplication for defensive publications.
 
 Each pilot should produce an Opportunity, Factory run, source evidence, claim
 matrix, counter-evidence, prototype/tests, worker execution or unavailable
@@ -639,11 +674,12 @@ corpus entry, and public demo bundle.
 
 ## End-to-End Validation
 
-Beta.8 stabilizes the deterministic fixture-backed validation harness:
+Beta.9 runs the deterministic fixture-backed validation harness in
+multi-candidate mode:
 
 ```bash
 sovryn e2e doctor --json
-sovryn e2e run --profile beta-fixture --json
+sovryn e2e run --profile beta-fixture --release-candidates 3 --json
 sovryn e2e report --json
 ```
 

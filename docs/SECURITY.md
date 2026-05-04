@@ -94,6 +94,21 @@ execution. `container-local` is sandbox-ready infrastructure, not a legal or
 formal proof of isolation. Use a hardened VM, container policy, dedicated user,
 firewalling, and secret isolation for stronger guarantees.
 
+Alpha.16 adds Node Alpha toolchain planning:
+
+```bash
+sovryn node alpha toolchain plan <factory-id> --json
+sovryn node alpha toolchain doctor --json
+sovryn node alpha toolchain install <toolchain-plan-id> --profile container-local --json
+```
+
+Toolchain autonomy is policy-first. Sovryn checks and records allowed research
+tools, but it does not let Node Alpha perform uncontrolled host installation.
+`sudo`, host package managers, shell-piped installers, global npm installs, and
+host Python user installs are blocked in policy evidence. Missing tools are
+recorded as missing/blocked and require an approved worker profile or manual
+operator action. Toolchain logs are redacted and use relative paths.
+
 Factory public release packages are allowlisted. They must not include raw
 command journals, raw stdout/stderr logs, private config, tokens, local absolute
 paths, full raw source content, or files outside the curated public evidence

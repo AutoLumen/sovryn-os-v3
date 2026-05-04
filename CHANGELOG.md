@@ -1,5 +1,16 @@
 # Changelog
 
+## 3.0.0-alpha.16
+
+- Added Node Alpha Toolchain Autonomy for planning, doctor checks,
+  policy-reviewing, status reporting, and redacted install evidence under
+  `.sovryn/nodes/alpha/toolchains/`.
+- Added `sovryn node alpha toolchain plan`, `doctor`, `install`, and `status`.
+- Blocked autonomous host installation by default while recording missing tools,
+  allowed research-tool checks, container-local availability, and toolchain
+  locks.
+- Added Alpha.16 tests and documentation for policy-first toolchain handling.
+
 ## 3.0.0-alpha.15
 
 - Added the Research Opportunity Engine for scanning broad goals, ranking

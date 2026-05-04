@@ -65,6 +65,10 @@ sovryn node run alpha <mission-id> --json
 sovryn node run alpha <mission-id> --mode autonomous --max-steps 25 --json
 sovryn node run alpha <mission-id> --mode validate --profile sandbox-local --json
 sovryn node run alpha <mission-id> --mode validate --profile container-local --json
+sovryn node alpha toolchain plan <factory-id> --json
+sovryn node alpha toolchain doctor --json
+sovryn node alpha toolchain install <toolchain-plan-id> --profile container-local --json
+sovryn node alpha toolchain status --json
 sovryn invention review <mission-id> --json
 sovryn invention finalize <mission-id> --json
 sovryn publish-github <mission-id> --dry-run --json
@@ -262,6 +266,26 @@ Queue execution starts Factory runs only. It does not publish to GitHub and does
 not bypass Factory, Open Invention, safety, secret, replay, or publication
 gates. Blocked opportunities are not executed. Duplicate-like opportunities are
 scored and explained instead of being silently discarded.
+
+## Node Alpha Toolchains
+
+Alpha.16 adds controlled toolchain planning for Node Alpha. The toolchain layer
+checks which legitimate research tools are available, proposes a bounded plan,
+reviews installation policy, and writes redacted evidence under
+`.sovryn/nodes/alpha/toolchains/`.
+
+```bash
+sovryn node alpha toolchain plan <factory-id> --json
+sovryn node alpha toolchain doctor --json
+sovryn node alpha toolchain install <toolchain-plan-id> --profile container-local --json
+sovryn node alpha toolchain status --json
+```
+
+The MVP does not install software on the host. It blocks `sudo`, host package
+managers, shell-piped installers, and global host installs. Missing tools are
+recorded as blocked or requiring manual/operator-approved provisioning unless a
+future worker profile can install them safely. `container-local` remains a
+constrained profile, not a formal sandbox proof.
 
 Opportunity settings live under `research.opportunities`:
 

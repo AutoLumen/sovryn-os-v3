@@ -13,6 +13,7 @@ import {
 import { InventionService } from "../core/invention/invention-service.js";
 import { MissionService } from "../core/mission/mission-service.js";
 import { NodeManager } from "../core/node/node-manager.js";
+import { NodeAlphaToolchainManager } from "../core/node/toolchain-manager.js";
 import { ResearchOpportunityEngine } from "../core/research/opportunity-engine.js";
 import { workerDoctor } from "../core/worker/worker-doctor.js";
 import { runCommand } from "../adapters/shell/command.js";
@@ -68,6 +69,10 @@ Commands:
   sovryn node run alpha <mission-id> [--mode validation|autonomous|validate] [--profile sandbox-local|container-local] [--max-steps 25] [--json]
   sovryn node logs alpha <mission-id> [--json]
   sovryn node artifacts alpha <mission-id> [--json]
+  sovryn node alpha toolchain plan <factory-id> [--json]
+  sovryn node alpha toolchain doctor [--json]
+  sovryn node alpha toolchain install <toolchain-plan-id> --profile container-local [--json]
+  sovryn node alpha toolchain status [--json]
   sovryn plugin list [--json]
   sovryn plugin run <plugin> <command> [args...] [--json]
 `;
@@ -204,8 +209,16 @@ export async function executeCli(
           artifactRefs: result.artifactRefs,
         });
       }
-      case "node":
-        return okEnvelope("node", await nodeCommand(parsed, root));
+      case "node": {
+        const result = await nodeCommand(parsed, root);
+        return okEnvelope("node", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
       case "worker":
         return okEnvelope("worker", await workerCommand(parsed, root));
       case "research": {
@@ -632,6 +645,12 @@ async function nodeCommand(
   parsed: ParsedArgs,
   root: string,
 ): Promise<Record<string, unknown>> {
+  if (
+    parsed.positionals[0] === "alpha" &&
+    parsed.positionals[1] === "toolchain"
+  ) {
+    return nodeAlphaToolchainCommand(parsed, root);
+  }
   const subcommand = parsed.positionals[0];
   const nodeId = parsed.positionals[1];
   if (!subcommand)
@@ -687,6 +706,54 @@ async function nodeCommand(
       throw new AppError(
         "UNKNOWN_NODE_COMMAND",
         `Unknown node command: ${subcommand}`,
+      );
+  }
+}
+
+async function nodeAlphaToolchainCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const action = parsed.positionals[2];
+  const manager = new NodeAlphaToolchainManager(root);
+  switch (action) {
+    case "plan": {
+      const factoryId = parsed.positionals[3];
+      if (!factoryId) {
+        throw new AppError(
+          "FACTORY_ID_REQUIRED",
+          "node alpha toolchain plan requires a factory id.",
+        );
+      }
+      return manager.plan(factoryId);
+    }
+    case "doctor":
+      return manager.doctor();
+    case "install": {
+      const planId = parsed.positionals[3];
+      if (!planId) {
+        throw new AppError(
+          "TOOLCHAIN_PLAN_ID_REQUIRED",
+          "node alpha toolchain install requires a toolchain plan id.",
+        );
+      }
+      const profile =
+        flagString(parsed.flags, "--profile") ?? "container-local";
+      if (profile !== "container-local") {
+        throw new AppError(
+          "TOOLCHAIN_PROFILE_INVALID",
+          "--profile must be container-local.",
+          { profile },
+        );
+      }
+      return manager.install(planId, { profile: "container-local" });
+    }
+    case "status":
+      return manager.status();
+    default:
+      throw new AppError(
+        "NODE_ALPHA_TOOLCHAIN_COMMAND_REQUIRED",
+        "Use: sovryn node alpha toolchain <plan|doctor|install|status>.",
       );
   }
 }

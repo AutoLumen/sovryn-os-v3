@@ -15,6 +15,10 @@ sovryn node run alpha <mission-id> --mode autonomous --max-steps 25
 sovryn node run alpha <mission-id> --mode validate --profile sandbox-local
 sovryn node run alpha <mission-id> --mode validate --profile container-local
 sovryn worker doctor --profile container-local
+sovryn node alpha toolchain plan <factory-id>
+sovryn node alpha toolchain doctor
+sovryn node alpha toolchain install <toolchain-plan-id> --profile container-local
+sovryn node alpha toolchain status
 sovryn node logs alpha <mission-id>
 sovryn node artifacts alpha <mission-id>
 ```
@@ -86,3 +90,31 @@ VM boundary.
 Autonomous agents may work in mission workspaces and install legitimate
 development dependencies when policy permits. They may not access secrets
 directly unless Sovryn grants a controlled capability.
+
+## Toolchain Autonomy
+
+Alpha.16 adds controlled Node Alpha toolchain planning. The goal is not to let
+an autonomous worker run arbitrary host installs. Instead, Sovryn records what a
+research run needs, checks what is already available, reviews policy, and writes
+auditable evidence:
+
+```text
+.sovryn/nodes/alpha/toolchains/
+  toolchain-plan.json
+  toolchain-policy-review.json
+  installed-tools.json
+  install-log.redacted.json
+  toolchain-lock.json
+  toolchain-doctor.json
+```
+
+The current allowlist covers research and build tools such as `jq`, `rg`, `git`,
+`node`, `npm`, `python3`, `pipx`, `graphviz`, `pandoc`, `pdftotext`,
+`docker`/`podman`, and `ts-node`.
+
+Host installation is blocked by default. The policy review records that `sudo`,
+host package managers, `curl | sh`, global host npm installs, and host Python
+user installs are not allowed for autonomous Node Alpha. Missing tools are
+reported as missing/blocked and require an approved worker profile or manual
+operator action. The MVP can check `container-local` availability but does not
+pretend that a disposable container check is persistent tool installation.

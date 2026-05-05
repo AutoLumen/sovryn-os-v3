@@ -1182,21 +1182,32 @@ function isShowcaseEligible(
 ): boolean {
   if (lifecycleStatus !== "autopublished") return false;
   if (!["good", "excellent"].includes(card.qualityLabel)) return false;
-  if (!isAntiTemplateShowcaseReady(card.antiTemplateStatus)) return false;
+  const isScienceStudy = card.resultKind === "computational_science_study";
   if (
-    card.resultKind === "computational_science_study" &&
-    card.falsificationStatus !== "passes_falsification"
+    !isScienceStudy &&
+    !isAntiTemplateShowcaseReady(card.antiTemplateStatus)
   ) {
     return false;
   }
   if (
-    card.resultKind !== "computational_science_study" &&
+    isScienceStudy &&
+    /needs_revision|blocked|overclaims|insufficient_tests/i.test(
+      card.antiTemplateStatus,
+    )
+  ) {
+    return false;
+  }
+  if (isScienceStudy && card.falsificationStatus !== "passes_falsification") {
+    return false;
+  }
+  if (
+    !isScienceStudy &&
     card.falsificationStatus !== "not_evaluated" &&
     card.falsificationStatus !== "passes_falsification"
   ) {
     return false;
   }
-  if (card.resultKind === "computational_science_study") {
+  if (isScienceStudy) {
     if (!scienceStudyScoresPresent(card)) return false;
     if (!card.peerReviewPresent) return false;
     if (!card.statisticalAnalysisPresent || !card.baselineComparisonPresent) {

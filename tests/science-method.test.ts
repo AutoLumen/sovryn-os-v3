@@ -7874,14 +7874,43 @@ test("science showcase API includes scienceResults", async () => {
     join(target.root, "public-corpus", "api", "showcase.json"),
   );
   assert.ok(Array.isArray(api.scienceResults));
+  assert.ok(api.scienceResults.length >= 1);
+  assert.equal(api.scienceResults[0].lifecycleStatus, "showcase_science");
+});
+
+test("complete science study is promoted to showcase_science", async () => {
+  const { target } = await scienceShowcaseFixture();
+  const corpus = await readJson<any>(
+    join(target.root, "public-corpus", "corpus.json"),
+  );
+  const studies = corpus.results.filter(
+    (item: any) => item.resultKind === "computational_science_study",
+  );
+  assert.ok(studies.length >= 1);
+  assert.ok(
+    studies.some(
+      (item: any) =>
+        item.lifecycleStatus === "showcase_science" &&
+        item.showcaseEligible === true &&
+        item.peerReviewPresent === true &&
+        item.falsificationStatus === "passes_falsification" &&
+        item.releaseReadinessScore > 0 &&
+        item.evidenceStrengthScore > 0 &&
+        item.reproducibilityScore > 0 &&
+        item.publicationSafetyScore > 0,
+    ),
+  );
 });
 
 test("science study with not_evaluated falsification is not showcase_science", async () => {
   const { target } = await sciencePublishFixture();
-  const indexPath = join(target.root, "INDEX.json");
-  const index = await readJson<any>(indexPath);
-  index.results[0].falsificationStatus = "not_evaluated";
-  await writeJson(indexPath, index);
+  const index = await readJson<any>(join(target.root, "INDEX.json"));
+  const slug = index.results[0].slug;
+  await writeFile(
+    join(target.root, "results", slug, "FALSIFICATION.md"),
+    "# Falsification\n\nEvaluation label: not_evaluated\n",
+    "utf8",
+  );
   const repo = await initRepo();
   const build = await executeCli(
     ["corpus", "site", "build", "--target-repo", target.root, "--json"],
@@ -7891,18 +7920,18 @@ test("science study with not_evaluated falsification is not showcase_science", a
   const corpus = await readJson<any>(
     join(target.root, "public-corpus", "corpus.json"),
   );
-  const study = corpus.results.find(
-    (item: any) => item.slug === index.results[0].slug,
-  );
+  const study = corpus.results.find((item: any) => item.slug === slug);
   assert.notEqual(study.lifecycleStatus, "showcase_science");
 });
 
 test("science study with zero scores is not showcase_science", async () => {
   const { target } = await sciencePublishFixture();
-  const indexPath = join(target.root, "INDEX.json");
-  const index = await readJson<any>(indexPath);
-  index.results[0].releaseReadinessScore = 0;
-  await writeJson(indexPath, index);
+  const index = await readJson<any>(join(target.root, "INDEX.json"));
+  const slug = index.results[0].slug;
+  const summaryPath = join(target.root, "results", slug, "SUMMARY.json");
+  const summary = await readJson<any>(summaryPath);
+  summary.releaseReadinessScore = 0;
+  await writeJson(summaryPath, summary);
   const repo = await initRepo();
   const build = await executeCli(
     ["corpus", "site", "build", "--target-repo", target.root, "--json"],
@@ -7912,8 +7941,6 @@ test("science study with zero scores is not showcase_science", async () => {
   const corpus = await readJson<any>(
     join(target.root, "public-corpus", "corpus.json"),
   );
-  const study = corpus.results.find(
-    (item: any) => item.slug === index.results[0].slug,
-  );
+  const study = corpus.results.find((item: any) => item.slug === slug);
   assert.notEqual(study.lifecycleStatus, "showcase_science");
 });

@@ -490,11 +490,11 @@ function includesName(items: any[], name: string) {
   return items.some((item) => item.name === name);
 }
 
-test("Lab package version is 3.5.0-rc.1", async () => {
+test("Lab package version is 3.7.0-rc.1", async () => {
   const pkg = await readJson<{ version: string }>(
     join(process.cwd(), "package.json"),
   );
-  assert.equal(pkg.version, "3.5.0-rc.1");
+  assert.equal(pkg.version, "3.7.0-rc.1");
 });
 
 test("CLI help lists lab needs command", async () => {

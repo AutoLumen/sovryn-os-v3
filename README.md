@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `3.5.0-rc.1`
+Current version: `3.7.0-rc.1`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -76,37 +76,38 @@ only curated safe `self_built_lab_science_study` or
 `self_built_lab_reproduction` results into the existing public corpus when gates
 pass.
 
-| Version         | Focus                            | Result                                                                                                                                                                       |
-| --------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `3.1.0-alpha.1` | Scientific Method Core           | Adds `sovryn science` commands for safe computational questions, hypotheses with null hypotheses, experiment designs, study status, and gate reviews.                        |
-| `3.1.0-alpha.2` | Data and Instrument Runtime      | Adds synthetic dataset generation, generated baseline/candidate/runner instruments, Node Alpha execution evidence, and deterministic experiment run gates.                   |
-| `3.1.0-alpha.3` | Statistics and Ablations         | Adds evidence-bound confusion metrics, baseline comparison, ablation reports, sensitivity sweeps, and false-positive/false-negative error analysis.                          |
-| `3.1.0-alpha.4` | Replication and Falsification    | Adds deterministic replication summaries, negative tests, falsification reports, and hypothesis status updates.                                                              |
-| `3.1.0-alpha.5` | Memory and Literature Grounding  | Adds scientific memory ledgers, fixture-backed source cards, literature-grounding reports, and follow-up question generation.                                                |
-| `3.1.0-rc.1`    | Science Campaign                 | Adds `sovryn science campaign run` for two-study autonomous computational-science campaigns with statistics, replication, falsification, memory, and curated local packages. |
-| `3.1.0-rc.2`    | Public Science Study Publication | Adds `sovryn science publish`, `publish-all`, and `publish-audit` for publishing completed computational-science studies into the public corpus with strict hygiene gates.   |
-| `3.2.0-alpha.1` | Real Data Ingestion              | Adds `sovryn science data search/ingest/validate/provenance/cache/replay` with safe public/proxy datasets, provenance, validation, replay cache, and study binding.          |
-| `3.2.0-alpha.2` | Scientific Reproduction          | Adds `sovryn science reproduce plan/run/analyze/report` for safe bounded reproduction of external or internal computational claims.                                          |
-| `3.2.0-alpha.3` | Scientific Peer Review           | Adds `sovryn science peer-review`, `peer-review-corpus`, `rebuttal`, and `revise` for automated critique, response, and revision planning before showcase promotion.         |
-| `3.2.0-alpha.4` | Meta-Analysis and Learning       | Adds `sovryn science meta-analysis`, `memory synthesize`, `contradictions find`, `research-program propose`, and `next-study plan` for learning across studies.              |
-| `3.2.1`         | Science Showcase Hardening       | Adds public science-study score hardening, peer-review/falsification showcase gates, showcase-science docs, and science showcase index/API output.                           |
-| `3.2.2`         | Real-Data Science Studies        | Adds `sovryn science study run-real-data` templates with provenance, validation, cache/replay, and real-vs-synthetic comparison artifacts.                                   |
-| `3.2.3`         | External Reproduction Challenge  | Adds `sovryn science reproduce search` and `reproduce publish` for safe bounded reproduction challenges and public reproduction reports.                                     |
-| `3.2.4`         | Review/Rebuttal/Revision         | Adds `sovryn science revision publish` for public author-response, revision-plan, and revised-report artifacts.                                                              |
-| `3.2.5`         | Stable Scientific Learning       | Adds `sovryn science stable-findings report` and stricter scientific-memory learning reports.                                                                                |
-| `3.3.0-rc.1`    | Seven-Day Science Trial          | Adds `sovryn science trial run --days 7 --studies 6` with six-study selection, reproduction attempts, revision loops, meta-analysis, and RC gate evidence.                   |
-| `3.4.0-alpha.1` | Lab Need Inference               | Adds `sovryn lab needs infer` and `infer-from-goal` to map hypotheses/studies to required measurements, operations, tools, instruments, and safety scope.                    |
-| `3.4.0-alpha.2` | Build-vs-Buy Engine              | Adds `sovryn lab decide` and decision review/report artifacts for tool/package/custom-instrument selection with reproducibility, safety, and install-risk scoring.           |
-| `3.4.0-alpha.3` | Toolchain Provisioning Runtime   | Adds `sovryn lab provision` with policy review, version/hash evidence, isolated environment manifests, redacted install evidence, and toolchain doctor/audit output.         |
-| `3.4.0-alpha.4` | Research Instrument Builder      | Adds `sovryn lab instrument build/test/calibrate/audit/report` for tested, calibrated, limitation-bound custom computational instruments.                                    |
-| `3.4.0-alpha.5` | Experiment Pipeline Builder      | Adds `sovryn lab pipeline compose/run/validate/replay/audit/report` for safe tool/instrument pipelines with replay-critical hash binding and public-safe outputs.            |
-| `3.4.0-rc.1`    | Self-Building Lab Trial          | Adds `sovryn lab trial run` for three-study lab autonomy trials covering needs inference, build-vs-buy, provisioning, instrument build, pipelines, memory, and corpus gates. |
-| `3.4.1`         | Lab Study Hardening              | Adds `sovryn lab study audit/harden` to require explicit falsification, peer review, calibration, pipeline replay, and lab-memory binding for public lab studies.            |
-| `3.4.2`         | New Real-Data Lab Domain         | Extends lab trials into scientific dataset reliability with public/proxy data provenance, schema-drift instruments, and real-data limitations.                               |
-| `3.4.3`         | Lab Memory Reuse                 | Adds active lab memory search, recommendation, reuse planning, and capability graph outputs that influence build-vs-buy decisions.                                           |
-| `3.4.4`         | Instrument Benchmarking          | Adds benchmark, calibrate-all, rank, and retire commands so instruments can be reused, demoted, or retired from evidence.                                                    |
-| `3.4.5`         | Self-Built Reproduction          | Adds lab reproduction planning, execution, analysis, and publication for safe external computational claims.                                                                 |
-| `3.5.0-rc.1`    | Real-Source Lab Trial            | Adds four-study real-source/real-data-preferred lab trials with a new domain, reproduction attempt, calibration-aware tool reuse, and corpus-publication gates.              |
+| Version         | Focus                            | Result                                                                                                                                                                                     |
+| --------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `3.1.0-alpha.1` | Scientific Method Core           | Adds `sovryn science` commands for safe computational questions, hypotheses with null hypotheses, experiment designs, study status, and gate reviews.                                      |
+| `3.1.0-alpha.2` | Data and Instrument Runtime      | Adds synthetic dataset generation, generated baseline/candidate/runner instruments, Node Alpha execution evidence, and deterministic experiment run gates.                                 |
+| `3.1.0-alpha.3` | Statistics and Ablations         | Adds evidence-bound confusion metrics, baseline comparison, ablation reports, sensitivity sweeps, and false-positive/false-negative error analysis.                                        |
+| `3.1.0-alpha.4` | Replication and Falsification    | Adds deterministic replication summaries, negative tests, falsification reports, and hypothesis status updates.                                                                            |
+| `3.1.0-alpha.5` | Memory and Literature Grounding  | Adds scientific memory ledgers, fixture-backed source cards, literature-grounding reports, and follow-up question generation.                                                              |
+| `3.1.0-rc.1`    | Science Campaign                 | Adds `sovryn science campaign run` for two-study autonomous computational-science campaigns with statistics, replication, falsification, memory, and curated local packages.               |
+| `3.1.0-rc.2`    | Public Science Study Publication | Adds `sovryn science publish`, `publish-all`, and `publish-audit` for publishing completed computational-science studies into the public corpus with strict hygiene gates.                 |
+| `3.2.0-alpha.1` | Real Data Ingestion              | Adds `sovryn science data search/ingest/validate/provenance/cache/replay` with safe public/proxy datasets, provenance, validation, replay cache, and study binding.                        |
+| `3.2.0-alpha.2` | Scientific Reproduction          | Adds `sovryn science reproduce plan/run/analyze/report` for safe bounded reproduction of external or internal computational claims.                                                        |
+| `3.2.0-alpha.3` | Scientific Peer Review           | Adds `sovryn science peer-review`, `peer-review-corpus`, `rebuttal`, and `revise` for automated critique, response, and revision planning before showcase promotion.                       |
+| `3.2.0-alpha.4` | Meta-Analysis and Learning       | Adds `sovryn science meta-analysis`, `memory synthesize`, `contradictions find`, `research-program propose`, and `next-study plan` for learning across studies.                            |
+| `3.2.1`         | Science Showcase Hardening       | Adds public science-study score hardening, peer-review/falsification showcase gates, showcase-science docs, and science showcase index/API output.                                         |
+| `3.2.2`         | Real-Data Science Studies        | Adds `sovryn science study run-real-data` templates with provenance, validation, cache/replay, and real-vs-synthetic comparison artifacts.                                                 |
+| `3.2.3`         | External Reproduction Challenge  | Adds `sovryn science reproduce search` and `reproduce publish` for safe bounded reproduction challenges and public reproduction reports.                                                   |
+| `3.2.4`         | Review/Rebuttal/Revision         | Adds `sovryn science revision publish` for public author-response, revision-plan, and revised-report artifacts.                                                                            |
+| `3.2.5`         | Stable Scientific Learning       | Adds `sovryn science stable-findings report` and stricter scientific-memory learning reports.                                                                                              |
+| `3.3.0-rc.1`    | Seven-Day Science Trial          | Adds `sovryn science trial run --days 7 --studies 6` with six-study selection, reproduction attempts, revision loops, meta-analysis, and RC gate evidence.                                 |
+| `3.4.0-alpha.1` | Lab Need Inference               | Adds `sovryn lab needs infer` and `infer-from-goal` to map hypotheses/studies to required measurements, operations, tools, instruments, and safety scope.                                  |
+| `3.4.0-alpha.2` | Build-vs-Buy Engine              | Adds `sovryn lab decide` and decision review/report artifacts for tool/package/custom-instrument selection with reproducibility, safety, and install-risk scoring.                         |
+| `3.4.0-alpha.3` | Toolchain Provisioning Runtime   | Adds `sovryn lab provision` with policy review, version/hash evidence, isolated environment manifests, redacted install evidence, and toolchain doctor/audit output.                       |
+| `3.4.0-alpha.4` | Research Instrument Builder      | Adds `sovryn lab instrument build/test/calibrate/audit/report` for tested, calibrated, limitation-bound custom computational instruments.                                                  |
+| `3.4.0-alpha.5` | Experiment Pipeline Builder      | Adds `sovryn lab pipeline compose/run/validate/replay/audit/report` for safe tool/instrument pipelines with replay-critical hash binding and public-safe outputs.                          |
+| `3.4.0-rc.1`    | Self-Building Lab Trial          | Adds `sovryn lab trial run` for three-study lab autonomy trials covering needs inference, build-vs-buy, provisioning, instrument build, pipelines, memory, and corpus gates.               |
+| `3.4.1`         | Lab Study Hardening              | Adds `sovryn lab study audit/harden` to require explicit falsification, peer review, calibration, pipeline replay, and lab-memory binding for public lab studies.                          |
+| `3.4.2`         | New Real-Data Lab Domain         | Extends lab trials into scientific dataset reliability with public/proxy data provenance, schema-drift instruments, and real-data limitations.                                             |
+| `3.4.3`         | Lab Memory Reuse                 | Adds active lab memory search, recommendation, reuse planning, and capability graph outputs that influence build-vs-buy decisions.                                                         |
+| `3.4.4`         | Instrument Benchmarking          | Adds benchmark, calibrate-all, rank, and retire commands so instruments can be reused, demoted, or retired from evidence.                                                                  |
+| `3.4.5`         | Self-Built Reproduction          | Adds lab reproduction planning, execution, analysis, and publication for safe external computational claims.                                                                               |
+| `3.5.0-rc.1`    | Real-Source Lab Trial            | Adds four-study real-source/real-data-preferred lab trials with a new domain, reproduction attempt, calibration-aware tool reuse, and corpus-publication gates.                            |
+| `3.7.0-rc.1`    | Tool-Operating Discovery         | Adds scientific program operation, breakthrough search, program-orchestrated discovery pipelines, strict candidate validation, invented discovery tools, and discovery corpus publication. |
 
 New science commands:
 
@@ -247,10 +248,20 @@ sovryn lab reproduce run <reproduction-id> --json
 sovryn lab reproduce analyze <reproduction-id> --json
 sovryn lab reproduce publish <reproduction-id> --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
 sovryn lab trial run --goal "Build and use computational labs for safe real-source studies" --studies 4 --real-sources-preferred --real-data-preferred --autopublish-corpus --json
+sovryn lab program discover --json
+sovryn lab program run sympy --task symbolic-smoke --json
+sovryn discovery search-space create "Find provenance-aware anomaly scoring formulas that reduce false positives" --json
+sovryn discovery candidates generate <search-space-id> --count 100 --json
+sovryn discovery pipeline compose <search-space-id> --json
+sovryn discovery breakthrough validate <candidate-id> --json
+sovryn lab invent-tool counterexample-generation --json
+sovryn discovery campaign run --goal "Discover a new interpretable method for reducing false positives in provenance-aware data quality and anomaly detection tasks" --domains 2 --candidates 500 --autopublish-corpus --json
 ```
 
 See [docs/SELF_BUILDING_LAB.md](docs/SELF_BUILDING_LAB.md) for the lab
-autonomy workflow, artifacts, gates, and safety constraints.
+autonomy workflow, artifacts, gates, and safety constraints. See
+[docs/TOOL_OPERATING_DISCOVERY.md](docs/TOOL_OPERATING_DISCOVERY.md) for the
+program operator and discovery campaign layer.
 
 ## Current Beta Line
 

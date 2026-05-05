@@ -12,6 +12,7 @@ import { configExists, loadConfig } from "../core/config.js";
 import { CorpusAutopublisher } from "../core/corpus/corpus-autopublisher.js";
 import { CorpusProductService } from "../core/corpus/corpus-product-service.js";
 import { CorpusService } from "../core/corpus/corpus-service.js";
+import { DiscoveryService } from "../core/discovery/discovery-service.js";
 import {
   FactoryService,
   type FactoryRunMode,
@@ -29,6 +30,8 @@ import { RealSourceExternalCampaignService } from "../core/external-research/rea
 import { FalsificationService } from "../core/evaluation/falsification-service.js";
 import { InventionService } from "../core/invention/invention-service.js";
 import { LabService } from "../core/lab/lab-service.js";
+import { ProgramOperatorService } from "../core/lab/program-operator-service.js";
+import { ToolInventionService } from "../core/lab/tool-invention-service.js";
 import { MissionService } from "../core/mission/mission-service.js";
 import { NodeManager } from "../core/node/node-manager.js";
 import { NodeAlphaToolchainManager } from "../core/node/toolchain-manager.js";
@@ -280,7 +283,35 @@ Commands:
   sovryn lab reproduce run <reproduction-id> [--json]
   sovryn lab reproduce analyze <reproduction-id> [--json]
   sovryn lab reproduce publish <reproduction-id> --target-repo <path> [--json]
+  sovryn lab program discover [--json]
+  sovryn lab program provision <program-name> [--json]
+  sovryn lab program doctor <program-name> [--json]
+  sovryn lab program run <program-name> --task <task-id> [--json]
+  sovryn lab program parse-output <run-id> [--json]
+  sovryn lab program benchmark <program-name> [--json]
+  sovryn lab invent-tool <capability-gap-id> [--json]
+  sovryn lab invent-tool test <tool-id> [--json]
+  sovryn lab invent-tool benchmark <tool-id> [--json]
+  sovryn lab invent-tool integrate <tool-id> --pipeline <pipeline-id> [--json]
+  sovryn lab invent-tool report <tool-id> [--json]
   sovryn lab trial run --goal "<goal>" [--studies 4] [--real-sources-preferred] [--real-data-preferred] [--autopublish-corpus] [--json]
+  sovryn discovery search-space create "<goal>" [--json]
+  sovryn discovery candidates generate <search-space-id> --count 100 [--json]
+  sovryn discovery candidates evaluate <search-space-id> [--json]
+  sovryn discovery candidates rank <search-space-id> [--json]
+  sovryn discovery candidates evolve <search-space-id> --generations 3 [--json]
+  sovryn discovery report <search-space-id> [--json]
+  sovryn discovery pipeline compose <search-space-id> [--json]
+  sovryn discovery pipeline run <pipeline-id> [--json]
+  sovryn discovery pipeline replay <pipeline-id> [--json]
+  sovryn discovery pipeline audit <pipeline-id> [--json]
+  sovryn discovery pipeline report <pipeline-id> [--json]
+  sovryn discovery breakthrough validate <candidate-id> [--json]
+  sovryn discovery breakthrough replicate <candidate-id> --runs 5 [--json]
+  sovryn discovery breakthrough falsify <candidate-id> [--json]
+  sovryn discovery breakthrough novelty-check <candidate-id> [--json]
+  sovryn discovery breakthrough report <candidate-id> [--json]
+  sovryn discovery campaign run --goal "<goal>" [--domains 2] [--candidates 500] [--autopublish-corpus] [--json]
   sovryn science study status <study-id> [--json]
   sovryn science review <study-id> [--json]
   sovryn invention status <mission-id> [--json]
@@ -649,6 +680,16 @@ export async function executeCli(
       case "lab": {
         const result = await labCommand(parsed, root);
         return okEnvelope("lab", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
+      case "discovery": {
+        const result = await discoveryCommand(parsed, root);
+        return okEnvelope("discovery", result, {
           artifactRefs: Array.isArray(result.artifactRefs)
             ? result.artifactRefs.filter(
                 (value): value is string => typeof value === "string",
@@ -2154,12 +2195,211 @@ async function labCommand(
         "Use: sovryn lab reproduce <plan|run|analyze|publish> <id>.",
       );
     }
+    case "program": {
+      const action = parsed.positionals[1];
+      const program = new ProgramOperatorService(root);
+      if (action === "discover") return program.discover();
+      if (action === "provision") {
+        const programName = parsed.positionals[2];
+        if (!programName) {
+          throw new AppError(
+            "LAB_PROGRAM_USAGE",
+            "Use: sovryn lab program provision <program-name>.",
+          );
+        }
+        return program.provision(programName);
+      }
+      if (action === "doctor") {
+        const programName = parsed.positionals[2];
+        if (!programName) {
+          throw new AppError(
+            "LAB_PROGRAM_USAGE",
+            "Use: sovryn lab program doctor <program-name>.",
+          );
+        }
+        return program.doctor(programName);
+      }
+      if (action === "run") {
+        const programName = parsed.positionals[2];
+        const taskId = flagString(parsed.flags, "--task");
+        if (!programName || !taskId) {
+          throw new AppError(
+            "LAB_PROGRAM_USAGE",
+            "Use: sovryn lab program run <program-name> --task <task-id>.",
+          );
+        }
+        return program.run(programName, taskId);
+      }
+      if (action === "parse-output") {
+        const runId = parsed.positionals[2];
+        if (!runId) {
+          throw new AppError(
+            "LAB_PROGRAM_USAGE",
+            "Use: sovryn lab program parse-output <run-id>.",
+          );
+        }
+        return program.parseOutput(runId);
+      }
+      if (action === "benchmark") {
+        const programName = parsed.positionals[2];
+        if (!programName) {
+          throw new AppError(
+            "LAB_PROGRAM_USAGE",
+            "Use: sovryn lab program benchmark <program-name>.",
+          );
+        }
+        return program.benchmark(programName);
+      }
+      throw new AppError(
+        "LAB_PROGRAM_USAGE",
+        "Use: sovryn lab program <discover|provision|doctor|run|parse-output|benchmark>.",
+      );
+    }
+    case "invent-tool": {
+      const actionOrGap = parsed.positionals[1];
+      const invention = new ToolInventionService(root);
+      if (
+        ["test", "benchmark", "integrate", "report"].includes(actionOrGap ?? "")
+      ) {
+        const toolId = parsed.positionals[2];
+        if (!toolId) {
+          throw new AppError(
+            "LAB_INVENT_TOOL_USAGE",
+            "Use: sovryn lab invent-tool <test|benchmark|integrate|report> <tool-id>.",
+          );
+        }
+        if (actionOrGap === "test") return invention.testTool(toolId);
+        if (actionOrGap === "benchmark") return invention.benchmarkTool(toolId);
+        if (actionOrGap === "report") return invention.reportTool(toolId);
+        const pipelineId = flagString(parsed.flags, "--pipeline");
+        if (!pipelineId) {
+          throw new AppError(
+            "LAB_INVENT_TOOL_USAGE",
+            "Use: sovryn lab invent-tool integrate <tool-id> --pipeline <pipeline-id>.",
+          );
+        }
+        return invention.integrateTool(toolId, pipelineId);
+      }
+      if (!actionOrGap) {
+        throw new AppError(
+          "LAB_INVENT_TOOL_USAGE",
+          "Use: sovryn lab invent-tool <capability-gap-id>.",
+        );
+      }
+      return invention.inventTool(actionOrGap);
+    }
     default:
       throw new AppError(
         "LAB_COMMAND_REQUIRED",
-        "Use: sovryn lab <needs|decide|decide-from-study|decision|provision|instrument|pipeline|study|memory|reuse|reproduce|trial>.",
+        "Use: sovryn lab <needs|decide|decide-from-study|decision|provision|instrument|pipeline|study|memory|reuse|reproduce|program|invent-tool|trial>.",
       );
   }
+}
+
+async function discoveryCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const action = parsed.positionals[1];
+  const service = new DiscoveryService(root);
+  if (subcommand === "search-space" && action === "create") {
+    const goal = parsed.positionals.slice(2).join(" ").trim();
+    if (!goal) {
+      throw new AppError(
+        "DISCOVERY_SEARCH_SPACE_USAGE",
+        'Use: sovryn discovery search-space create "<goal>".',
+      );
+    }
+    return service.createSearchSpace(goal);
+  }
+  if (subcommand === "candidates") {
+    const searchSpaceId = parsed.positionals[2];
+    if (!searchSpaceId) {
+      throw new AppError(
+        "DISCOVERY_CANDIDATES_USAGE",
+        "Use: sovryn discovery candidates <generate|evaluate|rank|evolve> <search-space-id>.",
+      );
+    }
+    if (action === "generate") {
+      return service.generateCandidates(
+        searchSpaceId,
+        flagInt(parsed.flags, "--count", 100),
+      );
+    }
+    if (action === "evaluate") return service.evaluateCandidates(searchSpaceId);
+    if (action === "rank") return service.rankCandidates(searchSpaceId);
+    if (action === "evolve") {
+      return service.evolveCandidates(
+        searchSpaceId,
+        flagInt(parsed.flags, "--generations", 3),
+      );
+    }
+  }
+  if (subcommand === "report") {
+    const searchSpaceId = parsed.positionals[1];
+    if (!searchSpaceId) {
+      throw new AppError(
+        "DISCOVERY_REPORT_USAGE",
+        "Use: sovryn discovery report <search-space-id>.",
+      );
+    }
+    return service.report(searchSpaceId);
+  }
+  if (subcommand === "pipeline") {
+    const id = parsed.positionals[2];
+    if (!id) {
+      throw new AppError(
+        "DISCOVERY_PIPELINE_USAGE",
+        "Use: sovryn discovery pipeline <compose|run|replay|audit|report> <id>.",
+      );
+    }
+    if (action === "compose") return service.composePipeline(id);
+    if (action === "run") return service.runPipeline(id);
+    if (action === "replay") return service.replayPipeline(id);
+    if (action === "audit") return service.auditPipeline(id);
+    if (action === "report") return service.pipelineReport(id);
+  }
+  if (subcommand === "breakthrough") {
+    const candidateId = parsed.positionals[2];
+    if (!candidateId) {
+      throw new AppError(
+        "DISCOVERY_BREAKTHROUGH_USAGE",
+        "Use: sovryn discovery breakthrough <validate|replicate|falsify|novelty-check|report> <candidate-id>.",
+      );
+    }
+    if (action === "validate") return service.validateBreakthrough(candidateId);
+    if (action === "replicate") {
+      return service.replicateBreakthrough(
+        candidateId,
+        flagInt(parsed.flags, "--runs", 5),
+      );
+    }
+    if (action === "falsify") return service.falsifyBreakthrough(candidateId);
+    if (action === "novelty-check") return service.noveltyCheck(candidateId);
+    if (action === "report") return service.breakthroughReport(candidateId);
+  }
+  if (subcommand === "campaign" && action === "run") {
+    const goal =
+      flagString(parsed.flags, "--goal") ??
+      parsed.positionals.slice(2).join(" ").trim();
+    if (!goal) {
+      throw new AppError(
+        "DISCOVERY_CAMPAIGN_USAGE",
+        'Use: sovryn discovery campaign run --goal "<goal>".',
+      );
+    }
+    return service.runCampaign({
+      goal,
+      domains: flagInt(parsed.flags, "--domains", 2),
+      candidates: flagInt(parsed.flags, "--candidates", 500),
+      autopublishCorpus: flagBool(parsed.flags, "--autopublish-corpus"),
+    });
+  }
+  throw new AppError(
+    "DISCOVERY_COMMAND_REQUIRED",
+    "Use: sovryn discovery <search-space|candidates|pipeline|breakthrough|campaign|report>.",
+  );
 }
 
 function labProfile(

@@ -1,6 +1,6 @@
 # Self-Building Computational Lab
 
-Sovryn OS `3.5.0-rc.1` hardens the Lab Autonomy Engine for safe computational
+Sovryn OS `3.7.0-rc.1` hardens the Lab Autonomy Engine for safe computational
 science. The lab layer does not add product, dashboard, marketplace, hosted, or
 team features. It focuses on one job: infer the digital lab a study needs, build
 or provision it safely, execute it with evidence, benchmark what was built, and

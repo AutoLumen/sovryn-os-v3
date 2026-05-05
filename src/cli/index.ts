@@ -50,6 +50,7 @@ import { ReleaseCandidateService } from "../core/release/release-candidate-servi
 import { RealityGradeService } from "../core/reality/reality-grade-service.js";
 import { FieldGradeService } from "../core/field/field-grade-service.js";
 import { FrontierService } from "../core/frontier/frontier-service.js";
+import { ExternalProductionService } from "../core/external-production/external-production-service.js";
 import { ResearchOpportunityEngine } from "../core/research/opportunity-engine.js";
 import { ScienceService } from "../core/science/science-service.js";
 import { StrategyService } from "../core/strategy/strategy-service.js";
@@ -231,6 +232,14 @@ Commands:
   sovryn frontier trial run [--autopublish-corpus] [--json]
   sovryn frontier trial audit [--json]
   sovryn frontier trial report [--json]
+  sovryn external-production problem tournament [--json]
+  sovryn external-production baseline reproduce [--json]
+  sovryn external-production methods search [--json]
+  sovryn external-production kill-week run [--json]
+  sovryn external-production rebuild replicate [--json]
+  sovryn external-production publish result [--autopublish-corpus] [--json]
+  sovryn external-production audit [--json]
+  sovryn external-production report [--json]
   sovryn security audit [--json]
   sovryn security audit-public-release <path> [--json]
   sovryn security audit-worker --profile container-netoff [--json]
@@ -922,6 +931,16 @@ export async function executeCli(
       case "frontier": {
         const result = await frontierCommand(parsed, root);
         return okEnvelope("frontier", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
+      case "external-production": {
+        const result = await externalProductionCommand(parsed, root);
+        return okEnvelope("external-production", result, {
           artifactRefs: Array.isArray(result.artifactRefs)
             ? result.artifactRefs.filter(
                 (value): value is string => typeof value === "string",
@@ -3191,6 +3210,41 @@ async function frontierCommand(
   throw new AppError(
     "FRONTIER_COMMAND_REQUIRED",
     "Use: sovryn frontier <benchmark expand|methods generate|methods implement|falsify baseline-dominance|reproduce variants|package paper-grade|trial run|trial audit|trial report>.",
+  );
+}
+
+async function externalProductionCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const action = parsed.positionals[1];
+  const service = new ExternalProductionService(root);
+  if (subcommand === "problem" && action === "tournament") {
+    return service.runProblemTournament();
+  }
+  if (subcommand === "baseline" && action === "reproduce") {
+    return service.reproduceBaselines();
+  }
+  if (subcommand === "methods" && action === "search") {
+    return service.runMethodSearch();
+  }
+  if (subcommand === "kill-week" && action === "run") {
+    return service.runKillWeek();
+  }
+  if (subcommand === "rebuild" && action === "replicate") {
+    return service.runIndependentRebuild();
+  }
+  if (subcommand === "publish" && action === "result") {
+    return service.publishResult({
+      autopublishCorpus: flagBool(parsed.flags, "--autopublish-corpus"),
+    });
+  }
+  if (subcommand === "audit") return service.audit();
+  if (subcommand === "report") return service.report();
+  throw new AppError(
+    "EXTERNAL_PRODUCTION_COMMAND_REQUIRED",
+    "Use: sovryn external-production <problem tournament|baseline reproduce|methods search|kill-week run|rebuild replicate|publish result|audit|report>.",
   );
 }
 

@@ -1091,6 +1091,7 @@ export class KnowledgeService {
       [".sovryn/challenges", "local_external_challenges"],
       [".sovryn/field-grade", "local_field_grade_trials"],
       [".sovryn/frontier", "local_frontier_scientific_production"],
+      [".sovryn/external-production", "local_external_scientific_production"],
     ] as const;
     const sources: EvidenceSource[] = [];
     for (const [relativeRoot, kind] of roots) {

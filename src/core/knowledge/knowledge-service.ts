@@ -200,7 +200,7 @@ type EvidenceSource = {
   summary: Record<string, any>;
 };
 
-const KNOWLEDGE_VERSION = "4.0.0-rc.1";
+const KNOWLEDGE_VERSION = "4.1.0-rc.1";
 const TARGET_CORPUS_REPO = "/Users/sovryn/Desktop/sovryn-open-inventions";
 const TARGET_CORPUS_URL = "https://github.com/n57d30top/sovryn-open-inventions";
 const SAFE_SCOPE =
@@ -1085,6 +1085,11 @@ export class KnowledgeService {
       [".sovryn/falsification", "local_adversarial_falsification"],
       [".sovryn/reality-trials", "local_reality_trials"],
       [".sovryn/reality-grade", "local_reality_grade_trials"],
+      [".sovryn/datasets", "local_verified_datasets"],
+      [".sovryn/campaigns", "local_long_horizon_campaigns"],
+      [".sovryn/toolchains", "local_field_toolchains"],
+      [".sovryn/challenges", "local_external_challenges"],
+      [".sovryn/field-grade", "local_field_grade_trials"],
     ] as const;
     const sources: EvidenceSource[] = [];
     for (const [relativeRoot, kind] of roots) {
@@ -1364,7 +1369,7 @@ export class KnowledgeService {
         slug: resultSlug,
         publishedBy: "sovryn-knowledge-autopublish",
         humanReviewRequired: false,
-        automatedPolicyVersion: "4.0.0-rc.1-knowledge-policy",
+        automatedPolicyVersion: "4.1.0-rc.1-knowledge-policy",
         targetRepo: TARGET_CORPUS_URL,
         targetPath: `results/${resultSlug}`,
         pushed: true,

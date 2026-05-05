@@ -48,6 +48,7 @@ import {
 import { QualityEvaluator } from "../core/quality/quality-service.js";
 import { ReleaseCandidateService } from "../core/release/release-candidate-service.js";
 import { RealityGradeService } from "../core/reality/reality-grade-service.js";
+import { FieldGradeService } from "../core/field/field-grade-service.js";
 import { ResearchOpportunityEngine } from "../core/research/opportunity-engine.js";
 import { ScienceService } from "../core/science/science-service.js";
 import { StrategyService } from "../core/strategy/strategy-service.js";
@@ -168,14 +169,39 @@ Commands:
   sovryn sources ingest "<query>" [--max-sources 20] [--json]
   sovryn sources cards [--json]
   sovryn sources report [--json]
+  sovryn sources verify [--json]
+  sovryn sources registry build [--json]
+  sovryn datasets discover "<query>" [--json]
+  sovryn datasets verify [--json]
+  sovryn datasets registry build [--json]
+  sovryn datasets report [--json]
   sovryn benchmark suite build [--json]
   sovryn benchmark run --suite safe-reality [--json]
   sovryn benchmark compare [--json]
   sovryn benchmark report [--json]
+  sovryn benchmark real-data suite build [--json]
+  sovryn benchmark real-data run --domains 5 [--json]
+  sovryn benchmark real-data compare [--json]
+  sovryn benchmark real-data report [--json]
   sovryn benchmark research run [--json]
   sovryn benchmark research report [--json]
   sovryn benchmark quality calibrate [--json]
   sovryn benchmark compare-baseline [--json]
+  sovryn campaign plan "<research-goal>" [--json]
+  sovryn campaign run <campaign-id> [--max-cycles 20] [--json]
+  sovryn campaign resume <campaign-id> [--json]
+  sovryn campaign status <campaign-id> [--json]
+  sovryn campaign report <campaign-id> [--json]
+  sovryn campaign audit <campaign-id> [--json]
+  sovryn toolchain infer --from-campaign <campaign-id> [--json]
+  sovryn toolchain plan [--json]
+  sovryn toolchain provision --profile container-netoff [--json]
+  sovryn toolchain validate [--json]
+  sovryn toolchain report [--json]
+  sovryn challenge discover [--json]
+  sovryn challenge run --top 3 [--json]
+  sovryn challenge compare [--json]
+  sovryn challenge report [--json]
   sovryn reproduce independent --claim <claim-id> [--json]
   sovryn reproduce independent --top-from-knowledge [--json]
   sovryn reproduce report <run-id> [--json]
@@ -188,6 +214,9 @@ Commands:
   sovryn reality-grade trial run [--autopublish-corpus] [--json]
   sovryn reality-grade trial audit [--json]
   sovryn reality-grade trial report [--json]
+  sovryn field-grade trial run [--autopublish-corpus] [--json]
+  sovryn field-grade trial audit [--json]
+  sovryn field-grade trial report [--json]
   sovryn security audit [--json]
   sovryn security audit-public-release <path> [--json]
   sovryn security audit-worker --profile container-netoff [--json]
@@ -786,6 +815,46 @@ export async function executeCli(
             : [],
         });
       }
+      case "datasets": {
+        const result = await datasetsCommand(parsed, root);
+        return okEnvelope("datasets", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
+      case "campaign": {
+        const result = await campaignCommand(parsed, root);
+        return okEnvelope("campaign", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
+      case "toolchain": {
+        const result = await toolchainCommand(parsed, root);
+        return okEnvelope("toolchain", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
+      case "challenge": {
+        const result = await challengeCommand(parsed, root);
+        return okEnvelope("challenge", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
       case "reproduce": {
         const result = await reproduceCommand(parsed, root);
         return okEnvelope("reproduce", result, {
@@ -819,6 +888,16 @@ export async function executeCli(
       case "reality-grade": {
         const result = await realityGradeCommand(parsed, root);
         return okEnvelope("reality-grade", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
+      case "field-grade": {
+        const result = await fieldGradeCommand(parsed, root);
+        return okEnvelope("field-grade", result, {
           artifactRefs: Array.isArray(result.artifactRefs)
             ? result.artifactRefs.filter(
                 (value): value is string => typeof value === "string",
@@ -1372,6 +1451,23 @@ async function benchmarkCommand(
   const subcommand = parsed.positionals[0];
   const action = parsed.positionals[1];
   const reality = new RealityGradeService(root);
+  const field = new FieldGradeService(root);
+  if (subcommand === "real-data") {
+    if (action === "suite" && parsed.positionals[2] === "build") {
+      return field.buildRealDataBenchmarkSuite();
+    }
+    if (action === "run") {
+      return field.runRealDataBenchmarks({
+        domains: flagInt(parsed.flags, "--domains", 5),
+      });
+    }
+    if (action === "compare") return field.compareRealDataBenchmarks();
+    if (action === "report") return field.realDataBenchmarkReport();
+    throw new AppError(
+      "REAL_DATA_BENCHMARK_USAGE",
+      "Use: sovryn benchmark real-data <suite build|run|compare|report>.",
+    );
+  }
   if (subcommand === "suite") {
     if (action === "build") return reality.buildBenchmarkSuite();
     throw new AppError(
@@ -2769,6 +2865,7 @@ async function sourcesCommand(
 ): Promise<Record<string, unknown>> {
   const subcommand = parsed.positionals[0];
   const service = new RealityGradeService(root);
+  const field = new FieldGradeService(root);
   if (subcommand === "search") {
     const query = parsed.positionals[1];
     if (!query) {
@@ -2794,9 +2891,122 @@ async function sourcesCommand(
   }
   if (subcommand === "cards") return service.sourceCards();
   if (subcommand === "report") return service.sourceReport();
+  if (subcommand === "verify") return field.verifySources();
+  if (subcommand === "registry" && parsed.positionals[1] === "build") {
+    return field.buildSourceRegistry();
+  }
   throw new AppError(
     "SOURCES_COMMAND_REQUIRED",
-    "Use: sovryn sources <search|ingest|cards|report>.",
+    "Use: sovryn sources <search|ingest|cards|report|verify|registry build>.",
+  );
+}
+
+async function datasetsCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const service = new FieldGradeService(root);
+  if (subcommand === "discover") {
+    const query = parsed.positionals[1];
+    if (!query) {
+      throw new AppError(
+        "DATASETS_DISCOVER_USAGE",
+        'Use: sovryn datasets discover "<query>".',
+      );
+    }
+    return service.discoverDatasets(query);
+  }
+  if (subcommand === "verify") return service.verifyDatasets();
+  if (subcommand === "registry" && parsed.positionals[1] === "build") {
+    return service.buildDatasetRegistry();
+  }
+  if (subcommand === "report") return service.datasetReport();
+  throw new AppError(
+    "DATASETS_COMMAND_REQUIRED",
+    "Use: sovryn datasets <discover|verify|registry build|report>.",
+  );
+}
+
+async function campaignCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const service = new FieldGradeService(root);
+  if (subcommand === "plan") {
+    const goal = parsed.positionals[1];
+    if (!goal) {
+      throw new AppError(
+        "CAMPAIGN_PLAN_USAGE",
+        'Use: sovryn campaign plan "<research-goal>".',
+      );
+    }
+    return service.planCampaign(goal);
+  }
+  if (subcommand === "run") {
+    return service.runCampaign(parsed.positionals[1] ?? "latest", {
+      maxCycles: flagInt(parsed.flags, "--max-cycles", 20),
+    });
+  }
+  if (subcommand === "resume") {
+    return service.resumeCampaign(parsed.positionals[1] ?? "latest");
+  }
+  if (subcommand === "status") {
+    return service.campaignStatus(parsed.positionals[1] ?? "latest");
+  }
+  if (subcommand === "report") {
+    return service.campaignReport(parsed.positionals[1] ?? "latest");
+  }
+  if (subcommand === "audit") {
+    return service.campaignAudit(parsed.positionals[1] ?? "latest");
+  }
+  throw new AppError(
+    "CAMPAIGN_COMMAND_REQUIRED",
+    "Use: sovryn campaign <plan|run|resume|status|report|audit>.",
+  );
+}
+
+async function toolchainCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const service = new FieldGradeService(root);
+  if (subcommand === "infer") {
+    return service.inferToolchainFromCampaign(
+      flagString(parsed.flags, "--from-campaign") ?? "latest",
+    );
+  }
+  if (subcommand === "plan") return service.planToolchain();
+  if (subcommand === "provision") {
+    return service.provisionToolchain({
+      profile: flagString(parsed.flags, "--profile") ?? "container-netoff",
+    });
+  }
+  if (subcommand === "validate") return service.validateToolchain();
+  if (subcommand === "report") return service.toolchainReport();
+  throw new AppError(
+    "TOOLCHAIN_COMMAND_REQUIRED",
+    "Use: sovryn toolchain <infer|plan|provision|validate|report>.",
+  );
+}
+
+async function challengeCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const service = new FieldGradeService(root);
+  if (subcommand === "discover") return service.discoverChallenges();
+  if (subcommand === "run") {
+    return service.runChallenges({ top: flagInt(parsed.flags, "--top", 3) });
+  }
+  if (subcommand === "compare") return service.compareChallenges();
+  if (subcommand === "report") return service.challengeReport();
+  throw new AppError(
+    "CHALLENGE_COMMAND_REQUIRED",
+    "Use: sovryn challenge <discover|run|compare|report>.",
   );
 }
 
@@ -2882,6 +3092,28 @@ async function realityGradeCommand(
   throw new AppError(
     "REALITY_GRADE_COMMAND_REQUIRED",
     "Use: sovryn reality-grade trial <run|audit|report>.",
+  );
+}
+
+async function fieldGradeCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const action = parsed.positionals[1];
+  const service = new FieldGradeService(root);
+  if (subcommand === "trial") {
+    if (action === "run") {
+      return service.fieldGradeTrialRun({
+        autopublishCorpus: flagBool(parsed.flags, "--autopublish-corpus"),
+      });
+    }
+    if (action === "audit") return service.fieldGradeTrialAudit();
+    if (action === "report") return service.fieldGradeTrialReport();
+  }
+  throw new AppError(
+    "FIELD_GRADE_COMMAND_REQUIRED",
+    "Use: sovryn field-grade trial <run|audit|report>.",
   );
 }
 

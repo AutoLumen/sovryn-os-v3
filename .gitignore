@@ -43,6 +43,11 @@ graphify-out/graph.json
 .sovryn/falsification/
 .sovryn/reality-trials/
 .sovryn/reality-grade/
+.sovryn/datasets/
+.sovryn/campaigns/
+.sovryn/toolchains/
+.sovryn/challenges/
+.sovryn/field-grade/
 .sovryn/external-research/
 .sovryn/multi-domain-campaign/
 public-corpus/

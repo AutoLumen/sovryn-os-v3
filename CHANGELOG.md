@@ -1,5 +1,24 @@
 # Changelog
 
+## 4.1.0-rc.1
+
+- Added Field-Grade Autonomous Science command families:
+  `sovryn sources verify`, `datasets`, `benchmark real-data`, `campaign`,
+  `toolchain`, `challenge`, and `field-grade trial`.
+- Added `.sovryn/sources/registry/`, `.sovryn/datasets/registry/`,
+  `.sovryn/benchmarks/real-data/`, `.sovryn/campaigns/`,
+  `.sovryn/toolchains/`, `.sovryn/challenges/`, and `.sovryn/field-grade/`
+  artifacts for verified external sources, verified datasets, dataset-backed
+  benchmark runs, checkpointed campaigns, validated toolchains, external
+  challenge runs, and full field-grade autonomy trials.
+- Extended the Scientific Knowledge Engine to read field-grade source,
+  dataset, campaign, toolchain, challenge, and trial artifacts as
+  evidence-bound local sources.
+- Added curated public corpus publication for
+  `field_grade_autonomous_science_trial` results when verified-source,
+  dataset, toolchain, benchmark, challenge, reproduction, falsification,
+  knowledge-update, safety, and hygiene gates pass.
+
 ## 4.0.0-rc.1
 
 - Added Reality-Grade Scientific Autonomy command families:

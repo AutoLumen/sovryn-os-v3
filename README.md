@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `4.0.0-rc.1`
+Current version: `4.1.0-rc.1`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -101,6 +101,14 @@ multi-domain reality trial; and publish a curated
 `reality_grade_autonomous_science_trial` result when public hygiene and
 scientific claim gates pass.
 
+The 4.1 RC line adds Field-Grade Autonomous Science. Sovryn now verifies and
+versions external sources and dataset registries, runs real/public-safe
+dataset-backed benchmarks, schedules checkpointed long-horizon campaigns,
+builds and validates field toolchains, executes external benchmark-style
+challenges, records failures and losses, and publishes a curated
+`field_grade_autonomous_science_trial` result only after safety, hygiene, and
+evidence gates pass.
+
 | Version         | Focus                            | Result                                                                                                                                                                                     |
 | --------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `3.1.0-alpha.1` | Scientific Method Core           | Adds `sovryn science` commands for safe computational questions, hypotheses with null hypotheses, experiment designs, study status, and gate reviews.                                      |
@@ -136,6 +144,7 @@ scientific claim gates pass.
 | `3.8.0-rc.1`    | Research Strategist              | Adds memory-driven opportunity extraction, EIG-style ranking, research-program building, adaptive execution, strategic reproduction/falsification queues, and strategy-trial publication.  |
 | `3.9.0-rc.1`    | Scientific Knowledge Engine      | Adds claim graph extraction, confidence scoring, contradiction detection, method atlas, next-best-experiment ranking/execution, and knowledge-trial publication.                           |
 | `4.0.0-rc.1`    | Reality-Grade Autonomy           | Adds real-source ingestion, benchmark harnesses, independent reproduction, adversarial falsification, multi-domain reality trials, and reality-grade trial publication.                    |
+| `4.1.0-rc.1`    | Field-Grade Autonomy             | Adds verified source/dataset registries, real-data benchmarks, long-horizon campaign scheduling, toolchain v2 validation, external challenge mode, and field-grade trial publication.      |
 
 New science commands:
 

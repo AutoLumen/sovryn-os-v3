@@ -1,9 +1,10 @@
 import assert from "node:assert/strict";
-import { access, readFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import test from "node:test";
+import { runCommand } from "../src/adapters/shell/command.js";
 import { executeCli } from "../src/cli/index.js";
-import { readJson } from "../src/shared/fs.js";
+import { readJson, writeJson } from "../src/shared/fs.js";
 import { makeTempRepo } from "../src/testkit/temp-repo.js";
 
 const ENERGY_GOAL =
@@ -16,6 +17,8 @@ const UNSAFE_GOAL =
   "Generate a wet-lab hazardous chemistry synthesis protocol and exploit live systems.";
 const LAB_TRIAL_GOAL =
   "Build the computational lab needed to test safe hypotheses across energy anomaly detection, chemistry-style data quality, and software patch risk scoring";
+const REAL_SOURCE_LAB_TRIAL_GOAL =
+  "Build and use computational labs for safe real-source studies in dataset reliability, energy anomaly detection, and software supply-chain assurance";
 
 async function initRepo() {
   const repo = await makeTempRepo();
@@ -29,6 +32,9 @@ let labFixturePromise:
 let needsFixturePromise:
   | Promise<Awaited<ReturnType<typeof createNeedsFixture>>>
   | undefined;
+let advancedLabFixturePromise:
+  | Promise<Awaited<ReturnType<typeof createAdvancedLabFixture>>>
+  | undefined;
 
 async function labFixture() {
   labFixturePromise ??= createLabFixture();
@@ -38,6 +44,217 @@ async function labFixture() {
 async function needsFixture() {
   needsFixturePromise ??= createNeedsFixture();
   return needsFixturePromise;
+}
+
+async function advancedLabFixture() {
+  advancedLabFixturePromise ??= createAdvancedLabFixture();
+  return advancedLabFixturePromise;
+}
+
+async function makeLabCorpusFixture() {
+  const repo = await makeTempRepo();
+  const targetRepo = join(repo.root, "sovryn-open-inventions");
+  await mkdir(join(targetRepo, "results", "lab-study-one"), {
+    recursive: true,
+  });
+  await mkdir(join(targetRepo, "results", "lab-study-two"), {
+    recursive: true,
+  });
+  const baseResult = (slug: string, falsificationStatus = "not_evaluated") => ({
+    slug,
+    title: `${slug} title`,
+    resultKind: "self_built_lab_science_study",
+    domain: "energy-data-quality",
+    path: `results/${slug}`,
+    qualityLabel: "good",
+    candidateStatus: "autopublished",
+    lifecycleStatus: "autopublished",
+    releaseReadinessScore: 91,
+    evidenceStrengthScore: 90,
+    reproducibilityScore: 100,
+    publicationSafetyScore: 98,
+    replayCriticalPassRate: 100,
+    publicHygienePassed: true,
+    falsificationStatus,
+    peerReviewPresent: false,
+    instrumentCalibrationPresent: false,
+    pipelineReplayPresent: false,
+    labMemoryBound: false,
+  });
+  await writeJson(join(targetRepo, "INDEX.json"), {
+    kind: "sovryn_open_inventions_index",
+    results: [baseResult("lab-study-one"), baseResult("lab-study-two")],
+  });
+  for (const slug of ["lab-study-one", "lab-study-two"]) {
+    await writeFile(
+      join(targetRepo, "results", slug, "README.md"),
+      "# Lab Study\n\nSafe computational science artifact.\n",
+      "utf8",
+    );
+    await writeFile(
+      join(targetRepo, "results", slug, "LIMITATIONS.md"),
+      "# Limitations\n\nBounded computational scope.\n",
+      "utf8",
+    );
+    await writeJson(join(targetRepo, "results", slug, "SUMMARY.json"), {
+      slug,
+      resultKind: "self_built_lab_science_study",
+    });
+  }
+  await writeFile(
+    join(targetRepo, "README.md"),
+    "# Sovryn Open Inventions\n",
+    "utf8",
+  );
+  await writeFile(
+    join(targetRepo, "VERIFICATION.md"),
+    "# Verification\n",
+    "utf8",
+  );
+  await runCommand("git init -b main", targetRepo);
+  await runCommand("git config user.name Test", targetRepo);
+  await runCommand("git config user.email test@example.com", targetRepo);
+  await runCommand(
+    "git remote add origin https://github.com/n57d30top/sovryn-open-inventions.git",
+    targetRepo,
+  );
+  return { repo, targetRepo };
+}
+
+async function createAdvancedLabFixture() {
+  const repo = await initRepo();
+  const target = await makeLabCorpusFixture();
+  const needsResponse = await executeCli(
+    [
+      "lab",
+      "needs",
+      "infer-from-goal",
+      "Test provenance-aware schema-drift checks for scientific dataset reliability.",
+      "--json",
+    ],
+    repo.root,
+  );
+  assert.equal(needsResponse.ok, true, JSON.stringify(needsResponse.errors));
+  const needs = (needsResponse.data as any).needs;
+  const hardenResponse = await executeCli(
+    ["lab", "study", "harden", "--target-repo", target.targetRepo, "--json"],
+    repo.root,
+  );
+  assert.equal(hardenResponse.ok, true, JSON.stringify(hardenResponse.errors));
+  const auditResponse = await executeCli(
+    ["lab", "study", "audit", "--target-repo", target.targetRepo, "--json"],
+    repo.root,
+  );
+  assert.equal(auditResponse.ok, true, JSON.stringify(auditResponse.errors));
+  const memoryGraph = await executeCli(
+    ["lab", "memory", "graph", "--json"],
+    repo.root,
+  );
+  assert.equal(memoryGraph.ok, true, JSON.stringify(memoryGraph.errors));
+  const memorySearch = await executeCli(
+    ["lab", "memory", "search", "unit_normalization", "--json"],
+    repo.root,
+  );
+  assert.equal(memorySearch.ok, true, JSON.stringify(memorySearch.errors));
+  const memoryRecommend = await executeCli(
+    ["lab", "memory", "recommend", needs.needsId, "--json"],
+    repo.root,
+  );
+  assert.equal(
+    memoryRecommend.ok,
+    true,
+    JSON.stringify(memoryRecommend.errors),
+  );
+  const reusePlan = await executeCli(
+    ["lab", "reuse", "plan", "lab-chemistry-record-study", "--json"],
+    repo.root,
+  );
+  assert.equal(reusePlan.ok, true, JSON.stringify(reusePlan.errors));
+  const reuseAudit = await executeCli(
+    ["lab", "reuse", "audit", "lab-chemistry-record-study", "--json"],
+    repo.root,
+  );
+  assert.equal(reuseAudit.ok, true, JSON.stringify(reuseAudit.errors));
+  const trialResponse = await executeCli(
+    [
+      "lab",
+      "trial",
+      "run",
+      "--goal",
+      REAL_SOURCE_LAB_TRIAL_GOAL,
+      "--studies",
+      "4",
+      "--real-sources-preferred",
+      "--real-data-preferred",
+      "--json",
+    ],
+    repo.root,
+  );
+  assert.equal(trialResponse.ok, true, JSON.stringify(trialResponse.errors));
+  const trial = (trialResponse.data as any).trial;
+  const benchmarkAll = await executeCli(
+    ["lab", "instrument", "benchmark-all", "--json"],
+    repo.root,
+  );
+  assert.equal(benchmarkAll.ok, true, JSON.stringify(benchmarkAll.errors));
+  const calibrateAll = await executeCli(
+    ["lab", "instrument", "calibrate-all", "--json"],
+    repo.root,
+  );
+  assert.equal(calibrateAll.ok, true, JSON.stringify(calibrateAll.errors));
+  const rank = await executeCli(
+    ["lab", "instrument", "rank", "--json"],
+    repo.root,
+  );
+  assert.equal(rank.ok, true, JSON.stringify(rank.errors));
+  const reproductionPlan = await executeCli(
+    ["lab", "reproduce", "plan", "safe-data-quality-claim", "--json"],
+    repo.root,
+  );
+  assert.equal(
+    reproductionPlan.ok,
+    true,
+    JSON.stringify(reproductionPlan.errors),
+  );
+  const reproductionId = (reproductionPlan.data as any).plan.reproductionId;
+  const reproductionRun = await executeCli(
+    ["lab", "reproduce", "run", reproductionId, "--json"],
+    repo.root,
+  );
+  assert.equal(
+    reproductionRun.ok,
+    true,
+    JSON.stringify(reproductionRun.errors),
+  );
+  const reproductionAnalyze = await executeCli(
+    ["lab", "reproduce", "analyze", reproductionId, "--json"],
+    repo.root,
+  );
+  assert.equal(
+    reproductionAnalyze.ok,
+    true,
+    JSON.stringify(reproductionAnalyze.errors),
+  );
+  return {
+    repo,
+    targetRepo: target.targetRepo,
+    needs,
+    hardening: hardenResponse.data as any,
+    audit: (auditResponse.data as any).audit,
+    memoryGraph: (memoryGraph.data as any).graph,
+    memorySearch: (memorySearch.data as any).search,
+    memoryRecommend: (memoryRecommend.data as any).recommendations,
+    reusePlan: (reusePlan.data as any).plan,
+    reuseAudit: (reuseAudit.data as any).audit,
+    trial,
+    benchmarkSuite: (benchmarkAll.data as any).suite,
+    calibration: (calibrateAll.data as any).calibration,
+    rankings: (rank.data as any).rankings,
+    reproductionId,
+    reproductionPlan: (reproductionPlan.data as any).plan,
+    reproductionRun: (reproductionRun.data as any).run,
+    reproductionAnalysis: (reproductionAnalyze.data as any).analysis,
+  };
 }
 
 async function createNeedsFixture() {
@@ -273,11 +490,11 @@ function includesName(items: any[], name: string) {
   return items.some((item) => item.name === name);
 }
 
-test("Lab package version is 3.4.0-rc.1", async () => {
+test("Lab package version is 3.5.0-rc.1", async () => {
   const pkg = await readJson<{ version: string }>(
     join(process.cwd(), "package.json"),
   );
-  assert.equal(pkg.version, "3.4.0-rc.1");
+  assert.equal(pkg.version, "3.5.0-rc.1");
 });
 
 test("CLI help lists lab needs command", async () => {
@@ -1203,4 +1420,493 @@ test("lab generated reports avoid secret-like assignments", async () => {
     "utf8",
   );
   assert.doesNotMatch(report, /(api[_-]?key|token|password|secret)\s*[:=]/i);
+});
+
+const advancedCases: Array<
+  [
+    string,
+    (
+      fixture: Awaited<ReturnType<typeof createAdvancedLabFixture>>,
+    ) => void | Promise<void>,
+  ]
+> = [
+  [
+    "study audit flags not evaluated falsification before hardening through entries",
+    (fixture) => assert.equal(fixture.audit.entries.length, 2),
+  ],
+  [
+    "study hardening updates indexed self-built lab results",
+    (fixture) => assert.equal(fixture.hardening.hardenedCount, 2),
+  ],
+  [
+    "hardened studies have evaluated falsification",
+    (fixture) =>
+      assert.equal(
+        fixture.audit.entries.every((item: any) => item.falsificationEvaluated),
+        true,
+      ),
+  ],
+  [
+    "hardened studies have peer review",
+    (fixture) =>
+      assert.equal(
+        fixture.audit.entries.every((item: any) => item.peerReviewPresent),
+        true,
+      ),
+  ],
+  [
+    "hardened studies have public calibration",
+    (fixture) =>
+      assert.equal(
+        fixture.audit.entries.every((item: any) => item.calibrationPublic),
+        true,
+      ),
+  ],
+  [
+    "hardened studies have pipeline replay summary",
+    (fixture) =>
+      assert.equal(
+        fixture.audit.entries.every((item: any) => item.pipelineReplayPresent),
+        true,
+      ),
+  ],
+  [
+    "hardened studies have lab memory binding",
+    (fixture) =>
+      assert.equal(
+        fixture.audit.entries.every((item: any) => item.labMemoryBound),
+        true,
+      ),
+  ],
+  [
+    "lab study audit passes all hardening gates",
+    (fixture) => assert.equal(fixture.audit.passed, true),
+  ],
+  [
+    "lab study audit includes falsification gate",
+    (fixture) =>
+      assert.equal(
+        gatePassed(
+          fixture.audit.gates,
+          "SELF_BUILT_LAB_FALSIFICATION_EVALUATED",
+        ),
+        true,
+      ),
+  ],
+  [
+    "lab study audit includes peer-review gate",
+    (fixture) =>
+      assert.equal(
+        gatePassed(fixture.audit.gates, "SELF_BUILT_LAB_PEER_REVIEW_PRESENT"),
+        true,
+      ),
+  ],
+  [
+    "lab study audit includes calibration gate",
+    (fixture) =>
+      assert.equal(
+        gatePassed(fixture.audit.gates, "INSTRUMENT_CALIBRATION_PUBLIC"),
+        true,
+      ),
+  ],
+  [
+    "hardened INDEX records showcase science lifecycle",
+    async (fixture) => {
+      const index = await readJson<any>(join(fixture.targetRepo, "INDEX.json"));
+      const labStudies = index.results.filter(
+        (item: any) => item.resultKind === "self_built_lab_science_study",
+      );
+      assert.ok(labStudies.length >= 2);
+      assert.equal(
+        labStudies.every(
+          (item: any) =>
+            item.lifecycleStatus === "showcase_science" ||
+            item.lifecycleStatus === "superseded",
+        ),
+        true,
+      );
+    },
+  ],
+  [
+    "aggregate lab studies is generated",
+    async (fixture) =>
+      access(join(fixture.targetRepo, "aggregate", "lab-studies.json")),
+  ],
+  [
+    "aggregate lab memory summary is generated",
+    async (fixture) =>
+      access(join(fixture.targetRepo, "aggregate", "lab-memory-summary.json")),
+  ],
+  [
+    "hardening writes calibration document",
+    async (fixture) =>
+      access(
+        join(fixture.targetRepo, "results", "lab-study-one", "CALIBRATION.md"),
+      ),
+  ],
+  [
+    "hardening writes peer review document",
+    async (fixture) =>
+      access(
+        join(fixture.targetRepo, "results", "lab-study-one", "PEER_REVIEW.md"),
+      ),
+  ],
+  [
+    "hardening writes falsification document",
+    async (fixture) =>
+      access(
+        join(
+          fixture.targetRepo,
+          "results",
+          "lab-study-one",
+          "FALSIFICATION.md",
+        ),
+      ),
+  ],
+  [
+    "new dataset reliability domain is inferred",
+    (fixture) =>
+      assert.equal(
+        fixture.needs.safetyScope.domain,
+        "scientific-dataset-reliability",
+      ),
+  ],
+  [
+    "new domain suggests jsonschema",
+    (fixture) =>
+      assert.equal(
+        fixture.needs.candidateExternalPackages.some(
+          (item: any) => item.name === "jsonschema",
+        ),
+        true,
+      ),
+  ],
+  [
+    "new domain builds schema drift detector candidate",
+    (fixture) =>
+      assert.equal(
+        fixture.needs.candidateCustomInstruments.some(
+          (item: any) => item.name === "schema-drift-detector",
+        ),
+        true,
+      ),
+  ],
+  [
+    "new domain builds provenance scorer candidate",
+    (fixture) =>
+      assert.equal(
+        fixture.needs.candidateCustomInstruments.some(
+          (item: any) => item.name === "provenance-quality-scorer",
+        ),
+        true,
+      ),
+  ],
+  [
+    "memory graph has nodes",
+    (fixture) => assert.ok(fixture.memoryGraph.nodes.length),
+  ],
+  [
+    "memory graph has capability edges",
+    (fixture) => assert.ok(fixture.memoryGraph.edges.length),
+  ],
+  [
+    "memory search finds unit normalization",
+    (fixture) => assert.ok(fixture.memorySearch.matchCount >= 1),
+  ],
+  [
+    "memory recommendation records recommendations",
+    (fixture) => assert.ok(fixture.memoryRecommend.recommendations.length),
+  ],
+  [
+    "reuse plan uses memory",
+    (fixture) => assert.equal(fixture.reusePlan.buildVsBuyUsesMemory, true),
+  ],
+  [
+    "reuse plan requires calibrated instruments",
+    (fixture) =>
+      assert.equal(fixture.reusePlan.reusedInstrumentsCalibrated, true),
+  ],
+  [
+    "reuse audit passes",
+    (fixture) => assert.equal(fixture.reuseAudit.passed, true),
+  ],
+  [
+    "benchmark suite generated",
+    (fixture) => assert.ok(fixture.benchmarkSuite.benchmarkCount >= 1),
+  ],
+  [
+    "benchmark suite includes calibration status gate",
+    (fixture) =>
+      assert.equal(
+        gatePassed(fixture.benchmarkSuite.gates, "CALIBRATION_STATUS_PRESENT"),
+        true,
+      ),
+  ],
+  [
+    "benchmark results are public safe",
+    (fixture) =>
+      assert.equal(
+        gatePassed(
+          fixture.benchmarkSuite.gates,
+          "BENCHMARK_RESULTS_PUBLIC_SAFE",
+        ),
+        true,
+      ),
+  ],
+  [
+    "calibrate all records calibration count",
+    (fixture) => assert.ok(fixture.calibration.calibrationCount >= 1),
+  ],
+  [
+    "instrument ranking generated",
+    (fixture) => assert.ok(fixture.rankings.rankings.length >= 1),
+  ],
+  [
+    "instrument ranking recommends reuse only after calibration",
+    (fixture) =>
+      assert.equal(
+        fixture.rankings.rankings.every((item: any) => item.calibrationStatus),
+        true,
+      ),
+  ],
+  [
+    "reproduction plan extracts source claim",
+    (fixture) => assert.ok(fixture.reproductionPlan.sourceClaim),
+  ],
+  [
+    "reproduction plan extracts method",
+    (fixture) => assert.ok(fixture.reproductionPlan.methodExtraction),
+  ],
+  [
+    "reproduction plan extracts data requirements",
+    (fixture) => assert.ok(fixture.reproductionPlan.dataRequirements.length),
+  ],
+  [
+    "reproduction plan extracts metric requirements",
+    (fixture) => assert.ok(fixture.reproductionPlan.metricRequirements.length),
+  ],
+  [
+    "reproduction run records Node Alpha",
+    (fixture) => assert.equal(fixture.reproductionRun.nodeAlphaExecution, true),
+  ],
+  [
+    "reproduction run records no silent fallback",
+    (fixture) => assert.equal(fixture.reproductionRun.noSilentFallback, true),
+  ],
+  [
+    "reproduction analysis is honest partial or inconclusive",
+    (fixture) =>
+      assert.match(
+        fixture.reproductionAnalysis.outcome,
+        /partially|inconclusive/,
+      ),
+  ],
+  [
+    "reproduction analysis includes limitations",
+    (fixture) => assert.ok(fixture.reproductionAnalysis.limitations.length),
+  ],
+  [
+    "real-source trial attempts four studies",
+    (fixture) => assert.equal(fixture.trial.scorecard.studiesAttempted, 4),
+  ],
+  [
+    "real-source trial includes new domain",
+    (fixture) => assert.equal(fixture.trial.scorecard.newDomainUsed, true),
+  ],
+  [
+    "real-source trial records real data/proxy studies",
+    (fixture) => assert.ok(fixture.trial.scorecard.realDataOrProxyStudies >= 2),
+  ],
+  [
+    "real-source trial records reproduction attempt",
+    (fixture) => assert.equal(fixture.trial.scorecard.reproductionAttempts, 1),
+  ],
+  [
+    "real-source trial has four lab needs",
+    (fixture) => assert.equal(fixture.trial.scorecard.labNeedsInferred, 4),
+  ],
+  [
+    "real-source trial has four build-vs-buy decisions",
+    (fixture) => assert.equal(fixture.trial.scorecard.buildVsBuyDecisions, 4),
+  ],
+  [
+    "real-source trial provisions tools",
+    (fixture) => assert.ok(fixture.trial.scorecard.packagesProvisioned >= 3),
+  ],
+  [
+    "real-source trial builds instruments",
+    (fixture) => assert.ok(fixture.trial.scorecard.customInstrumentsBuilt >= 4),
+  ],
+  [
+    "real-source trial composes pipelines",
+    (fixture) => assert.equal(fixture.trial.scorecard.pipelinesComposed, 4),
+  ],
+  [
+    "real-source trial records Node Alpha executions",
+    (fixture) => assert.equal(fixture.trial.scorecard.nodeAlphaExecutions, 4),
+  ],
+  [
+    "real-source trial records container-netoff executions",
+    (fixture) =>
+      assert.equal(fixture.trial.scorecard.containerNetoffExecutions, 4),
+  ],
+  [
+    "real-source trial records calibration used",
+    (fixture) =>
+      assert.equal(fixture.trial.scorecard.instrumentCalibrationUsed, true),
+  ],
+  [
+    "real-source trial updates lab memory",
+    (fixture) => assert.equal(fixture.trial.scorecard.labMemoryUpdated, true),
+  ],
+  [
+    "real-source trial updates scientific memory",
+    (fixture) =>
+      assert.equal(fixture.trial.scorecard.scientificMemoryUpdated, true),
+  ],
+  [
+    "real-source trial has zero public leaks",
+    (fixture) => assert.equal(fixture.trial.scorecard.publicLeakCount, 0),
+  ],
+  [
+    "real-source trial has zero critical failures",
+    (fixture) => assert.equal(fixture.trial.scorecard.criticalFailureCount, 0),
+  ],
+  [
+    "real-source trial includes new-domain gate",
+    (fixture) =>
+      assert.equal(
+        gatePassed(fixture.trial.gates, "NEW_DOMAIN_INCLUDED"),
+        true,
+      ),
+  ],
+  [
+    "real-source trial includes real-data gate",
+    (fixture) =>
+      assert.equal(
+        gatePassed(fixture.trial.gates, "REAL_DATA_OR_PROXY_USED"),
+        true,
+      ),
+  ],
+  [
+    "real-source trial includes reproduction gate",
+    (fixture) =>
+      assert.equal(
+        gatePassed(fixture.trial.gates, "REPRODUCTION_ATTEMPT_PRESENT"),
+        true,
+      ),
+  ],
+  [
+    "real-source trial includes calibration gate",
+    (fixture) =>
+      assert.equal(
+        gatePassed(fixture.trial.gates, "INSTRUMENT_CALIBRATION_USED"),
+        true,
+      ),
+  ],
+  [
+    "real-source trial writes real-data summary",
+    async (fixture) =>
+      access(
+        join(
+          fixture.repo.root,
+          ".sovryn",
+          "lab",
+          "trials",
+          fixture.trial.slug,
+          "real-data-summary.json",
+        ),
+      ),
+  ],
+  [
+    "real-source trial writes reproduction summary",
+    async (fixture) =>
+      access(
+        join(
+          fixture.repo.root,
+          ".sovryn",
+          "lab",
+          "trials",
+          fixture.trial.slug,
+          "reproduction-summary.json",
+        ),
+      ),
+  ],
+  [
+    "real-source trial writes real-source report",
+    async (fixture) =>
+      access(
+        join(
+          fixture.repo.root,
+          ".sovryn",
+          "lab",
+          "trials",
+          fixture.trial.slug,
+          "REAL_SOURCE_SELF_BUILT_LAB_REPORT.md",
+        ),
+      ),
+  ],
+];
+
+for (const [name, assertion] of advancedCases) {
+  test(`Advanced lab hardening: ${name}`, async () => {
+    await assertion(await advancedLabFixture());
+  });
+}
+
+test("lab study audit flags not_evaluated before hardening", async () => {
+  const repo = await initRepo();
+  const target = await makeLabCorpusFixture();
+  const response = await executeCli(
+    ["lab", "study", "audit", "--target-repo", target.targetRepo, "--json"],
+    repo.root,
+  );
+  assert.equal(response.ok, true, JSON.stringify(response.errors));
+  const audit = (response.data as any).audit;
+  assert.equal(audit.passed, false);
+  assert.equal(
+    audit.entries.some((item: any) => item.falsificationEvaluated === false),
+    true,
+  );
+});
+
+test("lab reproduce publish writes public reproduction package", async () => {
+  const fixture = await advancedLabFixture();
+  const response = await executeCli(
+    [
+      "lab",
+      "reproduce",
+      "publish",
+      fixture.reproductionId,
+      "--target-repo",
+      fixture.targetRepo,
+      "--json",
+    ],
+    fixture.repo.root,
+  );
+  assert.equal(response.ok, true, JSON.stringify(response.errors));
+  const slug = (response.data as any).slug;
+  const summary = await readJson<any>(
+    join(fixture.targetRepo, "results", slug, "SUMMARY.json"),
+  );
+  assert.equal(summary.resultKind, "self_built_lab_reproduction");
+});
+
+test("lab instrument retire records obsolete status", async () => {
+  const fixture = await advancedLabFixture();
+  const first = fixture.rankings.rankings[0].instrumentId;
+  const response = await executeCli(
+    ["lab", "instrument", "retire", first, "--json"],
+    fixture.repo.root,
+  );
+  assert.equal(response.ok, true, JSON.stringify(response.errors));
+  assert.equal((response.data as any).retired.reuseRecommendation, "obsolete");
+});
+
+test("CLI help lists advanced lab commands", async () => {
+  const response = await executeCli(["help", "--json"], process.cwd());
+  assert.match((response.data as any).help, /sovryn lab study harden/);
+  assert.match((response.data as any).help, /sovryn lab memory graph/);
+  assert.match((response.data as any).help, /sovryn lab reproduce plan/);
+  assert.match((response.data as any).help, /--real-sources-preferred/);
 });

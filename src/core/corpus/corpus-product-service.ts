@@ -1051,7 +1051,8 @@ function curateResultCards(cards: PublicResultCard[]): PublicResultCard[] {
     .filter(
       (item) =>
         item.showcaseEligible &&
-        item.resultKind !== "computational_science_study",
+        item.resultKind !== "computational_science_study" &&
+        item.resultKind !== "self_built_lab_science_study",
     )
     .sort(compareShowcaseCandidates)
     .slice(0, 3);
@@ -1059,7 +1060,8 @@ function curateResultCards(cards: PublicResultCard[]): PublicResultCard[] {
   return prelim.map((item) => {
     const rank = ranks.get(item.slug) ?? null;
     const scienceShowcase =
-      item.resultKind === "computational_science_study" &&
+      (item.resultKind === "computational_science_study" ||
+        item.resultKind === "self_built_lab_science_study") &&
       item.showcaseEligible;
     const lifecycleStatus = scienceShowcase
       ? "showcase_science"
@@ -1182,7 +1184,9 @@ function isShowcaseEligible(
 ): boolean {
   if (lifecycleStatus !== "autopublished") return false;
   if (!["good", "excellent"].includes(card.qualityLabel)) return false;
-  const isScienceStudy = card.resultKind === "computational_science_study";
+  const isScienceStudy =
+    card.resultKind === "computational_science_study" ||
+    card.resultKind === "self_built_lab_science_study";
   if (
     !isScienceStudy &&
     !isAntiTemplateShowcaseReady(card.antiTemplateStatus)

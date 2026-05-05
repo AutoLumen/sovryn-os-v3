@@ -263,7 +263,24 @@ Commands:
   sovryn lab pipeline replay <pipeline-id> [--json]
   sovryn lab pipeline report <pipeline-id> [--json]
   sovryn lab pipeline audit <pipeline-id> [--json]
-  sovryn lab trial run --goal "<goal>" [--studies 3] [--autopublish-corpus] [--json]
+  sovryn lab study audit --target-repo <path> [--json]
+  sovryn lab study harden --target-repo <path> [--json]
+  sovryn lab memory report [--json]
+  sovryn lab memory search "<capability>" [--json]
+  sovryn lab memory recommend <needs-id> [--json]
+  sovryn lab memory graph [--json]
+  sovryn lab reuse plan <study-id> [--json]
+  sovryn lab reuse audit <study-id> [--json]
+  sovryn lab instrument benchmark <instrument-id> [--json]
+  sovryn lab instrument benchmark-all [--json]
+  sovryn lab instrument calibrate-all [--json]
+  sovryn lab instrument rank [--json]
+  sovryn lab instrument retire <instrument-id> [--json]
+  sovryn lab reproduce plan <source-id> [--json]
+  sovryn lab reproduce run <reproduction-id> [--json]
+  sovryn lab reproduce analyze <reproduction-id> [--json]
+  sovryn lab reproduce publish <reproduction-id> --target-repo <path> [--json]
+  sovryn lab trial run --goal "<goal>" [--studies 4] [--real-sources-preferred] [--real-data-preferred] [--autopublish-corpus] [--json]
   sovryn science study status <study-id> [--json]
   sovryn science review <study-id> [--json]
   sovryn invention status <mission-id> [--json]
@@ -1986,10 +2003,13 @@ async function labCommand(
     case "instrument": {
       const action = parsed.positionals[1];
       const id = parsed.positionals[2];
+      if (action === "benchmark-all") return service.benchmarkAllInstruments();
+      if (action === "calibrate-all") return service.calibrateAllInstruments();
+      if (action === "rank") return service.rankInstruments();
       if (!id) {
         throw new AppError(
           "LAB_INSTRUMENT_USAGE",
-          "Use: sovryn lab instrument <build|test|calibrate|report|audit> <id>.",
+          "Use: sovryn lab instrument <build|test|calibrate|report|audit|benchmark|retire> <id>.",
         );
       }
       if (action === "build") return service.buildInstrument(id);
@@ -1997,9 +2017,11 @@ async function labCommand(
       if (action === "calibrate") return service.calibrateInstrument(id);
       if (action === "report") return service.reportInstrument(id);
       if (action === "audit") return service.auditInstrument(id);
+      if (action === "benchmark") return service.benchmarkInstrument(id);
+      if (action === "retire") return service.retireInstrument(id);
       throw new AppError(
         "LAB_INSTRUMENT_USAGE",
-        "Use: sovryn lab instrument <build|test|calibrate|report|audit> <id>.",
+        "Use: sovryn lab instrument <build|test|calibrate|report|audit|benchmark|retire> <id>.",
       );
     }
     case "pipeline": {
@@ -2037,12 +2059,105 @@ async function labCommand(
         goal,
         studies: flagInt(parsed.flags, "--studies", 3),
         autopublishCorpus: flagBool(parsed.flags, "--autopublish-corpus"),
+        realSourcesPreferred: flagBool(
+          parsed.flags,
+          "--real-sources-preferred",
+        ),
+        realDataPreferred: flagBool(parsed.flags, "--real-data-preferred"),
       });
+    }
+    case "study": {
+      const action = parsed.positionals[1];
+      const targetRepo = flagString(parsed.flags, "--target-repo");
+      if (!targetRepo) {
+        throw new AppError(
+          "LAB_STUDY_USAGE",
+          "Use: sovryn lab study <audit|harden> --target-repo <path>.",
+        );
+      }
+      if (action === "audit") return service.auditLabStudies(targetRepo);
+      if (action === "harden") return service.hardenLabStudies(targetRepo);
+      throw new AppError(
+        "LAB_STUDY_USAGE",
+        "Use: sovryn lab study <audit|harden> --target-repo <path>.",
+      );
+    }
+    case "memory": {
+      const action = parsed.positionals[1];
+      if (action === "report") return service.labMemoryReport();
+      if (action === "graph") return service.labMemoryGraph();
+      if (action === "search") {
+        const query = parsed.positionals.slice(2).join(" ").trim();
+        if (!query) {
+          throw new AppError(
+            "LAB_MEMORY_USAGE",
+            'Use: sovryn lab memory search "<capability>".',
+          );
+        }
+        return service.labMemorySearch(query);
+      }
+      if (action === "recommend") {
+        const needsId = parsed.positionals[2];
+        if (!needsId) {
+          throw new AppError(
+            "LAB_MEMORY_USAGE",
+            "Use: sovryn lab memory recommend <needs-id>.",
+          );
+        }
+        return service.labMemoryRecommend(needsId);
+      }
+      throw new AppError(
+        "LAB_MEMORY_USAGE",
+        "Use: sovryn lab memory <report|search|recommend|graph>.",
+      );
+    }
+    case "reuse": {
+      const action = parsed.positionals[1];
+      const studyId = parsed.positionals[2];
+      if (!studyId) {
+        throw new AppError(
+          "LAB_REUSE_USAGE",
+          "Use: sovryn lab reuse <plan|audit> <study-id>.",
+        );
+      }
+      if (action === "plan") return service.reusePlan(studyId);
+      if (action === "audit") return service.reuseAudit(studyId);
+      throw new AppError(
+        "LAB_REUSE_USAGE",
+        "Use: sovryn lab reuse <plan|audit> <study-id>.",
+      );
+    }
+    case "reproduce": {
+      const action = parsed.positionals[1];
+      const id = parsed.positionals[2];
+      if (action === "publish") {
+        const targetRepo = flagString(parsed.flags, "--target-repo");
+        if (!id || !targetRepo) {
+          throw new AppError(
+            "LAB_REPRODUCE_USAGE",
+            "Use: sovryn lab reproduce publish <reproduction-id> --target-repo <path>.",
+          );
+        }
+        return service.reproducePublish(id, targetRepo);
+      }
+      if (!id) {
+        throw new AppError(
+          "LAB_REPRODUCE_USAGE",
+          "Use: sovryn lab reproduce <plan|run|analyze|publish> <id>.",
+        );
+      }
+      if (action === "plan") return service.reproducePlan(id);
+      if (action === "run") return service.reproduceRun(id);
+      if (action === "analyze") return service.reproduceAnalyze(id);
+      throw new AppError(
+        "LAB_REPRODUCE_USAGE",
+        "Use: sovryn lab reproduce <plan|run|analyze|publish> <id>.",
+      );
     }
     default:
       throw new AppError(
         "LAB_COMMAND_REQUIRED",
-        "Use: sovryn lab <needs|decide|decide-from-study|decision|provision|instrument|pipeline|trial>.",
+        "Use: sovryn lab <needs|decide|decide-from-study|decision|provision|instrument|pipeline|study|memory|reuse|reproduce|trial>.",
       );
   }
 }

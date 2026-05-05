@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `3.4.0-rc.1`
+Current version: `3.5.0-rc.1`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -67,12 +67,14 @@ publication, stable-findings reports, and a bounded seven-day autonomous
 computational scientist trial. Scientific support remains bounded to the
 evidence actually produced.
 
-The 3.4 RC line adds the self-building computational lab. Sovryn can infer the
-tools a study needs, choose build-vs-buy, provision approved packages without
-host sudo or curl-pipe-shell installers, build tested/calibrated custom
+The 3.5 RC line hardens the self-building computational lab. Sovryn can infer
+the tools a study needs, choose build-vs-buy, provision approved packages
+without host sudo or curl-pipe-shell installers, build tested/calibrated custom
 instruments, compose experiment pipelines, run them through Node Alpha evidence,
-update Lab Memory, and publish only curated safe `self_built_lab_science_study`
-results into the existing public corpus when gates pass.
+reuse Lab Memory, benchmark instruments, attempt safe reproductions, and publish
+only curated safe `self_built_lab_science_study` or
+`self_built_lab_reproduction` results into the existing public corpus when gates
+pass.
 
 | Version         | Focus                            | Result                                                                                                                                                                       |
 | --------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -99,6 +101,12 @@ results into the existing public corpus when gates pass.
 | `3.4.0-alpha.4` | Research Instrument Builder      | Adds `sovryn lab instrument build/test/calibrate/audit/report` for tested, calibrated, limitation-bound custom computational instruments.                                    |
 | `3.4.0-alpha.5` | Experiment Pipeline Builder      | Adds `sovryn lab pipeline compose/run/validate/replay/audit/report` for safe tool/instrument pipelines with replay-critical hash binding and public-safe outputs.            |
 | `3.4.0-rc.1`    | Self-Building Lab Trial          | Adds `sovryn lab trial run` for three-study lab autonomy trials covering needs inference, build-vs-buy, provisioning, instrument build, pipelines, memory, and corpus gates. |
+| `3.4.1`         | Lab Study Hardening              | Adds `sovryn lab study audit/harden` to require explicit falsification, peer review, calibration, pipeline replay, and lab-memory binding for public lab studies.            |
+| `3.4.2`         | New Real-Data Lab Domain         | Extends lab trials into scientific dataset reliability with public/proxy data provenance, schema-drift instruments, and real-data limitations.                               |
+| `3.4.3`         | Lab Memory Reuse                 | Adds active lab memory search, recommendation, reuse planning, and capability graph outputs that influence build-vs-buy decisions.                                           |
+| `3.4.4`         | Instrument Benchmarking          | Adds benchmark, calibrate-all, rank, and retire commands so instruments can be reused, demoted, or retired from evidence.                                                    |
+| `3.4.5`         | Self-Built Reproduction          | Adds lab reproduction planning, execution, analysis, and publication for safe external computational claims.                                                                 |
+| `3.5.0-rc.1`    | Real-Source Lab Trial            | Adds four-study real-source/real-data-preferred lab trials with a new domain, reproduction attempt, calibration-aware tool reuse, and corpus-publication gates.              |
 
 New science commands:
 
@@ -213,6 +221,11 @@ sovryn lab provision audit <provision-id> --json
 sovryn lab instrument build <decision-id> --json
 sovryn lab instrument test <instrument-id> --json
 sovryn lab instrument calibrate <instrument-id> --json
+sovryn lab instrument benchmark <instrument-id> --json
+sovryn lab instrument benchmark-all --json
+sovryn lab instrument calibrate-all --json
+sovryn lab instrument rank --json
+sovryn lab instrument retire <instrument-id> --json
 sovryn lab instrument audit <instrument-id> --json
 sovryn lab instrument report <instrument-id> --json
 sovryn lab pipeline compose <study-id> --json
@@ -221,7 +234,19 @@ sovryn lab pipeline run <pipeline-id> --json
 sovryn lab pipeline replay <pipeline-id> --json
 sovryn lab pipeline audit <pipeline-id> --json
 sovryn lab pipeline report <pipeline-id> --json
-sovryn lab trial run --goal "Build the computational lab needed to test safe hypotheses" --studies 3 --autopublish-corpus --json
+sovryn lab study audit --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+sovryn lab study harden --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+sovryn lab memory report --json
+sovryn lab memory search "unit_normalization" --json
+sovryn lab memory recommend <needs-id> --json
+sovryn lab memory graph --json
+sovryn lab reuse plan <study-id> --json
+sovryn lab reuse audit <study-id> --json
+sovryn lab reproduce plan <source-id> --json
+sovryn lab reproduce run <reproduction-id> --json
+sovryn lab reproduce analyze <reproduction-id> --json
+sovryn lab reproduce publish <reproduction-id> --target-repo /Users/sovryn/Desktop/sovryn-open-inventions --json
+sovryn lab trial run --goal "Build and use computational labs for safe real-source studies" --studies 4 --real-sources-preferred --real-data-preferred --autopublish-corpus --json
 ```
 
 See [docs/SELF_BUILDING_LAB.md](docs/SELF_BUILDING_LAB.md) for the lab

@@ -1,5 +1,21 @@
 # Changelog
 
+## 3.8.0-rc.1
+
+- Added the Research Strategist and Knowledge Engine command family:
+  `sovryn strategy opportunities`, `rank`, `program`, `execute`,
+  `reproduce-queue`, `falsify-queue`, and `trial run`.
+- Added `.sovryn/strategy/` artifacts for memory-driven opportunity extraction,
+  expected-information-gain style ranking, research-program generation,
+  adaptive execution state, strategic reproduction/falsification queues, and
+  full strategy trials.
+- Added curated public corpus publication for
+  `autonomous_research_strategy_trial` results when public hygiene and safety
+  gates pass.
+- Added Research Strategist documentation and examples covering opportunity
+  cards, ranking explanations, adaptive decisions, negative results, and next
+  research direction reports.
+
 ## 3.0.0-beta.9
 
 - Added the Real Pilot Release Candidates workflow with

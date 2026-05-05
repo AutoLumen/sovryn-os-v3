@@ -1064,7 +1064,7 @@ const roadmap = [
     ],
   },
   {
-    week: "3.7.0-rc.1 Autonomous Scientific Discovery Campaign",
+    week: "3.8.0-rc.1 Autonomous Scientific Discovery Campaign",
     minimum: 120,
     cases: [
       ...casesFrom("command", [
@@ -1224,7 +1224,7 @@ const roadmap = [
         "not force a breakthrough label",
         "safe computational discovery only",
       ]),
-      ...casesFrom("version", ["3.7.0-rc.1"]),
+      ...casesFrom("version", ["3.8.0-rc.1"]),
     ],
   },
 ];

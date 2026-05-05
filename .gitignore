@@ -36,6 +36,7 @@ graphify-out/graph.json
 .sovryn/science/
 .sovryn/lab/
 .sovryn/discovery/
+.sovryn/strategy/
 .sovryn/external-research/
 .sovryn/multi-domain-campaign/
 public-corpus/

@@ -2299,7 +2299,7 @@ async function readFalsificationStatus(root: string): Promise<string> {
   const summaryStatus = isRecord(summary)
     ? text(summary.falsificationStatus, "")
     : "";
-  if (summaryStatus === "passes_falsification") return summaryStatus;
+  if (summaryStatus && summaryStatus !== "not_evaluated") return summaryStatus;
   if (/Material failures:\s*0/i.test(report)) return "passes_falsification";
   return "not_evaluated";
 }

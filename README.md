@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `3.7.0-rc.1`
+Current version: `3.8.0-rc.1`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -76,6 +76,15 @@ only curated safe `self_built_lab_science_study` or
 `self_built_lab_reproduction` results into the existing public corpus when gates
 pass.
 
+The 3.8 RC line adds the Research Strategist and Knowledge Engine. Sovryn now
+reads its own public corpus, scientific memory, lab memory, discovery outputs,
+limitations, replication results, falsification reports, and promising or
+negative candidates to infer evidence-bound research opportunities. It ranks
+them with deterministic expected-information-gain style scoring, converts the
+top opportunities into research programs, executes bounded adaptive cycles,
+prioritizes reproduction and falsification queues, updates scientific memory,
+and publishes only curated public-safe strategy-trial summaries.
+
 | Version         | Focus                            | Result                                                                                                                                                                                     |
 | --------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | `3.1.0-alpha.1` | Scientific Method Core           | Adds `sovryn science` commands for safe computational questions, hypotheses with null hypotheses, experiment designs, study status, and gate reviews.                                      |
@@ -108,6 +117,7 @@ pass.
 | `3.4.5`         | Self-Built Reproduction          | Adds lab reproduction planning, execution, analysis, and publication for safe external computational claims.                                                                               |
 | `3.5.0-rc.1`    | Real-Source Lab Trial            | Adds four-study real-source/real-data-preferred lab trials with a new domain, reproduction attempt, calibration-aware tool reuse, and corpus-publication gates.                            |
 | `3.7.0-rc.1`    | Tool-Operating Discovery         | Adds scientific program operation, breakthrough search, program-orchestrated discovery pipelines, strict candidate validation, invented discovery tools, and discovery corpus publication. |
+| `3.8.0-rc.1`    | Research Strategist              | Adds memory-driven opportunity extraction, EIG-style ranking, research-program building, adaptive execution, strategic reproduction/falsification queues, and strategy-trial publication.  |
 
 New science commands:
 
@@ -258,10 +268,34 @@ sovryn lab invent-tool counterexample-generation --json
 sovryn discovery campaign run --goal "Discover a new interpretable method for reducing false positives in provenance-aware data quality and anomaly detection tasks" --domains 2 --candidates 500 --autopublish-corpus --json
 ```
 
+New research strategist commands:
+
+```bash
+sovryn strategy opportunities --json
+sovryn strategy opportunities --source corpus --json
+sovryn strategy opportunities --source local --json
+sovryn strategy report --json
+sovryn strategy rank --top 10 --json
+sovryn strategy explain-ranking <opportunity-id> --json
+sovryn strategy program --top 5 --json
+sovryn strategy program report <program-id> --json
+sovryn strategy execute <program-id> --max-cycles 3 --json
+sovryn strategy execution-status <execution-id> --json
+sovryn strategy execution-report <execution-id> --json
+sovryn strategy reproduce-queue --json
+sovryn strategy falsify-queue --json
+sovryn strategy run-reproduction --top 1 --json
+sovryn strategy run-falsification --top 1 --json
+sovryn strategy trial run --max-cycles 5 --autopublish-corpus --json
+sovryn strategy trial audit --json
+```
+
 See [docs/SELF_BUILDING_LAB.md](docs/SELF_BUILDING_LAB.md) for the lab
 autonomy workflow, artifacts, gates, and safety constraints. See
 [docs/TOOL_OPERATING_DISCOVERY.md](docs/TOOL_OPERATING_DISCOVERY.md) for the
-program operator and discovery campaign layer.
+program operator and discovery campaign layer. See
+[docs/RESEARCH_STRATEGIST.md](docs/RESEARCH_STRATEGIST.md) for the strategy
+loop and Knowledge Engine artifacts.
 
 ## Current Beta Line
 

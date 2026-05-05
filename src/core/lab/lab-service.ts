@@ -2471,7 +2471,7 @@ export class LabService {
       sourceType: "self_building_lab_trial",
       publishedBy: "sovryn-lab-autopublish",
       humanReviewRequired: false,
-      automatedPolicyVersion: "3.7.0-rc.1-lab-policy",
+      automatedPolicyVersion: "3.8.0-rc.1-lab-policy",
       targetRepo: "https://github.com/n57d30top/sovryn-open-inventions",
       targetPath: `results/${slug}`,
       pushed: false,

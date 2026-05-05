@@ -48,6 +48,7 @@ import { QualityEvaluator } from "../core/quality/quality-service.js";
 import { ReleaseCandidateService } from "../core/release/release-candidate-service.js";
 import { ResearchOpportunityEngine } from "../core/research/opportunity-engine.js";
 import { ScienceService } from "../core/science/science-service.js";
+import { StrategyService } from "../core/strategy/strategy-service.js";
 import {
   adapterDoctor,
   pruneResearchCache,
@@ -312,6 +313,22 @@ Commands:
   sovryn discovery breakthrough novelty-check <candidate-id> [--json]
   sovryn discovery breakthrough report <candidate-id> [--json]
   sovryn discovery campaign run --goal "<goal>" [--domains 2] [--candidates 500] [--autopublish-corpus] [--json]
+  sovryn strategy opportunities [--source corpus|local] [--json]
+  sovryn strategy report [--json]
+  sovryn strategy rank [--top 10] [--json]
+  sovryn strategy explain-ranking <opportunity-id> [--json]
+  sovryn strategy program [--top 5] [--from-ranking] [--json]
+  sovryn strategy program report <program-id> [--json]
+  sovryn strategy execute <program-id> [--max-cycles 3] [--json]
+  sovryn strategy execution-status <execution-id> [--json]
+  sovryn strategy execution-report <execution-id> [--json]
+  sovryn strategy reproduce-queue [--json]
+  sovryn strategy falsify-queue [--json]
+  sovryn strategy run-reproduction [--top 1] [--json]
+  sovryn strategy run-falsification [--top 1] [--json]
+  sovryn strategy trial run [--max-cycles 5] [--autopublish-corpus] [--json]
+  sovryn strategy trial report [--json]
+  sovryn strategy trial audit [--json]
   sovryn science study status <study-id> [--json]
   sovryn science review <study-id> [--json]
   sovryn invention status <mission-id> [--json]
@@ -690,6 +707,16 @@ export async function executeCli(
       case "discovery": {
         const result = await discoveryCommand(parsed, root);
         return okEnvelope("discovery", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
+      case "strategy": {
+        const result = await strategyCommand(parsed, root);
+        return okEnvelope("strategy", result, {
           artifactRefs: Array.isArray(result.artifactRefs)
             ? result.artifactRefs.filter(
                 (value): value is string => typeof value === "string",
@@ -2399,6 +2426,112 @@ async function discoveryCommand(
   throw new AppError(
     "DISCOVERY_COMMAND_REQUIRED",
     "Use: sovryn discovery <search-space|candidates|pipeline|breakthrough|campaign|report>.",
+  );
+}
+
+async function strategyCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const action = parsed.positionals[1];
+  const service = new StrategyService(root);
+  if (subcommand === "opportunities") {
+    const source = flagString(parsed.flags, "--source");
+    if (source && source !== "corpus" && source !== "local") {
+      throw new AppError(
+        "STRATEGY_SOURCE_INVALID",
+        "Strategy source must be corpus or local.",
+        { source },
+      );
+    }
+    return service.opportunities({
+      source: source === "corpus" || source === "local" ? source : "all",
+    });
+  }
+  if (subcommand === "report") return service.report();
+  if (subcommand === "rank") {
+    return service.rank({ top: flagInt(parsed.flags, "--top", 10) });
+  }
+  if (subcommand === "explain-ranking") {
+    const opportunityId = parsed.positionals[1];
+    if (!opportunityId) {
+      throw new AppError(
+        "STRATEGY_EXPLAIN_USAGE",
+        "Use: sovryn strategy explain-ranking <opportunity-id>.",
+      );
+    }
+    return service.explainRanking(opportunityId);
+  }
+  if (subcommand === "program") {
+    if (action === "report") {
+      const programId = parsed.positionals[2];
+      if (!programId) {
+        throw new AppError(
+          "STRATEGY_PROGRAM_REPORT_USAGE",
+          "Use: sovryn strategy program report <program-id>.",
+        );
+      }
+      return service.programReport(programId);
+    }
+    return service.program({
+      top: flagInt(parsed.flags, "--top", 5),
+      fromRanking: flagBool(parsed.flags, "--from-ranking"),
+    });
+  }
+  if (subcommand === "execute") {
+    const programId = parsed.positionals[1];
+    if (!programId) {
+      throw new AppError(
+        "STRATEGY_EXECUTE_USAGE",
+        "Use: sovryn strategy execute <program-id> --max-cycles 3.",
+      );
+    }
+    return service.execute(programId, {
+      maxCycles: flagInt(parsed.flags, "--max-cycles", 3),
+    });
+  }
+  if (subcommand === "execution-status") {
+    const executionId = parsed.positionals[1];
+    if (!executionId) {
+      throw new AppError(
+        "STRATEGY_EXECUTION_STATUS_USAGE",
+        "Use: sovryn strategy execution-status <execution-id>.",
+      );
+    }
+    return service.executionStatus(executionId);
+  }
+  if (subcommand === "execution-report") {
+    const executionId = parsed.positionals[1];
+    if (!executionId) {
+      throw new AppError(
+        "STRATEGY_EXECUTION_REPORT_USAGE",
+        "Use: sovryn strategy execution-report <execution-id>.",
+      );
+    }
+    return service.executionReport(executionId);
+  }
+  if (subcommand === "reproduce-queue") return service.reproductionQueue();
+  if (subcommand === "falsify-queue") return service.falsificationQueue();
+  if (subcommand === "run-reproduction") {
+    return service.runReproduction({ top: flagInt(parsed.flags, "--top", 1) });
+  }
+  if (subcommand === "run-falsification") {
+    return service.runFalsification({ top: flagInt(parsed.flags, "--top", 1) });
+  }
+  if (subcommand === "trial") {
+    if (action === "run") {
+      return service.trial({
+        maxCycles: flagInt(parsed.flags, "--max-cycles", 5),
+        autopublishCorpus: flagBool(parsed.flags, "--autopublish-corpus"),
+      });
+    }
+    if (action === "report") return service.trialReport();
+    if (action === "audit") return service.trialAudit();
+  }
+  throw new AppError(
+    "STRATEGY_COMMAND_REQUIRED",
+    "Use: sovryn strategy <opportunities|report|rank|explain-ranking|program|execute|execution-status|execution-report|reproduce-queue|falsify-queue|run-reproduction|run-falsification|trial>.",
   );
 }
 

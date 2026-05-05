@@ -34,9 +34,11 @@ graphify-out/graph.json
 .sovryn/launch/
 .sovryn/e2e/
 .sovryn/science/
+.sovryn/lab/
 .sovryn/external-research/
 .sovryn/multi-domain-campaign/
 public-corpus/
+prototype/instruments/
 .sovryn/pilots/
 .sovryn/corpus-autopublish/
 .sovryn/corpus-product/

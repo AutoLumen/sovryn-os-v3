@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `3.3.0-rc.1`
+Current version: `3.4.0-rc.1`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -28,7 +28,7 @@ Sovryn produces Open Inventions, Defensive Publications, and Open Source
 Research Artifacts. It does not file legal patents and does not provide legal
 novelty, patentability, or freedom-to-operate opinions.
 
-## Current 3.3 RC Line
+## Current Science and Lab Line
 
 Sovryn OS v1.1 started the transition from autonomous open-invention researcher
 to autonomous computational scientist. Alpha.1 added the formal study
@@ -67,6 +67,13 @@ publication, stable-findings reports, and a bounded seven-day autonomous
 computational scientist trial. Scientific support remains bounded to the
 evidence actually produced.
 
+The 3.4 RC line adds the self-building computational lab. Sovryn can infer the
+tools a study needs, choose build-vs-buy, provision approved packages without
+host sudo or curl-pipe-shell installers, build tested/calibrated custom
+instruments, compose experiment pipelines, run them through Node Alpha evidence,
+update Lab Memory, and publish only curated safe `self_built_lab_science_study`
+results into the existing public corpus when gates pass.
+
 | Version         | Focus                            | Result                                                                                                                                                                       |
 | --------------- | -------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `3.1.0-alpha.1` | Scientific Method Core           | Adds `sovryn science` commands for safe computational questions, hypotheses with null hypotheses, experiment designs, study status, and gate reviews.                        |
@@ -86,6 +93,12 @@ evidence actually produced.
 | `3.2.4`         | Review/Rebuttal/Revision         | Adds `sovryn science revision publish` for public author-response, revision-plan, and revised-report artifacts.                                                              |
 | `3.2.5`         | Stable Scientific Learning       | Adds `sovryn science stable-findings report` and stricter scientific-memory learning reports.                                                                                |
 | `3.3.0-rc.1`    | Seven-Day Science Trial          | Adds `sovryn science trial run --days 7 --studies 6` with six-study selection, reproduction attempts, revision loops, meta-analysis, and RC gate evidence.                   |
+| `3.4.0-alpha.1` | Lab Need Inference               | Adds `sovryn lab needs infer` and `infer-from-goal` to map hypotheses/studies to required measurements, operations, tools, instruments, and safety scope.                    |
+| `3.4.0-alpha.2` | Build-vs-Buy Engine              | Adds `sovryn lab decide` and decision review/report artifacts for tool/package/custom-instrument selection with reproducibility, safety, and install-risk scoring.           |
+| `3.4.0-alpha.3` | Toolchain Provisioning Runtime   | Adds `sovryn lab provision` with policy review, version/hash evidence, isolated environment manifests, redacted install evidence, and toolchain doctor/audit output.         |
+| `3.4.0-alpha.4` | Research Instrument Builder      | Adds `sovryn lab instrument build/test/calibrate/audit/report` for tested, calibrated, limitation-bound custom computational instruments.                                    |
+| `3.4.0-alpha.5` | Experiment Pipeline Builder      | Adds `sovryn lab pipeline compose/run/validate/replay/audit/report` for safe tool/instrument pipelines with replay-critical hash binding and public-safe outputs.            |
+| `3.4.0-rc.1`    | Self-Building Lab Trial          | Adds `sovryn lab trial run` for three-study lab autonomy trials covering needs inference, build-vs-buy, provisioning, instrument build, pipelines, memory, and corpus gates. |
 
 New science commands:
 
@@ -181,6 +194,38 @@ instruments.
 
 See [docs/SCIENTIFIC_METHOD.md](docs/SCIENTIFIC_METHOD.md) for the
 computational-science workflow and safety boundaries.
+
+New lab autonomy commands:
+
+```bash
+sovryn lab needs infer <study-id> --json
+sovryn lab needs infer-from-goal "Compare provenance-aware energy anomaly detection against simple threshold baselines" --json
+sovryn lab needs review <needs-id> --json
+sovryn lab needs report <needs-id> --json
+sovryn lab decide <needs-id> --json
+sovryn lab decide-from-study <study-id> --json
+sovryn lab decision review <decision-id> --json
+sovryn lab decision report <decision-id> --json
+sovryn lab provision <decision-id> --profile container-netoff --json
+sovryn lab provision doctor <provision-id> --json
+sovryn lab provision status <provision-id> --json
+sovryn lab provision audit <provision-id> --json
+sovryn lab instrument build <decision-id> --json
+sovryn lab instrument test <instrument-id> --json
+sovryn lab instrument calibrate <instrument-id> --json
+sovryn lab instrument audit <instrument-id> --json
+sovryn lab instrument report <instrument-id> --json
+sovryn lab pipeline compose <study-id> --json
+sovryn lab pipeline validate <pipeline-id> --json
+sovryn lab pipeline run <pipeline-id> --json
+sovryn lab pipeline replay <pipeline-id> --json
+sovryn lab pipeline audit <pipeline-id> --json
+sovryn lab pipeline report <pipeline-id> --json
+sovryn lab trial run --goal "Build the computational lab needed to test safe hypotheses" --studies 3 --autopublish-corpus --json
+```
+
+See [docs/SELF_BUILDING_LAB.md](docs/SELF_BUILDING_LAB.md) for the lab
+autonomy workflow, artifacts, gates, and safety constraints.
 
 ## Current Beta Line
 

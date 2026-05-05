@@ -28,6 +28,7 @@ import { PatchRiskAuditorResearchService } from "../core/external-research/patch
 import { RealSourceExternalCampaignService } from "../core/external-research/real-source-campaign.js";
 import { FalsificationService } from "../core/evaluation/falsification-service.js";
 import { InventionService } from "../core/invention/invention-service.js";
+import { LabService } from "../core/lab/lab-service.js";
 import { MissionService } from "../core/mission/mission-service.js";
 import { NodeManager } from "../core/node/node-manager.js";
 import { NodeAlphaToolchainManager } from "../core/node/toolchain-manager.js";
@@ -239,6 +240,30 @@ Commands:
   sovryn science stable-findings report [--json]
   sovryn science next-study plan [--json]
   sovryn science trial run --goal "<goal>" [--hours 72|--days 7] [--studies 6] [--real-data-preferred] [--autopublish-corpus] [--json]
+  sovryn lab needs infer <study-id> [--json]
+  sovryn lab needs infer-from-goal "<research-goal>" [--json]
+  sovryn lab needs review <needs-id> [--json]
+  sovryn lab needs report <needs-id> [--json]
+  sovryn lab decide <needs-id> [--json]
+  sovryn lab decide-from-study <study-id> [--json]
+  sovryn lab decision review <decision-id> [--json]
+  sovryn lab decision report <decision-id> [--json]
+  sovryn lab provision <decision-id> [--profile sandbox-local|container-local|container-netoff] [--json]
+  sovryn lab provision doctor <provision-id> [--json]
+  sovryn lab provision status <provision-id> [--json]
+  sovryn lab provision audit <provision-id> [--json]
+  sovryn lab instrument build <decision-id> [--json]
+  sovryn lab instrument test <instrument-id> [--json]
+  sovryn lab instrument calibrate <instrument-id> [--json]
+  sovryn lab instrument report <instrument-id> [--json]
+  sovryn lab instrument audit <instrument-id> [--json]
+  sovryn lab pipeline compose <study-id> [--json]
+  sovryn lab pipeline run <pipeline-id> [--json]
+  sovryn lab pipeline validate <pipeline-id> [--json]
+  sovryn lab pipeline replay <pipeline-id> [--json]
+  sovryn lab pipeline report <pipeline-id> [--json]
+  sovryn lab pipeline audit <pipeline-id> [--json]
+  sovryn lab trial run --goal "<goal>" [--studies 3] [--autopublish-corpus] [--json]
   sovryn science study status <study-id> [--json]
   sovryn science review <study-id> [--json]
   sovryn invention status <mission-id> [--json]
@@ -597,6 +622,16 @@ export async function executeCli(
       case "science": {
         const result = await scienceCommand(parsed, root);
         return okEnvelope("science", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
+      case "lab": {
+        const result = await labCommand(parsed, root);
+        return okEnvelope("lab", result, {
           artifactRefs: Array.isArray(result.artifactRefs)
             ? result.artifactRefs.filter(
                 (value): value is string => typeof value === "string",
@@ -1829,6 +1864,206 @@ async function scienceCommand(
         "Use: sovryn science <question|hypothesize|data generate|data search|data ingest|data validate|data provenance|data cache status|data replay|instrument build|experiment design|experiment run|experiment status|analyze|ablate|sensitivity|compare-baseline|replicate|falsify|negative-tests|hypothesis status|literature ground|next-questions|memory update|memory search|memory report|memory synthesize|meta-analysis run|research-program propose|contradictions find|stable-findings report|next-study plan|trial run|campaign run|publish|publish-all|publish-audit|reproduce search|reproduce plan|reproduce run|reproduce analyze|reproduce report|reproduce publish|peer-review|peer-review-corpus|rebuttal|revise|revision publish|study status|study run-real-data|review>.",
       );
   }
+}
+
+async function labCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const service = new LabService(root);
+  switch (subcommand) {
+    case "needs": {
+      const action = parsed.positionals[1];
+      if (action === "infer") {
+        const studyId = parsed.positionals[2];
+        if (!studyId) {
+          throw new AppError(
+            "LAB_NEEDS_USAGE",
+            "Use: sovryn lab needs infer <study-id>.",
+          );
+        }
+        return service.inferNeeds(studyId);
+      }
+      if (action === "infer-from-goal") {
+        const goal = parsed.positionals.slice(2).join(" ").trim();
+        if (!goal) {
+          throw new AppError(
+            "LAB_NEEDS_USAGE",
+            'Use: sovryn lab needs infer-from-goal "<research-goal>".',
+          );
+        }
+        return service.inferNeedsFromGoal(goal);
+      }
+      if (action === "review") {
+        const needsId = parsed.positionals[2];
+        if (!needsId) {
+          throw new AppError(
+            "LAB_NEEDS_USAGE",
+            "Use: sovryn lab needs review <needs-id>.",
+          );
+        }
+        return service.reviewNeeds(needsId);
+      }
+      if (action === "report") {
+        const needsId = parsed.positionals[2];
+        if (!needsId) {
+          throw new AppError(
+            "LAB_NEEDS_USAGE",
+            "Use: sovryn lab needs report <needs-id>.",
+          );
+        }
+        return service.reportNeeds(needsId);
+      }
+      throw new AppError(
+        "LAB_NEEDS_USAGE",
+        "Use: sovryn lab needs <infer|infer-from-goal|review|report>.",
+      );
+    }
+    case "decide": {
+      const needsId = parsed.positionals[1];
+      if (!needsId) {
+        throw new AppError(
+          "LAB_DECIDE_USAGE",
+          "Use: sovryn lab decide <needs-id>.",
+        );
+      }
+      return service.decide(needsId);
+    }
+    case "decide-from-study": {
+      const studyId = parsed.positionals[1];
+      if (!studyId) {
+        throw new AppError(
+          "LAB_DECIDE_USAGE",
+          "Use: sovryn lab decide-from-study <study-id>.",
+        );
+      }
+      return service.decideFromStudy(studyId);
+    }
+    case "decision": {
+      const action = parsed.positionals[1];
+      const decisionId = parsed.positionals[2];
+      if (action === "review" && decisionId) {
+        return service.reviewDecision(decisionId);
+      }
+      if (action === "report" && decisionId) {
+        return service.reportDecision(decisionId);
+      }
+      throw new AppError(
+        "LAB_DECISION_USAGE",
+        "Use: sovryn lab decision <review|report> <decision-id>.",
+      );
+    }
+    case "provision": {
+      const actionOrDecision = parsed.positionals[1];
+      if (["doctor", "status", "audit"].includes(actionOrDecision ?? "")) {
+        const provisionId = parsed.positionals[2];
+        if (!provisionId) {
+          throw new AppError(
+            "LAB_PROVISION_USAGE",
+            "Use: sovryn lab provision <doctor|status|audit> <provision-id>.",
+          );
+        }
+        if (actionOrDecision === "doctor") {
+          return service.provisioningDoctor(provisionId);
+        }
+        if (actionOrDecision === "status") {
+          return service.provisioningStatus(provisionId);
+        }
+        return service.provisioningAudit(provisionId);
+      }
+      if (!actionOrDecision) {
+        throw new AppError(
+          "LAB_PROVISION_USAGE",
+          "Use: sovryn lab provision <decision-id> [--profile container-netoff].",
+        );
+      }
+      return service.provision(
+        actionOrDecision,
+        labProfile(parsed.flags, "container-netoff"),
+      );
+    }
+    case "instrument": {
+      const action = parsed.positionals[1];
+      const id = parsed.positionals[2];
+      if (!id) {
+        throw new AppError(
+          "LAB_INSTRUMENT_USAGE",
+          "Use: sovryn lab instrument <build|test|calibrate|report|audit> <id>.",
+        );
+      }
+      if (action === "build") return service.buildInstrument(id);
+      if (action === "test") return service.testInstrument(id);
+      if (action === "calibrate") return service.calibrateInstrument(id);
+      if (action === "report") return service.reportInstrument(id);
+      if (action === "audit") return service.auditInstrument(id);
+      throw new AppError(
+        "LAB_INSTRUMENT_USAGE",
+        "Use: sovryn lab instrument <build|test|calibrate|report|audit> <id>.",
+      );
+    }
+    case "pipeline": {
+      const action = parsed.positionals[1];
+      const id = parsed.positionals[2];
+      if (!id) {
+        throw new AppError(
+          "LAB_PIPELINE_USAGE",
+          "Use: sovryn lab pipeline <compose|run|validate|replay|report|audit> <id>.",
+        );
+      }
+      if (action === "compose") return service.composePipeline(id);
+      if (action === "run") return service.runPipeline(id);
+      if (action === "validate") return service.validatePipeline(id);
+      if (action === "replay") return service.replayPipeline(id);
+      if (action === "report") return service.reportPipeline(id);
+      if (action === "audit") return service.auditPipeline(id);
+      throw new AppError(
+        "LAB_PIPELINE_USAGE",
+        "Use: sovryn lab pipeline <compose|run|validate|replay|report|audit> <id>.",
+      );
+    }
+    case "trial": {
+      const action = parsed.positionals[1];
+      const goal =
+        flagString(parsed.flags, "--goal") ??
+        parsed.positionals.slice(2).join(" ").trim();
+      if (action !== "run" || !goal) {
+        throw new AppError(
+          "LAB_TRIAL_USAGE",
+          'Use: sovryn lab trial run --goal "<goal>" [--studies 3] [--autopublish-corpus].',
+        );
+      }
+      return service.runTrial({
+        goal,
+        studies: flagInt(parsed.flags, "--studies", 3),
+        autopublishCorpus: flagBool(parsed.flags, "--autopublish-corpus"),
+      });
+    }
+    default:
+      throw new AppError(
+        "LAB_COMMAND_REQUIRED",
+        "Use: sovryn lab <needs|decide|decide-from-study|decision|provision|instrument|pipeline|trial>.",
+      );
+  }
+}
+
+function labProfile(
+  flags: Map<string, string | boolean>,
+  fallback: "sandbox-local" | "container-local" | "container-netoff",
+): "sandbox-local" | "container-local" | "container-netoff" {
+  const value = flagString(flags, "--profile") ?? fallback;
+  if (
+    value === "sandbox-local" ||
+    value === "container-local" ||
+    value === "container-netoff"
+  ) {
+    return value;
+  }
+  throw new AppError(
+    "LAB_PROFILE_INVALID",
+    "Lab profile must be sandbox-local, container-local, or container-netoff.",
+    { profile: value },
+  );
 }
 
 function flagExternalResearchProfile(

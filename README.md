@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `3.8.0-rc.1`
+Current version: `3.9.0-rc.1`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -76,7 +76,7 @@ only curated safe `self_built_lab_science_study` or
 `self_built_lab_reproduction` results into the existing public corpus when gates
 pass.
 
-The 3.8 RC line adds the Research Strategist and Knowledge Engine. Sovryn now
+The 3.8 RC line adds the Research Strategist. Sovryn now
 reads its own public corpus, scientific memory, lab memory, discovery outputs,
 limitations, replication results, falsification reports, and promising or
 negative candidates to infer evidence-bound research opportunities. It ranks
@@ -84,6 +84,14 @@ them with deterministic expected-information-gain style scoring, converts the
 top opportunities into research programs, executes bounded adaptive cycles,
 prioritizes reproduction and falsification queues, updates scientific memory,
 and publishes only curated public-safe strategy-trial summaries.
+
+The 3.9 RC line adds the Scientific Knowledge Engine. Sovryn converts corpus
+and memory artifacts into an evidence-bound claim graph, computes cautious
+confidence scores, detects contradictions, builds a method atlas, ranks
+next-best experiments, runs a bounded top experiment, updates scientific
+memory, and publishes only curated knowledge-trial summaries. It does not turn
+scores into breakthrough claims and keeps every knowledge assertion bound to
+source evidence and limitations.
 
 | Version         | Focus                            | Result                                                                                                                                                                                     |
 | --------------- | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -118,6 +126,7 @@ and publishes only curated public-safe strategy-trial summaries.
 | `3.5.0-rc.1`    | Real-Source Lab Trial            | Adds four-study real-source/real-data-preferred lab trials with a new domain, reproduction attempt, calibration-aware tool reuse, and corpus-publication gates.                            |
 | `3.7.0-rc.1`    | Tool-Operating Discovery         | Adds scientific program operation, breakthrough search, program-orchestrated discovery pipelines, strict candidate validation, invented discovery tools, and discovery corpus publication. |
 | `3.8.0-rc.1`    | Research Strategist              | Adds memory-driven opportunity extraction, EIG-style ranking, research-program building, adaptive execution, strategic reproduction/falsification queues, and strategy-trial publication.  |
+| `3.9.0-rc.1`    | Scientific Knowledge Engine      | Adds claim graph extraction, confidence scoring, contradiction detection, method atlas, next-best-experiment ranking/execution, and knowledge-trial publication.                           |
 
 New science commands:
 

@@ -1,8 +1,24 @@
 # Changelog
 
+## 3.9.0-rc.1
+
+- Added the Scientific Knowledge Engine command family:
+  `sovryn knowledge graph`, `claims`, `confidence`, `contradictions`,
+  `method-atlas`, `next-experiments`, and `trial`.
+- Added `.sovryn/knowledge/` artifacts for evidence-bound claim extraction,
+  deterministic confidence scoring, contradiction cards, method atlases,
+  next-best-experiment ranking, bounded experiment execution, and full
+  knowledge-engine trials.
+- Added curated public corpus publication for
+  `scientific_knowledge_engine_trial` results when public hygiene, no-fake-
+  breakthrough, and no-unsupported-claim gates pass.
+- Added Scientific Knowledge Engine documentation and examples covering claim
+  graphs, confidence labels, contradiction resolution experiments, method
+  atlases, and next-best-experiment selection.
+
 ## 3.8.0-rc.1
 
-- Added the Research Strategist and Knowledge Engine command family:
+- Added the Research Strategist command family:
   `sovryn strategy opportunities`, `rank`, `program`, `execute`,
   `reproduce-queue`, `falsify-queue`, and `trial run`.
 - Added `.sovryn/strategy/` artifacts for memory-driven opportunity extraction,

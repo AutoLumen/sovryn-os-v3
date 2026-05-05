@@ -30,6 +30,7 @@ import { RealSourceExternalCampaignService } from "../core/external-research/rea
 import { FalsificationService } from "../core/evaluation/falsification-service.js";
 import { InventionService } from "../core/invention/invention-service.js";
 import { LabService } from "../core/lab/lab-service.js";
+import { KnowledgeService } from "../core/knowledge/knowledge-service.js";
 import { ProgramOperatorService } from "../core/lab/program-operator-service.js";
 import { ToolInventionService } from "../core/lab/tool-invention-service.js";
 import { MissionService } from "../core/mission/mission-service.js";
@@ -329,6 +330,26 @@ Commands:
   sovryn strategy trial run [--max-cycles 5] [--autopublish-corpus] [--json]
   sovryn strategy trial report [--json]
   sovryn strategy trial audit [--json]
+  sovryn knowledge graph build [--json]
+  sovryn knowledge graph report [--json]
+  sovryn knowledge claims [--json]
+  sovryn knowledge claim <claim-id> [--json]
+  sovryn knowledge confidence compute [--json]
+  sovryn knowledge confidence report [--json]
+  sovryn knowledge confidence explain <claim-id> [--json]
+  sovryn knowledge contradictions detect [--json]
+  sovryn knowledge contradictions report [--json]
+  sovryn knowledge contradictions explain <contradiction-id> [--json]
+  sovryn knowledge method-atlas build [--json]
+  sovryn knowledge method-atlas domain <domain-id> [--json]
+  sovryn knowledge method-atlas report [--json]
+  sovryn knowledge next-experiments generate [--json]
+  sovryn knowledge next-experiments rank [--json]
+  sovryn knowledge next-experiments report [--json]
+  sovryn knowledge next-experiments run [--top 1] [--json]
+  sovryn knowledge trial run [--autopublish-corpus] [--json]
+  sovryn knowledge trial audit [--json]
+  sovryn knowledge trial report [--json]
   sovryn science study status <study-id> [--json]
   sovryn science review <study-id> [--json]
   sovryn invention status <mission-id> [--json]
@@ -717,6 +738,16 @@ export async function executeCli(
       case "strategy": {
         const result = await strategyCommand(parsed, root);
         return okEnvelope("strategy", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
+      case "knowledge": {
+        const result = await knowledgeCommand(parsed, root);
+        return okEnvelope("knowledge", result, {
           artifactRefs: Array.isArray(result.artifactRefs)
             ? result.artifactRefs.filter(
                 (value): value is string => typeof value === "string",
@@ -2532,6 +2563,119 @@ async function strategyCommand(
   throw new AppError(
     "STRATEGY_COMMAND_REQUIRED",
     "Use: sovryn strategy <opportunities|report|rank|explain-ranking|program|execute|execution-status|execution-report|reproduce-queue|falsify-queue|run-reproduction|run-falsification|trial>.",
+  );
+}
+
+async function knowledgeCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const action = parsed.positionals[1];
+  const service = new KnowledgeService(root);
+  if (subcommand === "graph") {
+    if (action === "build") return service.graphBuild();
+    if (action === "report") return service.graphReport();
+    throw new AppError(
+      "KNOWLEDGE_GRAPH_USAGE",
+      "Use: sovryn knowledge graph <build|report>.",
+    );
+  }
+  if (subcommand === "claims") return service.claims();
+  if (subcommand === "claim") {
+    const claimId = parsed.positionals[1];
+    if (!claimId) {
+      throw new AppError(
+        "KNOWLEDGE_CLAIM_USAGE",
+        "Use: sovryn knowledge claim <claim-id>.",
+      );
+    }
+    return service.claim(claimId);
+  }
+  if (subcommand === "confidence") {
+    if (action === "compute") return service.confidenceCompute();
+    if (action === "report") return service.confidenceReport();
+    if (action === "explain") {
+      const claimId = parsed.positionals[2];
+      if (!claimId) {
+        throw new AppError(
+          "KNOWLEDGE_CONFIDENCE_USAGE",
+          "Use: sovryn knowledge confidence explain <claim-id>.",
+        );
+      }
+      return service.confidenceExplain(claimId);
+    }
+    throw new AppError(
+      "KNOWLEDGE_CONFIDENCE_USAGE",
+      "Use: sovryn knowledge confidence <compute|report|explain>.",
+    );
+  }
+  if (subcommand === "contradictions") {
+    if (action === "detect") return service.contradictionsDetect();
+    if (action === "report") return service.contradictionsReport();
+    if (action === "explain") {
+      const contradictionId = parsed.positionals[2];
+      if (!contradictionId) {
+        throw new AppError(
+          "KNOWLEDGE_CONTRADICTIONS_USAGE",
+          "Use: sovryn knowledge contradictions explain <contradiction-id>.",
+        );
+      }
+      return service.contradictionsExplain(contradictionId);
+    }
+    throw new AppError(
+      "KNOWLEDGE_CONTRADICTIONS_USAGE",
+      "Use: sovryn knowledge contradictions <detect|report|explain>.",
+    );
+  }
+  if (subcommand === "method-atlas") {
+    if (action === "build") return service.methodAtlasBuild();
+    if (action === "report") return service.methodAtlasReport();
+    if (action === "domain") {
+      const domainId = parsed.positionals[2];
+      if (!domainId) {
+        throw new AppError(
+          "KNOWLEDGE_METHOD_ATLAS_USAGE",
+          "Use: sovryn knowledge method-atlas domain <domain-id>.",
+        );
+      }
+      return service.methodAtlasDomain(domainId);
+    }
+    throw new AppError(
+      "KNOWLEDGE_METHOD_ATLAS_USAGE",
+      "Use: sovryn knowledge method-atlas <build|domain|report>.",
+    );
+  }
+  if (subcommand === "next-experiments") {
+    if (action === "generate") return service.nextExperimentsGenerate();
+    if (action === "rank") return service.nextExperimentsRank();
+    if (action === "report") return service.nextExperimentsReport();
+    if (action === "run") {
+      return service.nextExperimentsRun({
+        top: flagInt(parsed.flags, "--top", 1),
+      });
+    }
+    throw new AppError(
+      "KNOWLEDGE_NEXT_EXPERIMENTS_USAGE",
+      "Use: sovryn knowledge next-experiments <generate|rank|report|run>.",
+    );
+  }
+  if (subcommand === "trial") {
+    if (action === "run") {
+      return service.trial({
+        autopublishCorpus: flagBool(parsed.flags, "--autopublish-corpus"),
+      });
+    }
+    if (action === "audit") return service.trialAudit();
+    if (action === "report") return service.trialReport();
+    throw new AppError(
+      "KNOWLEDGE_TRIAL_USAGE",
+      "Use: sovryn knowledge trial <run|audit|report>.",
+    );
+  }
+  throw new AppError(
+    "KNOWLEDGE_COMMAND_REQUIRED",
+    "Use: sovryn knowledge <graph|claims|claim|confidence|contradictions|method-atlas|next-experiments|trial>.",
   );
 }
 

@@ -233,6 +233,7 @@ Commands:
   sovryn science research-program propose [--json]
   sovryn science contradictions find [--json]
   sovryn science next-study plan [--json]
+  sovryn science trial run --goal "<goal>" [--hours 72] [--studies 4] [--real-data-preferred] [--autopublish-corpus] [--json]
   sovryn science study status <study-id> [--json]
   sovryn science review <study-id> [--json]
   sovryn invention status <mission-id> [--json]
@@ -1595,6 +1596,24 @@ async function scienceCommand(
       }
       return service.nextStudyPlan();
     }
+    case "trial": {
+      const action = parsed.positionals[1];
+      const goal =
+        flagString(parsed.flags, "--goal") ??
+        parsed.positionals.slice(2).join(" ").trim();
+      if (action !== "run" || !goal) {
+        throw new AppError(
+          "SCIENCE_TRIAL_USAGE",
+          'Use: sovryn science trial run --goal "<goal>" [--hours 72] [--studies 4] [--real-data-preferred] [--autopublish-corpus].',
+        );
+      }
+      return service.trialRun(goal, {
+        hours: flagInt(parsed.flags, "--hours", 72),
+        studies: flagInt(parsed.flags, "--studies", 4),
+        realDataPreferred: flagBool(parsed.flags, "--real-data-preferred"),
+        autopublishCorpus: flagBool(parsed.flags, "--autopublish-corpus"),
+      });
+    }
     case "campaign": {
       const action = parsed.positionals[1];
       const goal =
@@ -1750,7 +1769,7 @@ async function scienceCommand(
     default:
       throw new AppError(
         "SCIENCE_COMMAND_REQUIRED",
-        "Use: sovryn science <question|hypothesize|data generate|data search|data ingest|data validate|data provenance|data cache status|data replay|instrument build|experiment design|experiment run|experiment status|analyze|ablate|sensitivity|compare-baseline|replicate|falsify|negative-tests|hypothesis status|literature ground|next-questions|memory update|memory search|memory report|memory synthesize|meta-analysis run|research-program propose|contradictions find|next-study plan|campaign run|publish|publish-all|publish-audit|reproduce plan|reproduce run|reproduce analyze|reproduce report|peer-review|peer-review-corpus|rebuttal|revise|study status|review>.",
+        "Use: sovryn science <question|hypothesize|data generate|data search|data ingest|data validate|data provenance|data cache status|data replay|instrument build|experiment design|experiment run|experiment status|analyze|ablate|sensitivity|compare-baseline|replicate|falsify|negative-tests|hypothesis status|literature ground|next-questions|memory update|memory search|memory report|memory synthesize|meta-analysis run|research-program propose|contradictions find|next-study plan|trial run|campaign run|publish|publish-all|publish-audit|reproduce plan|reproduce run|reproduce analyze|reproduce report|peer-review|peer-review-corpus|rebuttal|revise|study status|review>.",
       );
   }
 }

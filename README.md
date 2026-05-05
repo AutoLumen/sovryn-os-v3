@@ -1,6 +1,6 @@
 # Sovryn OS v3
 
-Current version: `3.2.0-alpha.4`
+Current version: `3.2.0-rc.1`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
@@ -75,7 +75,7 @@ Scientific support remains bounded to the evidence actually produced.
 | `3.2.0-alpha.1` | Real Data Ingestion              | Adds `sovryn science data search/ingest/validate/provenance/cache/replay` with safe public/proxy datasets, provenance, validation, replay cache, and study binding.          |
 | `3.2.0-alpha.2` | Scientific Reproduction          | Adds `sovryn science reproduce plan/run/analyze/report` for safe bounded reproduction of external or internal computational claims.                                          |
 | `3.2.0-alpha.3` | Scientific Peer Review           | Adds `sovryn science peer-review`, `peer-review-corpus`, `rebuttal`, and `revise` for automated critique, response, and revision planning before showcase promotion.         |
-| `3.2.0-alpha.4` | Meta-Analysis and Learning       | Adds `sovryn science meta-analysis`, `memory synthesize`, `contradictions find`, `research-program propose`, and `next-study plan` for learning across studies.              |
+| `3.2.0-rc.1`    | Meta-Analysis and Learning       | Adds `sovryn science meta-analysis`, `memory synthesize`, `contradictions find`, `research-program propose`, and `next-study plan` for learning across studies.              |
 
 New science commands:
 

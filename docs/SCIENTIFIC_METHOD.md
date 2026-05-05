@@ -1,6 +1,6 @@
 # Scientific Method Core
 
-Sovryn OS `3.2.0-alpha.4` includes the first autonomous
+Sovryn OS `3.2.0-rc.1` includes the first autonomous
 computational-science layer, a deterministic experiment/data/instrument
 runtime, bounded statistical analysis, replication, and falsification for safe
 synthetic energy-data studies. Alpha.5 adds scientific memory, fixture-backed

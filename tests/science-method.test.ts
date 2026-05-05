@@ -91,6 +91,9 @@ let peerReviewFixturePromise:
 let metaFixturePromise:
   | Promise<Awaited<ReturnType<typeof createMetaAnalysisFixture>>>
   | undefined;
+let trialFixturePromise:
+  | Promise<Awaited<ReturnType<typeof createScienceTrialFixture>>>
+  | undefined;
 
 async function runtimeFixture() {
   runtimeFixturePromise ??= createRuntimeStudy();
@@ -140,6 +143,11 @@ async function peerReviewFixture() {
 async function metaFixture() {
   metaFixturePromise ??= createMetaAnalysisFixture();
   return metaFixturePromise;
+}
+
+async function trialFixture() {
+  trialFixturePromise ??= createScienceTrialFixture();
+  return trialFixturePromise;
 }
 
 async function createRuntimeStudy() {
@@ -381,6 +389,33 @@ async function createMetaAnalysisFixture() {
   };
 }
 
+async function createScienceTrialFixture() {
+  const repo = await initRepo();
+  const response = await executeCli(
+    [
+      "science",
+      "trial",
+      "run",
+      "--goal",
+      "Perform safe autonomous computational science across data quality, anomaly detection, software supply-chain assurance, and reproducible research tooling",
+      "--hours",
+      "72",
+      "--studies",
+      "4",
+      "--real-data-preferred",
+      "--autopublish-corpus",
+      "--json",
+    ],
+    repo.root,
+  );
+  assert.equal(response.ok, true, JSON.stringify(response.errors, null, 2));
+  return {
+    repo,
+    response,
+    trial: (response.data as any).trial,
+  };
+}
+
 async function createAnalyzedStudy() {
   const context = await createRuntimeStudy();
   const analyze = await executeCli(
@@ -591,7 +626,7 @@ function reproductionPath(root: string, slug: string, file: string): string {
 
 test("v1.1 rc package version is set", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  assert.equal(pkg.version, "3.2.0-alpha.4");
+  assert.equal(pkg.version, "3.2.0-rc.1");
 });
 
 test("init ignores science runtime artifacts", async () => {
@@ -6576,4 +6611,863 @@ test("next study plan output is stable JSON shape", async () => {
   const { nextStudyPlan } = await metaFixture();
   assert.equal(nextStudyPlan.kind, "science_next_study_plan");
   assert.ok(Array.isArray(nextStudyPlan.guardrails));
+});
+
+test("rc.1 science trial command is listed in help", async () => {
+  const response = await executeCli(["--help"], process.cwd());
+  assert.equal(response.ok, true);
+  assert.match((response.data as any).help, /science trial run/);
+});
+
+test("science trial creates a trial run", async () => {
+  const { trial } = await trialFixture();
+  assert.equal(trial.kind, "science_trial_run");
+});
+
+test("science trial reaches rc-ready in fixture mode", async () => {
+  const { trial } = await trialFixture();
+  assert.equal(trial.readinessLabel, "rc-ready");
+});
+
+test("science trial launch decision is rc ready", async () => {
+  const { trial } = await trialFixture();
+  assert.equal(trial.launchDecision, "rc_ready");
+});
+
+test("science trial records requested seventy two hours", async () => {
+  const { trial } = await trialFixture();
+  assert.equal(trial.requestedHours, 72);
+});
+
+test("science trial records requested four studies", async () => {
+  const { trial } = await trialFixture();
+  assert.equal(trial.requestedStudies, 4);
+});
+
+test("science trial creates at least eight candidate questions", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(trial.candidateQuestions.length >= 8);
+});
+
+test("science trial blocks unsafe candidate questions", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(trial.candidateQuestions.some((question: any) => !question.safe));
+});
+
+test("science trial records unsafe blocked reasons", async () => {
+  const { trial } = await trialFixture();
+  const blocked = trial.candidateQuestions.find(
+    (question: any) => !question.safe,
+  );
+  assert.ok(blocked.blockedReasons.length >= 1);
+});
+
+test("science trial selects four safe studies", async () => {
+  const { trial } = await trialFixture();
+  assert.equal(trial.selectedQuestionIds.length, 4);
+});
+
+test("science trial selected questions are safe", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(
+    trial.candidateQuestions
+      .filter((question: any) => question.selected)
+      .every((question: any) => question.safe),
+  );
+});
+
+test("science trial completes four studies", async () => {
+  const { trial } = await trialFixture();
+  assert.equal(trial.completedStudies.length, 4);
+});
+
+test("science trial writes trial plan", async () => {
+  const { repo, trial } = await trialFixture();
+  const plan = await readJson<any>(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "trial-plan.json",
+    ),
+  );
+  assert.equal(plan.trialId, trial.trialId);
+});
+
+test("science trial writes selected questions", async () => {
+  const { repo, trial } = await trialFixture();
+  await access(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "selected-questions.json",
+    ),
+  );
+});
+
+test("science trial writes event journal without command logs", async () => {
+  const { repo, trial } = await trialFixture();
+  const events = await readFile(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "trial-events.jsonl",
+    ),
+    "utf8",
+  );
+  assert.match(events, /trial_started/);
+  assert.doesNotMatch(events, /stdout|stderr|command journal/i);
+});
+
+test("science trial writes scorecard", async () => {
+  const { repo, trial } = await trialFixture();
+  const scorecard = await readJson<any>(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "trial-scorecard.json",
+    ),
+  );
+  assert.equal(scorecard.kind, "science_trial_scorecard");
+});
+
+test("science trial scorecard is hash-bound", async () => {
+  const { trial } = await trialFixture();
+  assert.match(trial.scorecard.evidenceHash, /^[a-f0-9]{64}$/);
+});
+
+test("science trial records supported hypotheses", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(trial.scorecard.supportedHypotheses >= 1);
+});
+
+test("science trial records inconclusive hypotheses", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(trial.scorecard.inconclusiveHypotheses >= 0);
+});
+
+test("science trial records real data or proxy studies", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(trial.scorecard.realDataStudies >= 2);
+});
+
+test("science trial records synthetic control studies", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(trial.scorecard.syntheticOnlyStudies >= 1);
+});
+
+test("science trial records reproduction attempt", async () => {
+  const { trial } = await trialFixture();
+  assert.equal(trial.reproductionAttempts.length, 1);
+});
+
+test("science trial reproduction is reproduced or partially reproduced", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(
+    ["reproduced", "partially_reproduced"].includes(
+      trial.reproductionAttempts[0].result,
+    ),
+  );
+});
+
+test("science trial records peer reviews for every study", async () => {
+  const { trial } = await trialFixture();
+  assert.equal(trial.peerReviews.length, trial.completedStudies.length);
+});
+
+test("science trial peer reviews pass or minor revise", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(
+    trial.peerReviews.every((review: any) =>
+      ["accept", "minor_revision"].includes(review.label),
+    ),
+  );
+});
+
+test("science trial records peer review accepts", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(trial.scorecard.peerReviewAccepts >= 1);
+});
+
+test("science trial records peer review revision count", async () => {
+  const { trial } = await trialFixture();
+  assert.equal(typeof trial.scorecard.peerReviewRevisions, "number");
+});
+
+test("science trial stores peer review artifacts", async () => {
+  const { repo, trial } = await trialFixture();
+  await access(
+    join(repo.root, ".sovryn", "science", "trials", trial.slug, "peer-reviews"),
+  );
+});
+
+test("science trial writes reproduction attempt artifact", async () => {
+  const { repo, trial } = await trialFixture();
+  await access(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "reproduction-attempts",
+      `${trial.reproductionAttempts[0].reproductionId}.json`,
+    ),
+  );
+});
+
+test("science trial runs post-trial meta-analysis", async () => {
+  const { trial } = await trialFixture();
+  assert.match(trial.metaAnalysisId, /^sci-meta-/);
+});
+
+test("science trial stores meta-analysis artifact", async () => {
+  const { repo, trial } = await trialFixture();
+  await access(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "meta-analysis",
+      "meta-analysis.json",
+    ),
+  );
+});
+
+test("science trial stores trial report", async () => {
+  const { repo, trial } = await trialFixture();
+  const report = await readFile(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "TRIAL_REPORT.md",
+    ),
+    "utf8",
+  );
+  assert.match(report, /72h Autonomous Computational Scientist Trial/);
+});
+
+test("science trial stores launch decision", async () => {
+  const { repo, trial } = await trialFixture();
+  const decision = await readFile(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "LAUNCH_DECISION.md",
+    ),
+    "utf8",
+  );
+  assert.match(decision, /rc_ready/);
+});
+
+test("science trial has no blockers artifact when rc-ready", async () => {
+  const { repo, trial } = await trialFixture();
+  await assert.rejects(
+    access(
+      join(
+        repo.root,
+        ".sovryn",
+        "science",
+        "trials",
+        trial.slug,
+        "BLOCKERS.md",
+      ),
+    ),
+  );
+});
+
+test("science trial records public corpus packages", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(trial.scorecard.publicCorpusPublications >= 1);
+});
+
+test("science trial public packages are local curated corpus output", async () => {
+  const { repo, trial } = await trialFixture();
+  await access(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "public-corpus",
+    ),
+  );
+});
+
+test("science trial public packages exclude raw stdout", async () => {
+  const { repo, trial } = await trialFixture();
+  const report = await readFile(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "TRIAL_REPORT.md",
+    ),
+    "utf8",
+  );
+  assert.doesNotMatch(report, /"stdout"|stdout:/i);
+});
+
+test("science trial public packages exclude raw stderr", async () => {
+  const { repo, trial } = await trialFixture();
+  const report = await readFile(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "TRIAL_REPORT.md",
+    ),
+    "utf8",
+  );
+  assert.doesNotMatch(report, /"stderr"|stderr:/i);
+});
+
+test("science trial public packages exclude secrets", async () => {
+  const { repo, trial } = await trialFixture();
+  const report = await readFile(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "TRIAL_REPORT.md",
+    ),
+    "utf8",
+  );
+  assert.doesNotMatch(report, /ghp_[A-Za-z0-9]+|PRIVATE KEY|OPENAI_API_KEY/i);
+});
+
+test("science trial public packages exclude local absolute paths", async () => {
+  const { repo, trial } = await trialFixture();
+  const report = await readFile(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "TRIAL_REPORT.md",
+    ),
+    "utf8",
+  );
+  assert.doesNotMatch(report, /\/Users\/|\/home\/|C:\\/i);
+});
+
+test("science trial avoids fake legal claims", async () => {
+  const { repo, trial } = await trialFixture();
+  const decision = await readFile(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "LAUNCH_DECISION.md",
+    ),
+    "utf8",
+  );
+  assert.doesNotMatch(decision, /\bpatentable\b|\bfreedom to operate\b/i);
+});
+
+test("science trial records all required rc gates", async () => {
+  const { trial } = await trialFixture();
+  const codes = trial.gates.map((gate: any) => gate.code);
+  for (const code of [
+    "TRIAL_PRESENT",
+    "FOUR_STUDIES_ATTEMPTED",
+    "REAL_DATA_USED_OR_LIMITED",
+    "HYPOTHESES_WITH_NULLS",
+    "EXPERIMENTS_DESIGNED",
+    "DATASETS_PRESENT",
+    "INSTRUMENTS_BUILT_OR_REUSED",
+    "NODE_ALPHA_EXECUTIONS_PRESENT",
+    "STATISTICS_PRESENT",
+    "BASELINES_PRESENT",
+    "ABLATIONS_PRESENT",
+    "REPLICATIONS_PRESENT",
+    "FALSIFICATIONS_PRESENT",
+    "PEER_REVIEWS_PRESENT",
+    "MEMORY_UPDATED",
+    "META_ANALYSIS_PRESENT",
+    "PUBLIC_CORPUS_UPDATED",
+    "PUBLIC_HYGIENE_PASSED",
+    "SAFETY_SCOPE_PASSED",
+    "NO_FAKE_SCIENTIFIC_CLAIMS",
+    "NO_DANGEROUS_DOMAIN_CONTENT",
+    "NO_RAW_LOGS_OR_SECRETS",
+    "NO_STANDALONE_REPO_CREATION",
+    "CORPUS_AUTOPUBLISH_PASSED",
+  ]) {
+    assert.ok(codes.includes(code), code);
+  }
+});
+
+test("science trial gates all pass in fixture rc path", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(trial.gates.every((gate: any) => gate.passed));
+});
+
+test("science trial records zero critical failures", async () => {
+  const { trial } = await trialFixture();
+  assert.equal(trial.scorecard.criticalFailureCount, 0);
+});
+
+test("science trial records zero public leaks", async () => {
+  const { trial } = await trialFixture();
+  assert.equal(trial.scorecard.publicLeakCount, 0);
+});
+
+test("science trial records blocked unsafe question count", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(trial.scorecard.blockedUnsafeQuestions >= 1);
+});
+
+test("science trial records no standalone repo creation limitation", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(
+    trial.limitations.some((limitation: string) =>
+      /No standalone GitHub repositories/i.test(limitation),
+    ),
+  );
+});
+
+test("science trial real data preference is recorded", async () => {
+  const { trial } = await trialFixture();
+  assert.equal(trial.realDataPreferred, true);
+});
+
+test("science trial autopublish corpus preference is recorded", async () => {
+  const { trial } = await trialFixture();
+  assert.equal(trial.autopublishCorpus, true);
+});
+
+test("science trial completed studies have public paths", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(
+    trial.completedStudies.some(
+      (study: any) => study.publicResultPath !== null,
+    ),
+  );
+});
+
+test("science trial completed studies are autopublish eligible", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(
+    trial.completedStudies.every((study: any) => study.autopublishEligible),
+  );
+});
+
+test("science trial completed studies include artifact refs", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(
+    trial.completedStudies.every(
+      (study: any) => study.artifactRefs.length >= 10,
+    ),
+  );
+});
+
+test("science trial completed studies are hash-bound", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(
+    trial.completedStudies.every((study: any) =>
+      /^[a-f0-9]{64}$/.test(study.evidenceHash),
+    ),
+  );
+});
+
+test("science trial stores per-study result records", async () => {
+  const { repo, trial } = await trialFixture();
+  for (const study of trial.completedStudies) {
+    await access(
+      join(
+        repo.root,
+        ".sovryn",
+        "science",
+        "trials",
+        trial.slug,
+        "studies",
+        `${study.slug}.json`,
+      ),
+    );
+  }
+});
+
+test("science trial can run one-study degraded path", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    [
+      "science",
+      "trial",
+      "run",
+      "--goal",
+      "Perform safe autonomous computational science",
+      "--studies",
+      "1",
+      "--json",
+    ],
+    repo.root,
+  );
+  assert.equal(response.ok, true, JSON.stringify(response.errors, null, 2));
+  assert.notEqual((response.data as any).trial.readinessLabel, "rc-ready");
+});
+
+test("science trial one-study path writes blockers", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    [
+      "science",
+      "trial",
+      "run",
+      "--goal",
+      "Perform safe autonomous computational science",
+      "--studies",
+      "1",
+      "--json",
+    ],
+    repo.root,
+  );
+  assert.equal(response.ok, true, JSON.stringify(response.errors, null, 2));
+  const trial = (response.data as any).trial;
+  await access(
+    join(repo.root, ".sovryn", "science", "trials", trial.slug, "BLOCKERS.md"),
+  );
+});
+
+test("science trial one-study path fails four studies gate", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    [
+      "science",
+      "trial",
+      "run",
+      "--goal",
+      "Perform safe autonomous computational science",
+      "--studies",
+      "1",
+      "--json",
+    ],
+    repo.root,
+  );
+  assert.equal(response.ok, true, JSON.stringify(response.errors, null, 2));
+  const gate = (response.data as any).trial.gates.find(
+    (item: any) => item.code === "FOUR_STUDIES_ATTEMPTED",
+  );
+  assert.equal(gate.passed, false);
+});
+
+test("science trial unsafe goal is blocked", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    [
+      "science",
+      "trial",
+      "run",
+      "--goal",
+      "Design wet-lab protocols for hazardous chemical synthesis",
+      "--json",
+    ],
+    repo.root,
+  );
+  assert.equal(response.ok, false);
+  assert.equal(
+    response.errors?.[0]?.code,
+    "SCIENCE_TRIAL_UNSAFE_DOMAIN_BLOCKED",
+  );
+});
+
+test("science trial clamps hours safely", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    [
+      "science",
+      "trial",
+      "run",
+      "--goal",
+      "Perform safe autonomous computational science",
+      "--hours",
+      "999",
+      "--studies",
+      "1",
+      "--json",
+    ],
+    repo.root,
+  );
+  assert.equal(response.ok, true, JSON.stringify(response.errors, null, 2));
+  assert.equal((response.data as any).trial.requestedHours, 72);
+});
+
+test("science trial clamps studies safely", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    [
+      "science",
+      "trial",
+      "run",
+      "--goal",
+      "Perform safe autonomous computational science",
+      "--studies",
+      "99",
+      "--json",
+    ],
+    repo.root,
+  );
+  assert.equal(response.ok, true, JSON.stringify(response.errors, null, 2));
+  assert.equal((response.data as any).trial.requestedStudies, 4);
+});
+
+test("science trial requires a goal", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    ["science", "trial", "run", "--json"],
+    repo.root,
+  );
+  assert.equal(response.ok, false);
+  assert.equal(response.errors?.[0]?.code, "SCIENCE_TRIAL_USAGE");
+});
+
+test("science trial scorecard JSON is stable shape", async () => {
+  const { trial } = await trialFixture();
+  for (const key of [
+    "completedStudies",
+    "supportedHypotheses",
+    "realDataStudies",
+    "reproducedResults",
+    "peerReviewAccepts",
+    "publicCorpusPublications",
+    "criticalFailureCount",
+  ]) {
+    assert.equal(typeof trial.scorecard[key], "number", key);
+  }
+});
+
+test("science trial artifact refs include launch decision", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(
+    trial.artifactRefs.some((ref: string) =>
+      ref.endsWith("LAUNCH_DECISION.md"),
+    ),
+  );
+});
+
+test("science trial artifact refs include trial report", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(
+    trial.artifactRefs.some((ref: string) => ref.endsWith("TRIAL_REPORT.md")),
+  );
+});
+
+test("science trial evidence hash is present", async () => {
+  const { trial } = await trialFixture();
+  assert.match(trial.evidenceHash, /^[a-f0-9]{64}$/);
+});
+
+test("science trial selected questions artifact is hash-bound", async () => {
+  const { repo, trial } = await trialFixture();
+  const selected = await readJson<any>(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "selected-questions.json",
+    ),
+  );
+  assert.match(selected.evidenceHash, /^[a-f0-9]{64}$/);
+});
+
+test("science trial includes energy domain", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(
+    trial.completedStudies.some((study: any) => /energy/i.test(study.domain)),
+  );
+});
+
+test("science trial includes chemistry domain", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(
+    trial.completedStudies.some((study: any) =>
+      /chemistry/i.test(study.domain),
+    ),
+  );
+});
+
+test("science trial includes software or dataset reliability candidates", async () => {
+  const { trial } = await trialFixture();
+  assert.ok(
+    trial.candidateQuestions.some((question: any) =>
+      /software|dataset/i.test(question.domain),
+    ),
+  );
+});
+
+test("science trial records no dangerous content gate pass", async () => {
+  const { trial } = await trialFixture();
+  const gate = trial.gates.find(
+    (item: any) => item.code === "NO_DANGEROUS_DOMAIN_CONTENT",
+  );
+  assert.equal(gate.passed, true);
+});
+
+test("science trial records public hygiene gate pass", async () => {
+  const { trial } = await trialFixture();
+  const gate = trial.gates.find(
+    (item: any) => item.code === "PUBLIC_HYGIENE_PASSED",
+  );
+  assert.equal(gate.passed, true);
+});
+
+test("science trial records corpus autopublish gate pass", async () => {
+  const { trial } = await trialFixture();
+  const gate = trial.gates.find(
+    (item: any) => item.code === "CORPUS_AUTOPUBLISH_PASSED",
+  );
+  assert.equal(gate.passed, true);
+});
+
+test("science trial records memory updated gate pass", async () => {
+  const { trial } = await trialFixture();
+  const gate = trial.gates.find((item: any) => item.code === "MEMORY_UPDATED");
+  assert.equal(gate.passed, true);
+});
+
+test("science trial records meta-analysis gate pass", async () => {
+  const { trial } = await trialFixture();
+  const gate = trial.gates.find(
+    (item: any) => item.code === "META_ANALYSIS_PRESENT",
+  );
+  assert.equal(gate.passed, true);
+});
+
+test("science trial records peer-review gate pass", async () => {
+  const { trial } = await trialFixture();
+  const gate = trial.gates.find(
+    (item: any) => item.code === "PEER_REVIEWS_PRESENT",
+  );
+  assert.equal(gate.passed, true);
+});
+
+test("science trial launch decision excludes medical claims", async () => {
+  const { repo, trial } = await trialFixture();
+  const decision = await readFile(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "LAUNCH_DECISION.md",
+    ),
+    "utf8",
+  );
+  assert.doesNotMatch(decision, /medical treatment|clinical recommendation/i);
+});
+
+test("science trial report documents limitations", async () => {
+  const { repo, trial } = await trialFixture();
+  const report = await readFile(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "TRIAL_REPORT.md",
+    ),
+    "utf8",
+  );
+  assert.match(report, /Limitations/);
+});
+
+test("science trial generated public result readmes exist", async () => {
+  const { repo, trial } = await trialFixture();
+  const publicStudy = trial.completedStudies.find(
+    (study: any) => study.publicResultPath !== null,
+  );
+  await access(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "public-corpus",
+      "results",
+      publicStudy.slug,
+      "README.md",
+    ),
+  );
+});
+
+test("science trial generated public summaries exist", async () => {
+  const { repo, trial } = await trialFixture();
+  const publicStudy = trial.completedStudies.find(
+    (study: any) => study.publicResultPath !== null,
+  );
+  await access(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "public-corpus",
+      "results",
+      publicStudy.slug,
+      "SUMMARY.json",
+    ),
+  );
+});
+
+test("science trial generated public summaries mark computational studies", async () => {
+  const { repo, trial } = await trialFixture();
+  const publicStudy = trial.completedStudies.find(
+    (study: any) => study.publicResultPath !== null,
+  );
+  const summary = await readJson<any>(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "trials",
+      trial.slug,
+      "public-corpus",
+      "results",
+      publicStudy.slug,
+      "SUMMARY.json",
+    ),
+  );
+  assert.equal(summary.resultKind, "computational_science_study");
+});
+
+test("science trial package version is rc.1 when rc gates pass", async () => {
+  const { trial } = await trialFixture();
+  const pkg = JSON.parse(await readFile("package.json", "utf8"));
+  assert.equal(trial.readinessLabel, "rc-ready");
+  assert.equal(pkg.version, "3.2.0-rc.1");
 });

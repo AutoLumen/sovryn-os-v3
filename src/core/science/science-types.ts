@@ -112,7 +112,19 @@ export type ScienceGateCode =
   | "FAILED_HYPOTHESES_RECORDED"
   | "NEXT_RESEARCH_PROGRAM_PRESENT"
   | "NO_OVERGENERALIZED_META_CLAIMS"
-  | "SYNTHETIC_ONLY_FINDINGS_MARKED";
+  | "SYNTHETIC_ONLY_FINDINGS_MARKED"
+  | "TRIAL_PRESENT"
+  | "FOUR_STUDIES_ATTEMPTED"
+  | "REAL_DATA_USED_OR_LIMITED"
+  | "HYPOTHESES_WITH_NULLS"
+  | "NODE_ALPHA_EXECUTIONS_PRESENT"
+  | "REPLICATIONS_PRESENT"
+  | "FALSIFICATIONS_PRESENT"
+  | "PEER_REVIEWS_PRESENT"
+  | "META_ANALYSIS_PRESENT"
+  | "PUBLIC_CORPUS_UPDATED"
+  | "NO_RAW_LOGS_OR_SECRETS"
+  | "NO_STANDALONE_REPO_CREATION";
 
 export type SafetyScope = {
   domain: string;
@@ -652,6 +664,57 @@ export type ScienceMetaAnalysis = {
   nextResearchProgram: ScienceResearchProgram;
   gates: ScienceGateResult[];
   limitations: string[];
+  evidenceHash: string;
+};
+
+export type ScienceTrialScorecard = {
+  kind: "science_trial_scorecard";
+  trialId: string;
+  completedStudies: number;
+  supportedHypotheses: number;
+  partiallySupportedHypotheses: number;
+  inconclusiveHypotheses: number;
+  rejectedHypotheses: number;
+  realDataStudies: number;
+  syntheticOnlyStudies: number;
+  reproducedResults: number;
+  peerReviewAccepts: number;
+  peerReviewRevisions: number;
+  publicCorpusPublications: number;
+  blockedUnsafeQuestions: number;
+  publicLeakCount: number;
+  criticalFailureCount: number;
+  evidenceHash: string;
+};
+
+export type ScienceTrialRun = {
+  kind: "science_trial_run";
+  trialId: string;
+  slug: string;
+  goal: string;
+  requestedHours: number;
+  requestedStudies: number;
+  realDataPreferred: boolean;
+  autopublishCorpus: boolean;
+  candidateQuestions: ScienceCampaignQuestion[];
+  selectedQuestionIds: string[];
+  completedStudies: ScienceCampaignStudyResult[];
+  reproductionAttempts: Array<{
+    reproductionId: string;
+    result: ScienceReproductionResultLabel;
+    confidence: number;
+  }>;
+  peerReviews: Array<{
+    studyId: string;
+    label: SciencePeerReviewLabel;
+  }>;
+  metaAnalysisId: string | null;
+  scorecard: ScienceTrialScorecard;
+  gates: ScienceGateResult[];
+  readinessLabel: "blocked" | "degraded" | "pass" | "rc-ready";
+  launchDecision: "block_rc" | "rc_ready";
+  limitations: string[];
+  artifactRefs: string[];
   evidenceHash: string;
 };
 

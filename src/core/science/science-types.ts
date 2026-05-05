@@ -79,7 +79,16 @@ export type ScienceGateCode =
   | "FALSIFICATION_PUBLIC"
   | "MEMORY_UPDATE_PUBLIC"
   | "CORPUS_INDEX_UPDATED"
-  | "SCIENCE_STUDY_API_UPDATED";
+  | "SCIENCE_STUDY_API_UPDATED"
+  | "REAL_DATA_PLAN_PRESENT"
+  | "DATASET_PUBLIC_AND_SAFE"
+  | "DATASET_PROVENANCE_PRESENT"
+  | "DATASET_VALIDATION_PRESENT"
+  | "CACHE_OR_REPLAY_PRESENT"
+  | "REAL_DATA_LIMITATIONS_PRESENT"
+  | "NO_PRIVATE_DATA"
+  | "NO_UNSAFE_DATA_DOMAIN"
+  | "REAL_VS_SYNTHETIC_COMPARISON_PRESENT";
 
 export type SafetyScope = {
   domain: string;
@@ -198,6 +207,134 @@ export type ScienceDataPlan = {
   schema: string[];
   privacyScope: string;
   limitations: string[];
+  evidenceHash: string;
+};
+
+export type ScienceDatasetSearchCandidate = {
+  datasetId: string;
+  title: string;
+  domain:
+    | "public-energy-weather"
+    | "software-repository-metadata"
+    | "scientific-dataset-metadata"
+    | "safe-chemistry-records";
+  sourceName: string;
+  sourceUrl: string;
+  stableIdentifier: string;
+  license: string;
+  safe: boolean;
+  requiresNetwork: boolean;
+  fixtureBacked: boolean;
+  expectedSchema: string[];
+  provenanceConfidence: number;
+  limitations: string[];
+};
+
+export type ScienceDatasetSearchResult = {
+  kind: "science_dataset_search";
+  query: string;
+  searchedAt: string;
+  deterministicFixtureMode: boolean;
+  candidates: ScienceDatasetSearchCandidate[];
+  blockedCandidates: Array<{
+    datasetId: string;
+    reason: string;
+  }>;
+  gates: ScienceGateResult[];
+  evidenceHash: string;
+};
+
+export type ScienceDatasetCacheRecord = {
+  kind: "science_dataset_cache_record";
+  datasetId: string;
+  cacheKey: string;
+  sourceName: string;
+  sourceUrl: string;
+  license: string;
+  retrievedAt: string;
+  retrievalMode: "deterministic_fixture_cache" | "offline_replay_cache";
+  schema: string[];
+  rows: Array<Record<string, string | number | boolean | null>>;
+  rowCount: number;
+  limitations: string[];
+  evidenceHash: string;
+};
+
+export type ScienceDatasetProvenance = {
+  kind: "science_dataset_provenance";
+  datasetId: string;
+  sourceName: string;
+  sourceUrl: string;
+  stableIdentifier: string;
+  retrievedAt: string;
+  license: string;
+  schema: string[];
+  rowCount: number;
+  missingness: number;
+  unitConsistency: "passed" | "failed" | "unknown";
+  provenanceConfidence: number;
+  replayCacheKey: string;
+  publicAndSafe: boolean;
+  privacyReview: {
+    privateDataDetected: boolean;
+    personalFields: string[];
+    notes: string[];
+  };
+  limitations: string[];
+  evidenceHash: string;
+};
+
+export type ScienceDatasetValidation = {
+  kind: "science_dataset_validation";
+  datasetId: string;
+  validatedAt: string;
+  passed: boolean;
+  schemaPresent: boolean;
+  rowCount: number;
+  missingness: number;
+  unitConsistency: "passed" | "failed" | "unknown";
+  privateDataDetected: boolean;
+  unsafeDomainDetected: boolean;
+  gates: ScienceGateResult[];
+  evidenceHash: string;
+};
+
+export type ScienceDatasetRegistry = {
+  kind: "science_dataset_registry";
+  updatedAt: string;
+  datasets: Array<{
+    datasetId: string;
+    sourceName: string;
+    sourceUrl: string;
+    cacheKey: string;
+    rowCount: number;
+    validationPassed: boolean;
+    provenanceConfidence: number;
+    replayable: boolean;
+  }>;
+  evidenceHash: string;
+};
+
+export type ScienceRealDataPlan = {
+  kind: "science_real_data_plan";
+  studyId: string;
+  datasetId: string;
+  purpose: string;
+  datasetRole: "real_public_proxy" | "real_public_data";
+  syntheticControlRequired: boolean;
+  limitations: string[];
+  evidenceHash: string;
+};
+
+export type ScienceRealVsSyntheticComparison = {
+  kind: "science_real_vs_synthetic_comparison";
+  studyId: string;
+  datasetId: string;
+  realRows: number;
+  syntheticDatasetCount: number;
+  comparableFields: string[];
+  mismatchNotes: string[];
+  conclusion: string;
   evidenceHash: string;
 };
 

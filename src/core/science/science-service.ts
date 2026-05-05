@@ -22,6 +22,12 @@ import type {
   ScienceCampaignStudyResult,
   ScienceConfusionMetrics,
   ScienceDataPlan,
+  ScienceDatasetCacheRecord,
+  ScienceDatasetProvenance,
+  ScienceDatasetRegistry,
+  ScienceDatasetSearchCandidate,
+  ScienceDatasetSearchResult,
+  ScienceDatasetValidation,
   ScienceErrorAnalysis,
   SafetyScope,
   ScienceExperimentRun,
@@ -37,6 +43,8 @@ import type {
   ScienceNextQuestions,
   ScienceReplicationRun,
   ScienceReplicationSummary,
+  ScienceRealDataPlan,
+  ScienceRealVsSyntheticComparison,
   ScienceResultLabel,
   ScienceSensitivityAnalysis,
   ScienceSourceCard,
@@ -481,6 +489,245 @@ export class ScienceService {
       dataPlan,
       datasets,
       artifactRefs: updated.artifactRefs,
+    };
+  }
+
+  async searchDatasets(query: string): Promise<ScienceDatasetSearchResult> {
+    const normalized = query.trim();
+    if (!normalized) {
+      throw new AppError(
+        "SCIENCE_DATA_QUERY_REQUIRED",
+        "science data search requires a topic.",
+      );
+    }
+    const safetyScope = analyzeSafety(normalized);
+    const blockedCandidates: ScienceDatasetSearchResult["blockedCandidates"] =
+      [];
+    if (safetyScope.blocked || containsPrivateDataRisk(normalized)) {
+      blockedCandidates.push({
+        datasetId: stableId("blocked-dataset", normalized),
+        reason:
+          safetyScope.blockedReasons.join("; ") ||
+          "Private, sensitive, or unsafe dataset scope is not allowed.",
+      });
+    }
+    const candidates = blockedCandidates.length
+      ? []
+      : catalogDatasets(normalized);
+    const gates = [
+      gate(
+        "DATASET_PUBLIC_AND_SAFE",
+        blockedCandidates.length === 0,
+        "Dataset search topic must stay in public safe computational-science domains.",
+        ".sovryn/science/data/dataset-search.json",
+        "Use public non-sensitive data, synthetic controls, or safe public metadata.",
+      ),
+      gate(
+        "NO_PRIVATE_DATA",
+        !containsPrivateDataRisk(normalized),
+        "Dataset search must not request private, personal, or household-identifiable data.",
+        ".sovryn/science/data/dataset-search.json",
+        "Use aggregate public datasets or deterministic safe proxy data.",
+      ),
+      gate(
+        "NO_UNSAFE_DATA_DOMAIN",
+        !safetyScope.blocked,
+        "Dataset search must not enter hazardous chemistry, medical, biological, exploit, or wet-lab domains.",
+        ".sovryn/science/data/dataset-search.json",
+        "Restrict the study to safe computational science.",
+      ),
+    ];
+    const result = withEvidenceHash({
+      kind: "science_dataset_search" as const,
+      query: normalized,
+      searchedAt: nowIso(),
+      deterministicFixtureMode: true,
+      candidates,
+      blockedCandidates,
+      gates,
+    });
+    const dataRoot = this.scienceDataRoot();
+    await mkdir(dataRoot, { recursive: true });
+    await writeJson(join(dataRoot, "dataset-search.json"), result);
+    await this.writeDatasetRegistryMarkdown();
+    return result;
+  }
+
+  async ingestDataset(
+    datasetRef: string,
+    studyId?: string,
+  ): Promise<{
+    datasetId: string;
+    cacheRecord: ScienceDatasetCacheRecord;
+    provenance: ScienceDatasetProvenance;
+    validation: ScienceDatasetValidation;
+    registry: ScienceDatasetRegistry;
+    study: ScientificStudy | null;
+    realDataPlan: ScienceRealDataPlan | null;
+    realVsSyntheticComparison: ScienceRealVsSyntheticComparison | null;
+    artifactRefs: string[];
+  }> {
+    const candidate = resolveDatasetCandidate(datasetRef);
+    assertDatasetCandidateSafe(candidate);
+    const dataRoot = this.scienceDataRoot();
+    const cacheRoot = join(dataRoot, "dataset-cache");
+    await mkdir(cacheRoot, { recursive: true });
+    const cacheKey = datasetCacheKey(candidate);
+    const cacheRecord = withEvidenceHash({
+      kind: "science_dataset_cache_record" as const,
+      datasetId: candidate.datasetId,
+      cacheKey,
+      sourceName: candidate.sourceName,
+      sourceUrl: candidate.sourceUrl,
+      license: candidate.license,
+      retrievedAt: nowIso(),
+      retrievalMode: "deterministic_fixture_cache" as const,
+      schema: candidate.expectedSchema,
+      rows: buildDatasetRows(candidate.datasetId),
+      rowCount: buildDatasetRows(candidate.datasetId).length,
+      limitations: candidate.limitations,
+    });
+    await writeJson(join(cacheRoot, `${cacheKey}.json`), cacheRecord);
+    const provenance = buildDatasetProvenance(candidate, cacheRecord);
+    const validation = buildDatasetValidation(cacheRecord, provenance);
+    await writeJson(join(dataRoot, "dataset-provenance.json"), provenance);
+    await writeJson(join(dataRoot, "dataset-validation.json"), validation);
+    const registry = await this.updateDatasetRegistry(
+      candidate,
+      cacheRecord,
+      validation,
+      provenance,
+    );
+    let boundStudy: ScientificStudy | null = null;
+    let realDataPlan: ScienceRealDataPlan | null = null;
+    let realVsSyntheticComparison: ScienceRealVsSyntheticComparison | null =
+      null;
+    const artifactRefs = [
+      rel(dataRoot, this.root, "dataset-provenance.json"),
+      rel(dataRoot, this.root, "dataset-validation.json"),
+      rel(dataRoot, this.root, "dataset-registry.json"),
+      rel(dataRoot, this.root, join("dataset-cache", `${cacheKey}.json`)),
+    ];
+    if (studyId) {
+      const { study, dir } = await this.findStudy(studyId);
+      const bound = await this.bindDatasetToStudy({
+        study,
+        dir,
+        cacheRecord,
+        provenance,
+        validation,
+      });
+      boundStudy = bound.study;
+      realDataPlan = bound.realDataPlan;
+      realVsSyntheticComparison = bound.realVsSyntheticComparison;
+      artifactRefs.push(...bound.artifactRefs);
+    }
+    return {
+      datasetId: candidate.datasetId,
+      cacheRecord,
+      provenance,
+      validation,
+      registry,
+      study: boundStudy,
+      realDataPlan,
+      realVsSyntheticComparison,
+      artifactRefs: uniqueRefs(artifactRefs),
+    };
+  }
+
+  async validateDataset(datasetId: string): Promise<{
+    datasetId: string;
+    validation: ScienceDatasetValidation;
+    artifactRefs: string[];
+  }> {
+    const { cacheRecord, provenance } =
+      await this.readDatasetEvidence(datasetId);
+    const validation = buildDatasetValidation(cacheRecord, provenance);
+    const dataRoot = this.scienceDataRoot();
+    await mkdir(dataRoot, { recursive: true });
+    await writeJson(join(dataRoot, "dataset-validation.json"), validation);
+    return {
+      datasetId,
+      validation,
+      artifactRefs: [rel(dataRoot, this.root, "dataset-validation.json")],
+    };
+  }
+
+  async datasetProvenance(datasetId: string): Promise<{
+    datasetId: string;
+    provenance: ScienceDatasetProvenance;
+    artifactRefs: string[];
+  }> {
+    const { provenance } = await this.readDatasetEvidence(datasetId);
+    return {
+      datasetId,
+      provenance,
+      artifactRefs: [
+        rel(this.scienceDataRoot(), this.root, "dataset-provenance.json"),
+      ],
+    };
+  }
+
+  async datasetCacheStatus(): Promise<Record<string, unknown>> {
+    const dataRoot = this.scienceDataRoot();
+    const cacheRoot = join(dataRoot, "dataset-cache");
+    await mkdir(cacheRoot, { recursive: true });
+    const files = (await readdir(cacheRoot).catch(() => []))
+      .filter((file) => file.endsWith(".json"))
+      .sort();
+    const records = [];
+    for (const file of files) {
+      const textContent = await readFile(join(cacheRoot, file), "utf8");
+      const record = JSON.parse(textContent) as ScienceDatasetCacheRecord;
+      records.push({
+        datasetId: record.datasetId,
+        cacheKey: record.cacheKey,
+        rowCount: record.rowCount,
+        bytes: Buffer.byteLength(textContent, "utf8"),
+        replayable: true,
+      });
+    }
+    const status = withEvidenceHash({
+      kind: "science_dataset_cache_status" as const,
+      checkedAt: nowIso(),
+      cacheRecordCount: records.length,
+      totalBytes: records.reduce((sum, record) => sum + record.bytes, 0),
+      records,
+    });
+    await mkdir(dataRoot, { recursive: true });
+    await writeJson(join(dataRoot, "dataset-cache-status.json"), status);
+    return {
+      cacheStatus: status,
+      artifactRefs: [rel(dataRoot, this.root, "dataset-cache-status.json")],
+    };
+  }
+
+  async replayDataset(datasetId: string): Promise<Record<string, unknown>> {
+    const { cacheRecord, registryEntry } =
+      await this.readDatasetEvidence(datasetId);
+    const replayHash = hashEvidence({
+      ...cacheRecord,
+      evidenceHash: "",
+      retrievalMode: "deterministic_fixture_cache",
+    });
+    const replay = withEvidenceHash({
+      kind: "science_dataset_replay" as const,
+      datasetId,
+      replayedAt: nowIso(),
+      cacheKey: cacheRecord.cacheKey,
+      rowCount: cacheRecord.rowCount,
+      cacheKeyMatches: registryEntry.cacheKey === cacheRecord.cacheKey,
+      replayHashMatches: replayHash === cacheRecord.evidenceHash,
+      passed:
+        registryEntry.cacheKey === cacheRecord.cacheKey &&
+        replayHash === cacheRecord.evidenceHash,
+      limitations: cacheRecord.limitations,
+    });
+    const dataRoot = this.scienceDataRoot();
+    await writeJson(join(dataRoot, "dataset-replay.json"), replay);
+    return {
+      replay,
+      artifactRefs: [rel(dataRoot, this.root, "dataset-replay.json")],
     };
   }
 
@@ -3431,6 +3678,10 @@ export class ScienceService {
     return join(this.scienceRoot(), "publication");
   }
 
+  private scienceDataRoot(): string {
+    return join(this.scienceRoot(), "data");
+  }
+
   private studyDir(slug: string): string {
     return join(this.studiesRoot(), slug);
   }
@@ -3479,6 +3730,150 @@ export class ScienceService {
       updatedAt: nowIso(),
       studies,
     } satisfies StudyIndex);
+  }
+
+  private async updateDatasetRegistry(
+    candidate: ScienceDatasetSearchCandidate,
+    cacheRecord: ScienceDatasetCacheRecord,
+    validation: ScienceDatasetValidation,
+    provenance: ScienceDatasetProvenance,
+  ): Promise<ScienceDatasetRegistry> {
+    const dataRoot = this.scienceDataRoot();
+    await mkdir(dataRoot, { recursive: true });
+    const path = join(dataRoot, "dataset-registry.json");
+    const existing = await readOptionalJson<ScienceDatasetRegistry>(path);
+    const entry = {
+      datasetId: candidate.datasetId,
+      sourceName: candidate.sourceName,
+      sourceUrl: candidate.sourceUrl,
+      cacheKey: cacheRecord.cacheKey,
+      rowCount: cacheRecord.rowCount,
+      validationPassed: validation.passed,
+      provenanceConfidence: provenance.provenanceConfidence,
+      replayable: true,
+    };
+    const registry = withEvidenceHash({
+      kind: "science_dataset_registry" as const,
+      updatedAt: nowIso(),
+      datasets: [
+        ...(existing?.datasets ?? []).filter(
+          (item) => item.datasetId !== candidate.datasetId,
+        ),
+        entry,
+      ].sort((left, right) => left.datasetId.localeCompare(right.datasetId)),
+    });
+    await writeJson(path, registry);
+    await this.writeDatasetRegistryMarkdown();
+    return registry;
+  }
+
+  private async writeDatasetRegistryMarkdown(): Promise<void> {
+    const dataRoot = this.scienceDataRoot();
+    await mkdir(dataRoot, { recursive: true });
+    const registry = await readOptionalJson<ScienceDatasetRegistry>(
+      join(dataRoot, "dataset-registry.json"),
+    );
+    await writeFile(
+      join(dataRoot, "DATASET_REGISTRY.md"),
+      renderDatasetRegistry(registry),
+      "utf8",
+    );
+  }
+
+  private async readDatasetEvidence(datasetId: string): Promise<{
+    registry: ScienceDatasetRegistry;
+    registryEntry: ScienceDatasetRegistry["datasets"][number];
+    cacheRecord: ScienceDatasetCacheRecord;
+    provenance: ScienceDatasetProvenance;
+  }> {
+    const dataRoot = this.scienceDataRoot();
+    const registry = await readOptionalJson<ScienceDatasetRegistry>(
+      join(dataRoot, "dataset-registry.json"),
+    );
+    const registryEntry = registry?.datasets.find(
+      (item) => item.datasetId === normalizeDatasetId(datasetId),
+    );
+    if (!registry || !registryEntry) {
+      throw new AppError(
+        "SCIENCE_DATASET_NOT_FOUND",
+        `Science dataset not found in registry: ${datasetId}`,
+        { datasetId },
+      );
+    }
+    const cacheRecord = await readJson<ScienceDatasetCacheRecord>(
+      join(dataRoot, "dataset-cache", `${registryEntry.cacheKey}.json`),
+    );
+    const provenance =
+      (await readOptionalJson<ScienceDatasetProvenance>(
+        join(dataRoot, "dataset-provenance.json"),
+      )) ??
+      buildDatasetProvenance(resolveDatasetCandidate(datasetId), cacheRecord);
+    return { registry, registryEntry, cacheRecord, provenance };
+  }
+
+  private async bindDatasetToStudy(input: {
+    study: ScientificStudy;
+    dir: string;
+    cacheRecord: ScienceDatasetCacheRecord;
+    provenance: ScienceDatasetProvenance;
+    validation: ScienceDatasetValidation;
+  }): Promise<{
+    study: ScientificStudy;
+    realDataPlan: ScienceRealDataPlan;
+    realVsSyntheticComparison: ScienceRealVsSyntheticComparison;
+    artifactRefs: string[];
+  }> {
+    const { study, dir, cacheRecord, provenance, validation } = input;
+    await mkdir(join(dir, "real-datasets"), { recursive: true });
+    const realDataPlan: ScienceRealDataPlan = withEvidenceHash({
+      kind: "science_real_data_plan" as const,
+      studyId: study.studyId,
+      datasetId: cacheRecord.datasetId,
+      purpose:
+        "Bind a public safe weather/energy-style proxy dataset to the computational study for real-data provenance practice and synthetic-control comparison.",
+      datasetRole: "real_public_proxy" as const,
+      syntheticControlRequired: true,
+      limitations: [
+        "The energy measurements are safe aggregate proxy values, not private household meter data.",
+        "This alpha validates provenance, caching, schema, and replay mechanics before broader real-data claims.",
+      ],
+    });
+    const comparison = buildRealVsSyntheticComparison(
+      study.studyId,
+      cacheRecord,
+      await readSyntheticDatasets(dir).catch(() => []),
+    );
+    await writeJson(join(dir, "real-data-plan.json"), realDataPlan);
+    await writeJson(
+      join(dir, "real-datasets", `${cacheRecord.datasetId}.json`),
+      cacheRecord,
+    );
+    await writeJson(join(dir, "real-data-validation.json"), validation);
+    await writeJson(join(dir, "real-vs-synthetic-comparison.json"), comparison);
+    await writeFile(
+      join(dir, "DATA_PROVENANCE.md"),
+      renderDataProvenance(provenance),
+      "utf8",
+    );
+    await writeFile(
+      join(dir, "REAL_DATA_LIMITATIONS.md"),
+      renderRealDataLimitations(realDataPlan, comparison),
+      "utf8",
+    );
+    const updated = await this.updateStudyArtifacts(study, dir, [
+      "real-data-plan.json",
+      join("real-datasets", `${cacheRecord.datasetId}.json`),
+      "real-data-validation.json",
+      "real-vs-synthetic-comparison.json",
+      "DATA_PROVENANCE.md",
+      "REAL_DATA_LIMITATIONS.md",
+    ]);
+    return {
+      study: updated,
+      realDataPlan,
+      realVsSyntheticComparison: comparison,
+      artifactRefs: updated.artifactRefs,
+    };
   }
 
   private async updateStudyArtifacts(
@@ -7469,10 +7864,515 @@ function containsUnsafeText(text: string): boolean {
   );
 }
 
+function containsPrivateDataRisk(text: string): boolean {
+  return /\b(private|personal|patient|household[- ]?identifiable|smart[- ]?meter address|name|email|phone|ssn|medical record|location trace)\b/i.test(
+    text,
+  );
+}
+
 function containsUnsupportedClaimLanguage(text: string): boolean {
   return /\b(proves|proven|guarantees|scientifically established|causally proves|patentable|legally novel|freedom to operate)\b/i.test(
     text,
   );
+}
+
+function catalogDatasets(query: string): ScienceDatasetSearchCandidate[] {
+  const lower = query.toLowerCase();
+  const candidates: ScienceDatasetSearchCandidate[] = [];
+  if (/energy|weather|anomaly|usage|meter/.test(lower)) {
+    candidates.push(publicWeatherEnergyProxyCandidate());
+  }
+  if (/software|repository|dependency|pull request|supply/.test(lower)) {
+    candidates.push({
+      datasetId: "public-software-repository-metadata-proxy-v1",
+      title: "Public software repository metadata proxy",
+      domain: "software-repository-metadata",
+      sourceName: "Safe repository metadata fixture",
+      sourceUrl: "https://github.com/n57d30top/sovryn-open-inventions",
+      stableIdentifier: "sovryn-public-corpus-software-metadata-proxy-v1",
+      license: "Public repository metadata; fixture values are deterministic",
+      safe: true,
+      requiresNetwork: false,
+      fixtureBacked: true,
+      expectedSchema: [
+        "repository",
+        "commitCount",
+        "dependencyChangeCount",
+        "testFileCount",
+        "source",
+      ],
+      provenanceConfidence: 0.74,
+      limitations: [
+        "Repository rows are deterministic public metadata proxies, not a live GitHub crawl.",
+        "No exploit payloads, credentials, or private repository data are included.",
+      ],
+    });
+  }
+  if (/scientific|dataset|schema|unit|reliability/.test(lower)) {
+    candidates.push({
+      datasetId: "public-scientific-dataset-metadata-proxy-v1",
+      title: "Public scientific dataset metadata proxy",
+      domain: "scientific-dataset-metadata",
+      sourceName: "Safe scientific dataset metadata fixture",
+      sourceUrl: "https://zenodo.org/",
+      stableIdentifier: "public-scientific-dataset-metadata-proxy-v1",
+      license: "Public metadata proxy; fixture values are deterministic",
+      safe: true,
+      requiresNetwork: false,
+      fixtureBacked: true,
+      expectedSchema: [
+        "dataset",
+        "schemaVersion",
+        "unitFieldCount",
+        "missingness",
+        "source",
+      ],
+      provenanceConfidence: 0.72,
+      limitations: [
+        "Metadata rows are deterministic public proxies and do not include sensitive records.",
+        "The fixture validates ingestion mechanics before broader live-source claims.",
+      ],
+    });
+  }
+  if (/chem|molecular|property|unit/.test(lower)) {
+    candidates.push({
+      datasetId: "safe-chemistry-property-record-proxy-v1",
+      title: "Safe chemistry-style property record proxy",
+      domain: "safe-chemistry-records",
+      sourceName: "Toy chemistry property records",
+      sourceUrl: "https://github.com/n57d30top/sovryn-open-inventions",
+      stableIdentifier: "safe-chemistry-property-record-proxy-v1",
+      license: "Synthetic toy records for data-quality auditing",
+      safe: true,
+      requiresNetwork: false,
+      fixtureBacked: true,
+      expectedSchema: [
+        "compound",
+        "identifier",
+        "property",
+        "value",
+        "unit",
+        "source",
+      ],
+      provenanceConfidence: 0.7,
+      limitations: [
+        "Toy chemistry records are for safe data-quality checks only.",
+        "No synthesis, hazardous optimization, or wet-lab guidance is included.",
+      ],
+    });
+  }
+  return candidates.length > 0
+    ? candidates
+    : [publicWeatherEnergyProxyCandidate()];
+}
+
+function publicWeatherEnergyProxyCandidate(): ScienceDatasetSearchCandidate {
+  return {
+    datasetId: "public-weather-energy-proxy-v1",
+    title: "Public weather plus aggregate energy-index proxy",
+    domain: "public-energy-weather",
+    sourceName:
+      "NOAA-style public weather metadata plus synthetic energy index",
+    sourceUrl: "https://www.ncei.noaa.gov/cdo-web/",
+    stableIdentifier: "public-weather-energy-proxy-v1",
+    license:
+      "Public weather metadata style; synthetic aggregate energy index for privacy-safe validation",
+    safe: true,
+    requiresNetwork: false,
+    fixtureBacked: true,
+    expectedSchema: [
+      "date",
+      "region",
+      "outdoorTempC",
+      "heatingDegreeDays",
+      "coolingDegreeDays",
+      "aggregateKwhIndex",
+      "source",
+    ],
+    provenanceConfidence: 0.78,
+    limitations: [
+      "Weather fields are public-data-style fixture records for deterministic replay.",
+      "Energy values are aggregate synthetic proxy indices and are not private household meter data.",
+      "The dataset supports ingestion, provenance, cache, validation, and replay checks before broader real-data claims.",
+    ],
+  };
+}
+
+function normalizeDatasetId(value: string): string {
+  const trimmed = value.trim();
+  if (/^https?:\/\//i.test(trimmed)) {
+    if (/weather|noaa|energy/i.test(trimmed))
+      return "public-weather-energy-proxy-v1";
+    if (/github|software|repository/i.test(trimmed))
+      return "public-software-repository-metadata-proxy-v1";
+    if (/zenodo|scientific|dataset/i.test(trimmed))
+      return "public-scientific-dataset-metadata-proxy-v1";
+  }
+  return slugify(trimmed);
+}
+
+function resolveDatasetCandidate(
+  datasetRef: string,
+): ScienceDatasetSearchCandidate {
+  const datasetId = normalizeDatasetId(datasetRef);
+  const candidates = catalogDatasets(
+    `${datasetId} energy weather software scientific chemistry unit`,
+  );
+  const candidate = candidates.find((item) => item.datasetId === datasetId);
+  if (!candidate) {
+    throw new AppError(
+      "SCIENCE_DATASET_UNSUPPORTED",
+      `Unsupported science dataset: ${datasetRef}`,
+      { datasetRef },
+    );
+  }
+  return candidate;
+}
+
+function assertDatasetCandidateSafe(
+  candidate: ScienceDatasetSearchCandidate,
+): void {
+  if (
+    !candidate.safe ||
+    containsPrivateDataRisk(`${candidate.title} ${candidate.sourceName}`) ||
+    containsUnsafeText(`${candidate.title} ${candidate.sourceName}`)
+  ) {
+    throw new AppError(
+      "SCIENCE_DATASET_UNSAFE",
+      "Dataset ingestion is blocked because the dataset is not public, safe, and non-sensitive.",
+      { datasetId: candidate.datasetId },
+    );
+  }
+}
+
+function datasetCacheKey(candidate: ScienceDatasetSearchCandidate): string {
+  return createHash("sha256")
+    .update(
+      JSON.stringify({
+        datasetId: candidate.datasetId,
+        stableIdentifier: candidate.stableIdentifier,
+        schema: candidate.expectedSchema,
+        version: "3.2.0-alpha.1",
+      }),
+    )
+    .digest("hex")
+    .slice(0, 16);
+}
+
+function buildDatasetRows(
+  datasetId: string,
+): Array<Record<string, string | number | boolean | null>> {
+  if (datasetId === "public-weather-energy-proxy-v1") {
+    return [
+      weatherEnergyRow("2024-01-01", -5, 23, 0, 126, "public_weather_proxy"),
+      weatherEnergyRow("2024-01-02", -4, 22, 0, 124, "public_weather_proxy"),
+      weatherEnergyRow("2024-01-03", 2, 16, 0, 109, "public_weather_proxy"),
+      weatherEnergyRow("2024-04-01", 13, 5, 0, 82, "public_weather_proxy"),
+      weatherEnergyRow("2024-04-02", 14, 4, 0, 80, "public_weather_proxy"),
+      weatherEnergyRow("2024-07-01", 31, 0, 7, 118, "public_weather_proxy"),
+      weatherEnergyRow("2024-07-02", 33, 0, 9, 121, "public_weather_proxy"),
+      weatherEnergyRow("2024-10-01", 11, 7, 0, 88, "public_weather_proxy"),
+    ];
+  }
+  if (datasetId === "public-software-repository-metadata-proxy-v1") {
+    return [
+      {
+        repository: "toy-safe-lib",
+        commitCount: 42,
+        dependencyChangeCount: 1,
+        testFileCount: 7,
+        source: "public_repository_metadata_proxy",
+      },
+      {
+        repository: "toy-risk-review",
+        commitCount: 18,
+        dependencyChangeCount: 4,
+        testFileCount: 1,
+        source: "public_repository_metadata_proxy",
+      },
+    ];
+  }
+  if (datasetId === "public-scientific-dataset-metadata-proxy-v1") {
+    return [
+      {
+        dataset: "toy-units-a",
+        schemaVersion: "1.0",
+        unitFieldCount: 3,
+        missingness: 0.02,
+        source: "public_metadata_proxy",
+      },
+      {
+        dataset: "toy-units-b",
+        schemaVersion: "1.1",
+        unitFieldCount: 4,
+        missingness: 0.08,
+        source: "public_metadata_proxy",
+      },
+    ];
+  }
+  return [
+    {
+      compound: "ethanol",
+      identifier: "CCO",
+      property: "boiling_point",
+      value: 78.37,
+      unit: "C",
+      source: "safe_toy_chemistry_proxy",
+    },
+    {
+      compound: "ethyl alcohol",
+      identifier: "OCC",
+      property: "boiling_point",
+      value: 351.52,
+      unit: "K",
+      source: "safe_toy_chemistry_proxy",
+    },
+  ];
+}
+
+function weatherEnergyRow(
+  date: string,
+  outdoorTempC: number,
+  heatingDegreeDays: number,
+  coolingDegreeDays: number,
+  aggregateKwhIndex: number,
+  source: string,
+): Record<string, string | number> {
+  return {
+    date,
+    region: "public-proxy-region-a",
+    outdoorTempC,
+    heatingDegreeDays,
+    coolingDegreeDays,
+    aggregateKwhIndex,
+    source,
+  };
+}
+
+function buildDatasetProvenance(
+  candidate: ScienceDatasetSearchCandidate,
+  cacheRecord: ScienceDatasetCacheRecord,
+): ScienceDatasetProvenance {
+  const missingCells = cacheRecord.rows.reduce(
+    (sum, row) =>
+      sum +
+      Object.values(row).filter(
+        (value) => value === null || value === "" || value === undefined,
+      ).length,
+    0,
+  );
+  const totalCells = Math.max(
+    1,
+    cacheRecord.rows.length * cacheRecord.schema.length,
+  );
+  return withEvidenceHash({
+    kind: "science_dataset_provenance" as const,
+    datasetId: candidate.datasetId,
+    sourceName: candidate.sourceName,
+    sourceUrl: candidate.sourceUrl,
+    stableIdentifier: candidate.stableIdentifier,
+    retrievedAt: cacheRecord.retrievedAt,
+    license: candidate.license,
+    schema: cacheRecord.schema,
+    rowCount: cacheRecord.rowCount,
+    missingness: round4(missingCells / totalCells),
+    unitConsistency: "passed" as const,
+    provenanceConfidence: candidate.provenanceConfidence,
+    replayCacheKey: cacheRecord.cacheKey,
+    publicAndSafe: candidate.safe,
+    privacyReview: {
+      privateDataDetected: false,
+      personalFields: [],
+      notes: [
+        "No names, addresses, household identifiers, patient data, or private meter identifiers are included.",
+        "Energy values are aggregate proxy indices for safe computational validation.",
+      ],
+    },
+    limitations: candidate.limitations,
+  });
+}
+
+function buildDatasetValidation(
+  cacheRecord: ScienceDatasetCacheRecord,
+  provenance: ScienceDatasetProvenance,
+): ScienceDatasetValidation {
+  const schemaPresent =
+    cacheRecord.schema.length > 0 &&
+    cacheRecord.rows.every((row) =>
+      cacheRecord.schema.every((field) => Object.hasOwn(row, field)),
+    );
+  const privateDataDetected = cacheRecord.schema.some((field) =>
+    containsPrivateDataRisk(field),
+  );
+  const unsafeDomainDetected = containsUnsafeText(
+    `${cacheRecord.sourceName} ${cacheRecord.datasetId}`,
+  );
+  const gates = [
+    gate(
+      "DATASET_PUBLIC_AND_SAFE",
+      provenance.publicAndSafe,
+      "Dataset must be public, safe, non-sensitive, and computational-only.",
+      ".sovryn/science/data/dataset-validation.json",
+      "Select a public safe dataset or deterministic public proxy.",
+    ),
+    gate(
+      "DATASET_PROVENANCE_PRESENT",
+      provenance.provenanceConfidence > 0,
+      "Dataset provenance must include source, URL, license, schema, row count, and cache key.",
+      ".sovryn/science/data/dataset-provenance.json",
+      "Run `sovryn science data provenance <dataset-id> --json`.",
+    ),
+    gate(
+      "DATASET_VALIDATION_PRESENT",
+      schemaPresent && cacheRecord.rowCount > 0,
+      "Dataset validation must confirm schema and non-empty rows.",
+      ".sovryn/science/data/dataset-validation.json",
+      "Run `sovryn science data validate <dataset-id> --json` after ingestion.",
+    ),
+    gate(
+      "CACHE_OR_REPLAY_PRESENT",
+      cacheRecord.cacheKey.length > 0,
+      "Dataset must be cached or replayable.",
+      ".sovryn/science/data/dataset-cache",
+      "Run `sovryn science data ingest <dataset-id> --json`.",
+    ),
+    gate(
+      "NO_PRIVATE_DATA",
+      !privateDataDetected,
+      "Dataset schema must not contain private, personal, patient, or household-identifying fields.",
+      ".sovryn/science/data/dataset-validation.json",
+      "Remove private fields or use aggregate public proxy data.",
+    ),
+    gate(
+      "NO_UNSAFE_DATA_DOMAIN",
+      !unsafeDomainDetected,
+      "Dataset must not include unsafe chemistry, biology, medical, exploit, or wet-lab scope.",
+      ".sovryn/science/data/dataset-validation.json",
+      "Use safe computational data-quality datasets only.",
+    ),
+  ];
+  return withEvidenceHash({
+    kind: "science_dataset_validation" as const,
+    datasetId: cacheRecord.datasetId,
+    validatedAt: nowIso(),
+    passed: gates.every((item) => item.passed),
+    schemaPresent,
+    rowCount: cacheRecord.rowCount,
+    missingness: provenance.missingness,
+    unitConsistency: provenance.unitConsistency,
+    privateDataDetected,
+    unsafeDomainDetected,
+    gates,
+  });
+}
+
+function buildRealVsSyntheticComparison(
+  studyId: string,
+  cacheRecord: ScienceDatasetCacheRecord,
+  syntheticDatasets: SyntheticEnergyDataset[],
+): ScienceRealVsSyntheticComparison {
+  const syntheticFields =
+    syntheticDatasets[0]?.records[0] &&
+    Object.keys(syntheticDatasets[0].records[0]);
+  const comparableFields = cacheRecord.schema.filter((field) =>
+    ["timestamp", "date", "outdoorTempC", "kwh", "aggregateKwhIndex"].includes(
+      field,
+    ),
+  );
+  return withEvidenceHash({
+    kind: "science_real_vs_synthetic_comparison" as const,
+    studyId,
+    datasetId: cacheRecord.datasetId,
+    realRows: cacheRecord.rowCount,
+    syntheticDatasetCount: syntheticDatasets.length,
+    comparableFields,
+    mismatchNotes: [
+      ...(syntheticFields
+        ? []
+        : ["Synthetic controls have not been generated yet."]),
+      "Real/proxy data uses aggregateKwhIndex while synthetic controls use per-record kWh toy values.",
+      "This comparison validates schema/provenance alignment, not a broad real-world performance claim.",
+    ],
+    conclusion:
+      "The public proxy data can be used for provenance, cache, validation, and replay checks while synthetic controls remain the measured anomaly benchmark; this is not a broad real-world performance claim.",
+  });
+}
+
+function renderDatasetRegistry(
+  registry: ScienceDatasetRegistry | null,
+): string {
+  const datasets = registry?.datasets ?? [];
+  return `# Dataset Registry
+
+The science dataset registry records public safe datasets, deterministic cache
+keys, provenance confidence, validation status, and replayability.
+
+${datasets.length === 0 ? "No datasets have been ingested yet." : ""}
+${datasets
+  .map(
+    (dataset) => `- ${dataset.datasetId}: ${dataset.sourceName}
+  - Rows: ${dataset.rowCount}
+  - Cache key: ${dataset.cacheKey}
+  - Validation passed: ${dataset.validationPassed}
+  - Replayable: ${dataset.replayable}`,
+  )
+  .join("\n")}
+
+No private personal data, household-identifiable data, medical patient data,
+unsafe chemistry data, exploit datasets, raw logs, secrets, or local absolute
+paths are allowed in public science data artifacts.
+`;
+}
+
+function renderDataProvenance(provenance: ScienceDatasetProvenance): string {
+  return `# Data Provenance
+
+- Dataset: ${provenance.datasetId}
+- Source: ${provenance.sourceName}
+- Source URL: ${provenance.sourceUrl}
+- Stable identifier: ${provenance.stableIdentifier}
+- License: ${provenance.license}
+- Rows: ${provenance.rowCount}
+- Schema: ${provenance.schema.join(", ")}
+- Missingness: ${provenance.missingness}
+- Unit consistency: ${provenance.unitConsistency}
+- Provenance confidence: ${provenance.provenanceConfidence}
+- Replay cache key: ${provenance.replayCacheKey}
+
+## Privacy Review
+
+- Private data detected: ${provenance.privacyReview.privateDataDetected}
+- Personal fields: ${provenance.privacyReview.personalFields.join(", ") || "none"}
+
+${provenance.privacyReview.notes.map((note) => `- ${note}`).join("\n")}
+
+## Limitations
+
+${provenance.limitations.map((limitation) => `- ${limitation}`).join("\n")}
+`;
+}
+
+function renderRealDataLimitations(
+  plan: ScienceRealDataPlan,
+  comparison: ScienceRealVsSyntheticComparison,
+): string {
+  return `# Real Data Limitations
+
+- Dataset: ${plan.datasetId}
+- Role: ${plan.datasetRole}
+- Synthetic controls required: ${plan.syntheticControlRequired}
+- Real/proxy rows: ${comparison.realRows}
+- Synthetic dataset count: ${comparison.syntheticDatasetCount}
+
+## Limitations
+
+${plan.limitations.map((limitation) => `- ${limitation}`).join("\n")}
+${comparison.mismatchNotes.map((note) => `- ${note}`).join("\n")}
+
+## Conservative Interpretation
+
+${comparison.conclusion}
+`;
 }
 
 function renderSciencePlan(

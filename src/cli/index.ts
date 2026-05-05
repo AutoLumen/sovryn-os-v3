@@ -194,6 +194,12 @@ Commands:
   sovryn science hypothesize <question-id> [--json]
   sovryn science experiment design <hypothesis-id> [--json]
   sovryn science data generate <study-id> [--json]
+  sovryn science data search "<topic>" [--json]
+  sovryn science data ingest <dataset-url-or-id> [--study-id <study-id>] [--json]
+  sovryn science data validate <dataset-id> [--json]
+  sovryn science data provenance <dataset-id> [--json]
+  sovryn science data cache status [--json]
+  sovryn science data replay <dataset-id> [--json]
   sovryn science instrument build <study-id> [--json]
   sovryn science experiment run <experiment-id> [--json]
   sovryn science experiment status <experiment-id> [--json]
@@ -1314,14 +1320,78 @@ async function scienceCommand(
     }
     case "data": {
       const action = parsed.positionals[1];
-      const studyId = parsed.positionals[2];
-      if (action !== "generate" || !studyId) {
-        throw new AppError(
-          "SCIENCE_DATA_USAGE",
-          "Use: sovryn science data generate <study-id>.",
+      if (action === "generate") {
+        const studyId = parsed.positionals[2];
+        if (!studyId) {
+          throw new AppError(
+            "SCIENCE_DATA_USAGE",
+            "Use: sovryn science data generate <study-id>.",
+          );
+        }
+        return service.generateData(studyId);
+      }
+      if (action === "search") {
+        const topic = parsed.positionals.slice(2).join(" ").trim();
+        if (!topic) {
+          throw new AppError(
+            "SCIENCE_DATA_USAGE",
+            'Use: sovryn science data search "<topic>".',
+          );
+        }
+        return service.searchDatasets(topic);
+      }
+      if (action === "ingest") {
+        const datasetRef = parsed.positionals[2];
+        if (!datasetRef) {
+          throw new AppError(
+            "SCIENCE_DATA_USAGE",
+            "Use: sovryn science data ingest <dataset-url-or-id> [--study-id <study-id>].",
+          );
+        }
+        return service.ingestDataset(
+          datasetRef,
+          flagString(parsed.flags, "--study-id") ?? undefined,
         );
       }
-      return service.generateData(studyId);
+      if (action === "validate") {
+        const datasetId = parsed.positionals[2];
+        if (!datasetId) {
+          throw new AppError(
+            "SCIENCE_DATA_USAGE",
+            "Use: sovryn science data validate <dataset-id>.",
+          );
+        }
+        return service.validateDataset(datasetId);
+      }
+      if (action === "provenance") {
+        const datasetId = parsed.positionals[2];
+        if (!datasetId) {
+          throw new AppError(
+            "SCIENCE_DATA_USAGE",
+            "Use: sovryn science data provenance <dataset-id>.",
+          );
+        }
+        return service.datasetProvenance(datasetId);
+      }
+      if (action === "cache" && parsed.positionals[2] === "status") {
+        return service.datasetCacheStatus();
+      }
+      if (action === "replay") {
+        const datasetId = parsed.positionals[2];
+        if (!datasetId) {
+          throw new AppError(
+            "SCIENCE_DATA_USAGE",
+            "Use: sovryn science data replay <dataset-id>.",
+          );
+        }
+        return service.replayDataset(datasetId);
+      }
+      {
+        throw new AppError(
+          "SCIENCE_DATA_USAGE",
+          "Use: sovryn science data <generate|search|ingest|validate|provenance|cache status|replay>.",
+        );
+      }
     }
     case "instrument": {
       const action = parsed.positionals[1];
@@ -1540,7 +1610,7 @@ async function scienceCommand(
     default:
       throw new AppError(
         "SCIENCE_COMMAND_REQUIRED",
-        "Use: sovryn science <question|hypothesize|data generate|instrument build|experiment design|experiment run|experiment status|analyze|ablate|sensitivity|compare-baseline|replicate|falsify|negative-tests|hypothesis status|literature ground|next-questions|memory update|memory search|memory report|campaign run|publish|publish-all|publish-audit|study status|review>.",
+        "Use: sovryn science <question|hypothesize|data generate|data search|data ingest|data validate|data provenance|data cache status|data replay|instrument build|experiment design|experiment run|experiment status|analyze|ablate|sensitivity|compare-baseline|replicate|falsify|negative-tests|hypothesis status|literature ground|next-questions|memory update|memory search|memory report|campaign run|publish|publish-all|publish-audit|study status|review>.",
       );
   }
 }

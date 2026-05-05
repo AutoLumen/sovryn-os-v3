@@ -1,19 +1,20 @@
 # Sovryn OS v3
 
-Current version: `3.1.0-rc.2`
+Current version: `3.2.0-alpha.1`
 
 Sovryn OS is a local-first evidence kernel for AI-assisted coding and research.
 It runs agents in isolated Git worktrees, verifies their work through exit codes,
 records artifacts, enforces policy, and requires review before finalization.
 
-Sovryn OS also includes an autonomous open-source research factory and the first
-v1.1 scientific-method layer. It can discover research opportunities, run
+Sovryn OS also includes an autonomous open-source research factory and a
+scientific-method layer. It can discover research opportunities, run
 Factory Mode, generate Open Invention release candidates, evaluate quality, run
 overnight operator cycles, export a curated public corpus, audit
 security/reliability evidence, run autonomy campaigns, govern publication
 queues, execute persistent worker jobs, benchmark research quality, package
 launch/pilot evidence, and now create hypothesis-driven computational-science
-studies that can be published into the curated public corpus.
+studies, bind safe public/proxy datasets with provenance and replay evidence,
+and publish eligible studies into the curated public corpus.
 
 Sovryn OS is not a blind agent framework. It does not judge truth with an LLM,
 does not require paid APIs, does not mutate the main tree by default, does not
@@ -27,9 +28,9 @@ Sovryn produces Open Inventions, Defensive Publications, and Open Source
 Research Artifacts. It does not file legal patents and does not provide legal
 novelty, patentability, or freedom-to-operate opinions.
 
-## Current v1.1 Line
+## Current 3.2 Line
 
-Sovryn OS v1.1 starts the transition from autonomous open-invention researcher
+Sovryn OS v1.1 started the transition from autonomous open-invention researcher
 to autonomous computational scientist. Alpha.1 added the formal study
 structure: question, hypothesis, null hypothesis, experiment design, baseline,
 metrics, falsification criteria, replication plan, and safety scope. Alpha.2
@@ -46,6 +47,11 @@ RC.2 publishes completed science campaign studies into the public corpus as
 first-class `computational_science_study` results with public hypotheses,
 statistics, replication, falsification, memory updates, API output, and
 publish-audit gates.
+
+Sovryn OS 3.2 Alpha.1 adds the first real-data ingestion and provenance layer:
+safe dataset search, deterministic cache, validation, provenance, replay, and
+real-vs-synthetic comparison artifacts. It still treats proxy data
+conservatively and does not make broad real-world performance claims.
 Scientific support remains bounded to the evidence actually produced.
 
 | Version         | Focus                            | Result                                                                                                                                                                       |
@@ -57,6 +63,7 @@ Scientific support remains bounded to the evidence actually produced.
 | `3.1.0-alpha.5` | Memory and Literature Grounding  | Adds scientific memory ledgers, fixture-backed source cards, literature-grounding reports, and follow-up question generation.                                                |
 | `3.1.0-rc.1`    | Science Campaign                 | Adds `sovryn science campaign run` for two-study autonomous computational-science campaigns with statistics, replication, falsification, memory, and curated local packages. |
 | `3.1.0-rc.2`    | Public Science Study Publication | Adds `sovryn science publish`, `publish-all`, and `publish-audit` for publishing completed computational-science studies into the public corpus with strict hygiene gates.   |
+| `3.2.0-alpha.1` | Real Data Ingestion              | Adds `sovryn science data search/ingest/validate/provenance/cache/replay` with safe public/proxy datasets, provenance, validation, replay cache, and study binding.          |
 
 New science commands:
 
@@ -65,6 +72,12 @@ sovryn science question "energy anomaly detection" --json
 sovryn science hypothesize <question-id> --json
 sovryn science experiment design <hypothesis-id> --json
 sovryn science data generate <study-id> --json
+sovryn science data search "energy weather anomaly public dataset" --json
+sovryn science data ingest public-weather-energy-proxy-v1 --study-id <study-id> --json
+sovryn science data validate public-weather-energy-proxy-v1 --json
+sovryn science data provenance public-weather-energy-proxy-v1 --json
+sovryn science data cache status --json
+sovryn science data replay public-weather-energy-proxy-v1 --json
 sovryn science instrument build <study-id> --json
 sovryn science experiment run <experiment-id> --json
 sovryn science experiment status <experiment-id> --json
@@ -105,7 +118,9 @@ public hygiene, safety scope, and curated local package preparation. RC.2
 publication gates require public hypotheses, null hypotheses, statistics,
 replication, falsification, scientific-memory updates, corpus INDEX/API updates,
 and public hygiene before a science study can be written into the corpus.
-scientific memory updates, public hygiene, and curated corpus package evidence.
+3.2 Alpha.1 real-data gates require a real-data plan, public-safe dataset
+provenance, validation, cache or replay evidence, declared limitations,
+real-vs-synthetic comparison, and explicit rejection of private or unsafe data.
 The layer is limited to safe computational science over synthetic data, public
 non-sensitive data, simulations, statistics, benchmarks, and software
 instruments.

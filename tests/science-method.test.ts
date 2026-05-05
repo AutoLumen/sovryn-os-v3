@@ -79,6 +79,9 @@ let campaignFixturePromise:
 let sciencePublishFixturePromise:
   | Promise<Awaited<ReturnType<typeof createSciencePublishFixture>>>
   | undefined;
+let realDataFixturePromise:
+  | Promise<Awaited<ReturnType<typeof createRealDataStudy>>>
+  | undefined;
 
 async function runtimeFixture() {
   runtimeFixturePromise ??= createRuntimeStudy();
@@ -108,6 +111,11 @@ async function campaignFixture() {
 async function sciencePublishFixture() {
   sciencePublishFixturePromise ??= createSciencePublishFixture();
   return sciencePublishFixturePromise;
+}
+
+async function realDataFixture() {
+  realDataFixturePromise ??= createRealDataStudy();
+  return realDataFixturePromise;
 }
 
 async function createRuntimeStudy() {
@@ -147,6 +155,79 @@ async function createRuntimeStudy() {
     runs: (experimentRun.data as any).runs,
     nodeAlphaExecution: (experimentRun.data as any).nodeAlphaExecution,
     runtimeGates: (experimentRun.data as any).gates,
+  };
+}
+
+async function createRealDataStudy() {
+  const context = await createDesignedStudy();
+  const synthetic = await executeCli(
+    ["science", "data", "generate", context.study.studyId, "--json"],
+    context.repo.root,
+  );
+  assert.equal(synthetic.ok, true, JSON.stringify(synthetic.errors, null, 2));
+  const search = await executeCli(
+    [
+      "science",
+      "data",
+      "search",
+      "energy weather anomaly public dataset",
+      "--json",
+    ],
+    context.repo.root,
+  );
+  assert.equal(search.ok, true, JSON.stringify(search.errors, null, 2));
+  const ingest = await executeCli(
+    [
+      "science",
+      "data",
+      "ingest",
+      "public-weather-energy-proxy-v1",
+      "--study-id",
+      context.study.studyId,
+      "--json",
+    ],
+    context.repo.root,
+  );
+  assert.equal(ingest.ok, true, JSON.stringify(ingest.errors, null, 2));
+  const validate = await executeCli(
+    ["science", "data", "validate", "public-weather-energy-proxy-v1", "--json"],
+    context.repo.root,
+  );
+  assert.equal(validate.ok, true, JSON.stringify(validate.errors, null, 2));
+  const provenance = await executeCli(
+    [
+      "science",
+      "data",
+      "provenance",
+      "public-weather-energy-proxy-v1",
+      "--json",
+    ],
+    context.repo.root,
+  );
+  assert.equal(provenance.ok, true, JSON.stringify(provenance.errors, null, 2));
+  const cacheStatus = await executeCli(
+    ["science", "data", "cache", "status", "--json"],
+    context.repo.root,
+  );
+  assert.equal(
+    cacheStatus.ok,
+    true,
+    JSON.stringify(cacheStatus.errors, null, 2),
+  );
+  const replay = await executeCli(
+    ["science", "data", "replay", "public-weather-energy-proxy-v1", "--json"],
+    context.repo.root,
+  );
+  assert.equal(replay.ok, true, JSON.stringify(replay.errors, null, 2));
+  return {
+    ...context,
+    syntheticData: synthetic.data as any,
+    search: search.data as any,
+    ingest: ingest.data as any,
+    validation: validate.data as any,
+    provenance: provenance.data as any,
+    cacheStatus: cacheStatus.data as any,
+    replay: replay.data as any,
   };
 }
 
@@ -356,7 +437,7 @@ function studyPath(root: string, slug: string, file: string): string {
 
 test("v1.1 rc package version is set", async () => {
   const pkg = JSON.parse(await readFile("package.json", "utf8"));
-  assert.equal(pkg.version, "3.1.0-rc.2");
+  assert.equal(pkg.version, "3.2.0-alpha.1");
 });
 
 test("init ignores science runtime artifacts", async () => {
@@ -873,6 +954,464 @@ test("data plan has privacy-safe scope", async () => {
   const { dataPlan } = await runtimeFixture();
   assert.match(dataPlan.privacyScope, /Synthetic toy records only/);
   assert.match(dataPlan.privacyScope, /no private meter data/i);
+});
+
+test("alpha.1 real data search command is listed in help", async () => {
+  const response = await executeCli(["--help"], process.cwd());
+  const help = (response.data as any).help;
+  assert.match(help, /sovryn science data search/);
+});
+
+test("alpha.1 real data ingest validate provenance cache replay commands are listed", async () => {
+  const response = await executeCli(["--help"], process.cwd());
+  const help = (response.data as any).help;
+  assert.match(help, /sovryn science data ingest/);
+  assert.match(help, /sovryn science data validate/);
+  assert.match(help, /sovryn science data provenance/);
+  assert.match(help, /sovryn science data cache status/);
+  assert.match(help, /sovryn science data replay/);
+});
+
+test("science data search returns deterministic public candidates", async () => {
+  const first = await realDataFixture();
+  const second = await executeCli(
+    [
+      "science",
+      "data",
+      "search",
+      "energy weather anomaly public dataset",
+      "--json",
+    ],
+    first.repo.root,
+  );
+  assert.deepEqual(
+    first.search.candidates.map((item: any) => item.datasetId),
+    (second.data as any).candidates.map((item: any) => item.datasetId),
+  );
+});
+
+test("science data search writes dataset search artifact", async () => {
+  const { repo } = await realDataFixture();
+  await access(
+    join(repo.root, ".sovryn", "science", "data", "dataset-search.json"),
+  );
+});
+
+test("science data search includes public weather energy proxy", async () => {
+  const { search } = await realDataFixture();
+  assert.ok(
+    search.candidates.some(
+      (item: any) => item.datasetId === "public-weather-energy-proxy-v1",
+    ),
+  );
+});
+
+test("science data search marks fixture-backed deterministic mode", async () => {
+  const { search } = await realDataFixture();
+  assert.equal(search.deterministicFixtureMode, true);
+  assert.equal(search.candidates[0].requiresNetwork, false);
+});
+
+test("science data search blocks private-data-like topic", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    ["science", "data", "search", "private patient household data", "--json"],
+    repo.root,
+  );
+  assert.equal(response.ok, true);
+  assert.equal((response.data as any).candidates.length, 0);
+  assert.equal((response.data as any).blockedCandidates.length, 1);
+});
+
+test("science data search records safety gates", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    ["science", "data", "search", "public energy weather dataset", "--json"],
+    repo.root,
+  );
+  const gates = (response.data as any).gates;
+  assert.ok(gates.some((gate: any) => gate.code === "DATASET_PUBLIC_AND_SAFE"));
+  assert.ok(gates.some((gate: any) => gate.code === "NO_PRIVATE_DATA"));
+  assert.ok(gates.some((gate: any) => gate.code === "NO_UNSAFE_DATA_DOMAIN"));
+});
+
+test("science data ingest writes registry", async () => {
+  const { repo, ingest } = await realDataFixture();
+  assert.equal(ingest.registry.datasets.length, 1);
+  await access(
+    join(repo.root, ".sovryn", "science", "data", "dataset-registry.json"),
+  );
+});
+
+test("science data ingest writes cache record", async () => {
+  const { repo, ingest } = await realDataFixture();
+  await access(
+    join(
+      repo.root,
+      ".sovryn",
+      "science",
+      "data",
+      "dataset-cache",
+      `${ingest.cacheRecord.cacheKey}.json`,
+    ),
+  );
+});
+
+test("science data cache record has rows", async () => {
+  const { ingest } = await realDataFixture();
+  assert.equal(ingest.cacheRecord.rowCount, 8);
+  assert.ok(ingest.cacheRecord.rows[0].outdoorTempC !== undefined);
+});
+
+test("science data provenance records source URL", async () => {
+  const { provenance } = await realDataFixture();
+  assert.match(provenance.provenance.sourceUrl, /^https:\/\//);
+  assert.match(provenance.provenance.sourceName, /NOAA-style/);
+});
+
+test("science data provenance records license", async () => {
+  const { provenance } = await realDataFixture();
+  assert.match(provenance.provenance.license, /Public weather/);
+});
+
+test("science data provenance records schema", async () => {
+  const { provenance } = await realDataFixture();
+  assert.ok(provenance.provenance.schema.includes("outdoorTempC"));
+  assert.ok(provenance.provenance.schema.includes("aggregateKwhIndex"));
+});
+
+test("science data provenance records row count and cache key", async () => {
+  const { provenance, ingest } = await realDataFixture();
+  assert.equal(provenance.provenance.rowCount, 8);
+  assert.equal(
+    provenance.provenance.replayCacheKey,
+    ingest.cacheRecord.cacheKey,
+  );
+});
+
+test("science data provenance privacy review has no private fields", async () => {
+  const { provenance } = await realDataFixture();
+  assert.equal(provenance.provenance.privacyReview.privateDataDetected, false);
+  assert.deepEqual(provenance.provenance.privacyReview.personalFields, []);
+});
+
+test("science data validation passes safe public proxy", async () => {
+  const { validation } = await realDataFixture();
+  assert.equal(validation.validation.passed, true);
+  assert.equal(validation.validation.schemaPresent, true);
+});
+
+test("science data validation records missingness and unit consistency", async () => {
+  const { validation } = await realDataFixture();
+  assert.equal(validation.validation.missingness, 0);
+  assert.equal(validation.validation.unitConsistency, "passed");
+});
+
+test("science data validation includes public safety gate", async () => {
+  const { validation } = await realDataFixture();
+  assert.ok(
+    validation.validation.gates.some(
+      (gate: any) => gate.code === "DATASET_PUBLIC_AND_SAFE" && gate.passed,
+    ),
+  );
+});
+
+test("science data validation includes no private data gate", async () => {
+  const { validation } = await realDataFixture();
+  assert.ok(
+    validation.validation.gates.some(
+      (gate: any) => gate.code === "NO_PRIVATE_DATA" && gate.passed,
+    ),
+  );
+});
+
+test("science data validation detects missing schema", async () => {
+  const { repo, ingest } = await realDataFixture();
+  const cachePath = join(
+    repo.root,
+    ".sovryn",
+    "science",
+    "data",
+    "dataset-cache",
+    `${ingest.cacheRecord.cacheKey}.json`,
+  );
+  const cache = await readJson<any>(cachePath);
+  cache.schema = [];
+  await writeJson(cachePath, cache);
+  const response = await executeCli(
+    ["science", "data", "validate", "public-weather-energy-proxy-v1", "--json"],
+    repo.root,
+  );
+  assert.equal((response.data as any).validation.passed, false);
+  assert.equal((response.data as any).validation.schemaPresent, false);
+  await writeJson(cachePath, ingest.cacheRecord);
+});
+
+test("science data cache status counts cache records", async () => {
+  const { cacheStatus } = await realDataFixture();
+  assert.equal(cacheStatus.cacheStatus.cacheRecordCount, 1);
+});
+
+test("science data cache status records byte size", async () => {
+  const { cacheStatus } = await realDataFixture();
+  assert.ok(cacheStatus.cacheStatus.totalBytes > 100);
+});
+
+test("science data replay passes cached dataset", async () => {
+  const { replay } = await realDataFixture();
+  assert.equal(replay.replay.passed, true);
+});
+
+test("science data replay checks cache key", async () => {
+  const { replay } = await realDataFixture();
+  assert.equal(replay.replay.cacheKeyMatches, true);
+});
+
+test("science data replay checks evidence hash", async () => {
+  const { replay } = await realDataFixture();
+  assert.equal(replay.replay.replayHashMatches, true);
+});
+
+test("science data ingest binds real-data plan to study", async () => {
+  const { ingest } = await realDataFixture();
+  assert.equal(ingest.realDataPlan.datasetRole, "real_public_proxy");
+  assert.equal(ingest.realDataPlan.syntheticControlRequired, true);
+});
+
+test("science data ingest writes per-study real dataset", async () => {
+  const { repo, study } = await realDataFixture();
+  await access(
+    studyPath(
+      repo.root,
+      study.slug,
+      "real-datasets/public-weather-energy-proxy-v1.json",
+    ),
+  );
+});
+
+test("science data ingest writes per-study validation", async () => {
+  const { repo, study } = await realDataFixture();
+  await access(studyPath(repo.root, study.slug, "real-data-validation.json"));
+});
+
+test("science data ingest writes real-vs-synthetic comparison", async () => {
+  const { repo, study, ingest } = await realDataFixture();
+  assert.equal(ingest.realVsSyntheticComparison.syntheticDatasetCount, 3);
+  await access(
+    studyPath(repo.root, study.slug, "real-vs-synthetic-comparison.json"),
+  );
+});
+
+test("science data provenance markdown is written", async () => {
+  const { repo, study } = await realDataFixture();
+  const markdown = await readFile(
+    studyPath(repo.root, study.slug, "DATA_PROVENANCE.md"),
+    "utf8",
+  );
+  assert.match(markdown, /Data Provenance/);
+  assert.match(markdown, /Replay cache key/);
+});
+
+test("science real-data limitations markdown is written", async () => {
+  const { repo, study } = await realDataFixture();
+  const markdown = await readFile(
+    studyPath(repo.root, study.slug, "REAL_DATA_LIMITATIONS.md"),
+    "utf8",
+  );
+  assert.match(markdown, /not private household meter data/i);
+  assert.match(markdown, /Conservative Interpretation/);
+});
+
+test("science real-vs-synthetic comparison is conservative", async () => {
+  const { ingest } = await realDataFixture();
+  assert.match(
+    ingest.realVsSyntheticComparison.conclusion,
+    /not a broad real-world performance claim/i,
+  );
+});
+
+test("science dataset registry markdown is written", async () => {
+  const { repo } = await realDataFixture();
+  const markdown = await readFile(
+    join(repo.root, ".sovryn", "science", "data", "DATASET_REGISTRY.md"),
+    "utf8",
+  );
+  assert.match(markdown, /Dataset Registry/);
+  assert.match(markdown, /public-weather-energy-proxy-v1/);
+});
+
+test("science data ingest artifact refs include per-study real data", async () => {
+  const { ingest } = await realDataFixture();
+  assert.ok(
+    ingest.artifactRefs.some((ref: string) =>
+      ref.endsWith("real-data-plan.json"),
+    ),
+  );
+});
+
+test("science data ingest rejects unsupported dataset", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    ["science", "data", "ingest", "unknown-private-dataset", "--json"],
+    repo.root,
+  );
+  assert.equal(response.ok, false);
+  assert.equal(response.errors[0].code, "SCIENCE_DATASET_UNSUPPORTED");
+});
+
+test("science data ingest maps safe NOAA URL to weather proxy", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    [
+      "science",
+      "data",
+      "ingest",
+      "https://www.ncei.noaa.gov/cdo-web/",
+      "--json",
+    ],
+    repo.root,
+  );
+  assert.equal(response.ok, true);
+  assert.equal(
+    (response.data as any).datasetId,
+    "public-weather-energy-proxy-v1",
+  );
+});
+
+test("science data search returns software metadata proxy", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    [
+      "science",
+      "data",
+      "search",
+      "software repository dependency metadata",
+      "--json",
+    ],
+    repo.root,
+  );
+  assert.ok(
+    (response.data as any).candidates.some(
+      (item: any) =>
+        item.datasetId === "public-software-repository-metadata-proxy-v1",
+    ),
+  );
+});
+
+test("science data search returns scientific metadata proxy", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    [
+      "science",
+      "data",
+      "search",
+      "scientific dataset schema reliability",
+      "--json",
+    ],
+    repo.root,
+  );
+  assert.ok(
+    (response.data as any).candidates.some(
+      (item: any) =>
+        item.datasetId === "public-scientific-dataset-metadata-proxy-v1",
+    ),
+  );
+});
+
+test("science data search returns safe chemistry records", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    [
+      "science",
+      "data",
+      "search",
+      "safe chemistry property unit records",
+      "--json",
+    ],
+    repo.root,
+  );
+  assert.ok(
+    (response.data as any).candidates.some(
+      (item: any) =>
+        item.datasetId === "safe-chemistry-property-record-proxy-v1",
+    ),
+  );
+});
+
+test("science data validate unknown dataset returns stable error", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    ["science", "data", "validate", "missing-dataset", "--json"],
+    repo.root,
+  );
+  assert.equal(response.ok, false);
+  assert.equal(response.errors[0].code, "SCIENCE_DATASET_NOT_FOUND");
+});
+
+test("science data provenance unknown dataset returns stable error", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    ["science", "data", "provenance", "missing-dataset", "--json"],
+    repo.root,
+  );
+  assert.equal(response.ok, false);
+  assert.equal(response.errors[0].code, "SCIENCE_DATASET_NOT_FOUND");
+});
+
+test("science data replay unknown dataset returns stable error", async () => {
+  const repo = await initRepo();
+  const response = await executeCli(
+    ["science", "data", "replay", "missing-dataset", "--json"],
+    repo.root,
+  );
+  assert.equal(response.ok, false);
+  assert.equal(response.errors[0].code, "SCIENCE_DATASET_NOT_FOUND");
+});
+
+test("science data artifacts exclude local absolute paths", async () => {
+  const { repo } = await realDataFixture();
+  const text = await readFile(
+    join(repo.root, ".sovryn", "science", "data", "dataset-provenance.json"),
+    "utf8",
+  );
+  assert.doesNotMatch(text, /\/Users\/|\/home\/|C:\\Users\\/i);
+});
+
+test("science data artifacts exclude raw stdout and stderr fields", async () => {
+  const { repo } = await realDataFixture();
+  const text = await readFile(
+    join(repo.root, ".sovryn", "science", "data", "dataset-cache-status.json"),
+    "utf8",
+  );
+  assert.doesNotMatch(text, /"stdout"|"stderr"|command-journal/i);
+});
+
+test("science data artifacts exclude secrets", async () => {
+  const { repo } = await realDataFixture();
+  const text = await readFile(
+    join(repo.root, ".sovryn", "science", "data", "dataset-registry.json"),
+    "utf8",
+  );
+  assert.doesNotMatch(text, /ghp_|GITHUB_TOKEN|OPENAI_API_KEY|private key/i);
+});
+
+test("science real data limitations are included in study artifact refs", async () => {
+  const { ingest } = await realDataFixture();
+  assert.ok(
+    ingest.artifactRefs.some((ref: string) =>
+      ref.endsWith("REAL_DATA_LIMITATIONS.md"),
+    ),
+  );
+});
+
+test("science data registry records replayability", async () => {
+  const { ingest } = await realDataFixture();
+  assert.equal(ingest.registry.datasets[0].replayable, true);
+});
+
+test("science data registry records provenance confidence", async () => {
+  const { ingest } = await realDataFixture();
+  assert.ok(ingest.registry.datasets[0].provenanceConfidence >= 0.7);
 });
 
 test("science instrument build requires generated data", async () => {

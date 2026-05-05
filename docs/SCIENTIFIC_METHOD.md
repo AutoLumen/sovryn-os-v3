@@ -1,6 +1,6 @@
 # Scientific Method Core
 
-Sovryn OS `3.1.0-rc.2` includes the first autonomous
+Sovryn OS `3.2.0-alpha.1` includes the first autonomous
 computational-science layer, a deterministic experiment/data/instrument
 runtime, bounded statistical analysis, replication, and falsification for safe
 synthetic energy-data studies. Alpha.5 adds scientific memory, fixture-backed
@@ -11,6 +11,9 @@ memory, and prepares curated local public corpus packages. v1.1 RC.2 adds
 public science-study publication into the configured corpus repository with
 public hypotheses, statistics, replication, falsification, scientific-memory
 updates, INDEX/API updates, and public-hygiene audit gates.
+3.2 Alpha.1 adds safe real-data ingestion for computational science: dataset
+search, deterministic fixture/cache ingestion, provenance, validation, replay,
+study binding, and real-vs-synthetic comparison with conservative limitations.
 
 The core flow is:
 
@@ -18,21 +21,23 @@ The core flow is:
 2. Generate hypotheses with explicit null hypotheses.
 3. Design a bounded computational experiment.
 4. Generate synthetic data.
-5. Build bounded software instruments.
-6. Run deterministic experiment seeds through Node Alpha evidence.
-7. Analyze confusion metrics and compare against the baseline.
-8. Run ablations, sensitivity sweeps, and error analysis.
-9. Replicate the experiment across deterministic seeds.
-10. Generate negative tests and attempt falsification.
-11. Update hypothesis status.
-12. Ground the study in source-card summaries.
-13. Generate next scientific questions from limitations and falsification.
-14. Update scientific memory ledgers.
-15. Review the study against scientific-method, runtime, analysis,
+5. Optionally search, ingest, validate, and replay public safe datasets.
+6. Bind real/proxy data to the study and compare it against synthetic controls.
+7. Build bounded software instruments.
+8. Run deterministic experiment seeds through Node Alpha evidence.
+9. Analyze confusion metrics and compare against the baseline.
+10. Run ablations, sensitivity sweeps, and error analysis.
+11. Replicate the experiment across deterministic seeds.
+12. Generate negative tests and attempt falsification.
+13. Update hypothesis status.
+14. Ground the study in source-card summaries.
+15. Generate next scientific questions from limitations and falsification.
+16. Update scientific memory ledgers.
+17. Review the study against scientific-method, runtime, analysis,
     replication, falsification, memory, literature-grounding, and safety gates.
-16. Optionally run a science campaign that selects safe questions, completes
+18. Optionally run a science campaign that selects safe questions, completes
     studies, writes paper-style reports, and prepares curated public packages.
-17. Publish completed studies into the public corpus as
+19. Publish completed studies into the public corpus as
     `computational_science_study` results after publication gates pass.
 
 ```bash
@@ -40,6 +45,12 @@ sovryn science question "Do provenance-aware anomaly scoring methods reduce fals
 sovryn science hypothesize <question-id> --json
 sovryn science experiment design <hypothesis-id> --json
 sovryn science data generate <study-id> --json
+sovryn science data search "energy weather anomaly public dataset" --json
+sovryn science data ingest public-weather-energy-proxy-v1 --study-id <study-id> --json
+sovryn science data validate public-weather-energy-proxy-v1 --json
+sovryn science data provenance public-weather-energy-proxy-v1 --json
+sovryn science data cache status --json
+sovryn science data replay public-weather-energy-proxy-v1 --json
 sovryn science instrument build <study-id> --json
 sovryn science experiment run <experiment-id> --json
 sovryn science experiment status <experiment-id> --json
@@ -73,6 +84,12 @@ Study artifacts are written under:
   experiment-design.json
   data-plan.json
   synthetic-datasets/
+  real-data-plan.json
+  real-datasets/
+  real-data-validation.json
+  real-vs-synthetic-comparison.json
+  DATA_PROVENANCE.md
+  REAL_DATA_LIMITATIONS.md
   instrument-plan.json
   toolchain-plan.json
   toolchain-policy-review.json
@@ -112,6 +129,20 @@ Study artifacts are written under:
   NEXT_QUESTIONS.md
   science-review.json
   SCIENCE_REVIEW.md
+```
+
+Real-data registry artifacts are written under:
+
+```text
+.sovryn/science/data/
+  dataset-registry.json
+  dataset-search.json
+  dataset-provenance.json
+  dataset-validation.json
+  dataset-cache-status.json
+  dataset-replay.json
+  DATASET_REGISTRY.md
+  dataset-cache/
 ```
 
 Campaign artifacts are written under:
@@ -189,6 +220,11 @@ replication, falsification, and scientific-memory updates; they update
 `INDEX.json`, `aggregate/science-studies.json`,
 `aggregate/scientific-memory-summary.json`,
 `public-corpus/api/science-studies.json`, and `public-corpus/science.html`.
+3.2 Alpha.1 real-data gates require a public-safe dataset plan, provenance,
+validation, replayable cache evidence, declared limitations, no private data,
+no unsafe data domain, and real-vs-synthetic comparison. Deterministic proxy
+datasets are labeled as such and do not support broad real-world performance
+claims.
 
 Alpha.5 can mark a hypothesis `supported` only within the bounded synthetic
 study when replication is stable and falsification has no material failures.

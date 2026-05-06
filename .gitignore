@@ -50,6 +50,7 @@ graphify-out/graph.json
 .sovryn/field-grade/
 .sovryn/frontier/
 .sovryn/external-production/
+.sovryn/external-reproduction/
 .sovryn/external-research/
 .sovryn/multi-domain-campaign/
 public-corpus/

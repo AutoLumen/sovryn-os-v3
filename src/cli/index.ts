@@ -51,6 +51,7 @@ import { RealityGradeService } from "../core/reality/reality-grade-service.js";
 import { FieldGradeService } from "../core/field/field-grade-service.js";
 import { FrontierService } from "../core/frontier/frontier-service.js";
 import { ExternalProductionService } from "../core/external-production/external-production-service.js";
+import { ExternalReproductionService } from "../core/external-reproduction/external-reproduction-service.js";
 import { ResearchOpportunityEngine } from "../core/research/opportunity-engine.js";
 import { ScienceService } from "../core/science/science-service.js";
 import { StrategyService } from "../core/strategy/strategy-service.js";
@@ -240,6 +241,14 @@ Commands:
   sovryn external-production publish result [--autopublish-corpus] [--json]
   sovryn external-production audit [--json]
   sovryn external-production report [--json]
+  sovryn external-reproduction target select [--json]
+  sovryn external-reproduction baseline reproduce [--json]
+  sovryn external-reproduction gaps analyze [--json]
+  sovryn external-reproduction improvements evaluate [--json]
+  sovryn external-reproduction reviewer attack [--json]
+  sovryn external-reproduction publish result [--autopublish-corpus] [--json]
+  sovryn external-reproduction audit [--json]
+  sovryn external-reproduction report [--json]
   sovryn security audit [--json]
   sovryn security audit-public-release <path> [--json]
   sovryn security audit-worker --profile container-netoff [--json]
@@ -941,6 +950,16 @@ export async function executeCli(
       case "external-production": {
         const result = await externalProductionCommand(parsed, root);
         return okEnvelope("external-production", result, {
+          artifactRefs: Array.isArray(result.artifactRefs)
+            ? result.artifactRefs.filter(
+                (value): value is string => typeof value === "string",
+              )
+            : [],
+        });
+      }
+      case "external-reproduction": {
+        const result = await externalReproductionCommand(parsed, root);
+        return okEnvelope("external-reproduction", result, {
           artifactRefs: Array.isArray(result.artifactRefs)
             ? result.artifactRefs.filter(
                 (value): value is string => typeof value === "string",
@@ -3245,6 +3264,41 @@ async function externalProductionCommand(
   throw new AppError(
     "EXTERNAL_PRODUCTION_COMMAND_REQUIRED",
     "Use: sovryn external-production <problem tournament|baseline reproduce|methods search|kill-week run|rebuild replicate|publish result|audit|report>.",
+  );
+}
+
+async function externalReproductionCommand(
+  parsed: ParsedArgs,
+  root: string,
+): Promise<Record<string, unknown>> {
+  const subcommand = parsed.positionals[0];
+  const action = parsed.positionals[1];
+  const service = new ExternalReproductionService(root);
+  if (subcommand === "target" && action === "select") {
+    return service.selectTarget();
+  }
+  if (subcommand === "baseline" && action === "reproduce") {
+    return service.reproduceBaseline();
+  }
+  if (subcommand === "gaps" && action === "analyze") {
+    return service.analyzeGaps();
+  }
+  if (subcommand === "improvements" && action === "evaluate") {
+    return service.evaluateImprovements();
+  }
+  if (subcommand === "reviewer" && action === "attack") {
+    return service.reviewerAttack();
+  }
+  if (subcommand === "publish" && action === "result") {
+    return service.publishResult({
+      autopublishCorpus: flagBool(parsed.flags, "--autopublish-corpus"),
+    });
+  }
+  if (subcommand === "audit") return service.audit();
+  if (subcommand === "report") return service.report();
+  throw new AppError(
+    "EXTERNAL_REPRODUCTION_COMMAND_REQUIRED",
+    "Use: sovryn external-reproduction <target select|baseline reproduce|gaps analyze|improvements evaluate|reviewer attack|publish result|audit|report>.",
   );
 }
 
